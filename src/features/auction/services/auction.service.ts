@@ -1,14 +1,23 @@
 import { api, type ApiResponse } from "@/lib/api/client";
-import type { AuctionSession, BidRequest } from "../types";
+import type { AuctionConfig, AuctionDetail, AuctionResult, AuctionSaga, AuctionStatus, AuctionStatusHistory, AuctionSummary, BidItem, BidRequest, CreateAuctionRequest, MyBidItem, PagedData, UpdateAuctionRequest } from "../types";
 
-// Gateway paths are initial assumptions and must be checked against backend OpenAPI.
+const idPath = (id: string) => encodeURIComponent(id);
+const query = (page: number, pageSize: number, status?: AuctionStatus | "ALL") => `?page=${page}&pageSize=${pageSize}${status && status !== "ALL" ? `&status=${status}` : ""}`;
 export const auctionService = {
-  getAuctions: () => api.get<ApiResponse<AuctionSession[]>>("/api/auctions"),
-  getAuctionById: (id: string) =>
-    api.get<ApiResponse<AuctionSession>>(`/api/auctions/${encodeURIComponent(id)}`),
-  placeBid: (id: string, input: BidRequest) =>
-    api.post<ApiResponse<AuctionSession>>(
-      `/api/auctions/${encodeURIComponent(id)}/bids`,
-      input,
-    ),
+  list: (page = 1, pageSize = 20, status?: AuctionStatus | "ALL", signal?: AbortSignal) => api.get<ApiResponse<PagedData<AuctionSummary>>>(`/api/v1/auctions${query(page, pageSize, status)}`, { signal }),
+  detail: (id: string, signal?: AbortSignal) => api.getWithMetadata<ApiResponse<AuctionDetail>>(`/api/v1/auctions/${idPath(id)}`, { signal }),
+  bids: (id: string, page = 1, signal?: AbortSignal) => api.get<ApiResponse<PagedData<BidItem>>>(`/api/v1/auctions/${idPath(id)}/bids${query(page, 20)}`, { signal }),
+  myBids: (page = 1, status?: AuctionStatus | "ALL", signal?: AbortSignal) => api.get<ApiResponse<PagedData<MyBidItem>>>(`/api/v1/me/bids${query(page, 20, status)}`, { signal }),
+  result: (id: string, signal?: AbortSignal) => api.get<ApiResponse<AuctionResult>>(`/api/v1/auctions/${idPath(id)}/result`, { signal }),
+  sellerList: (page = 1, status?: AuctionStatus | "ALL", signal?: AbortSignal) => api.get<ApiResponse<PagedData<AuctionSummary>>>(`/api/v1/seller/auctions${query(page, 20, status)}`, { signal }),
+  create: (body: CreateAuctionRequest) => api.post<ApiResponse<AuctionSummary>>("/api/v1/auctions", body),
+  update: (id: string, body: UpdateAuctionRequest) => api.put<ApiResponse<AuctionSummary>>(`/api/v1/auctions/${idPath(id)}`, body),
+  cancel: (id: string, reason?: string) => api.post(`/api/v1/auctions/${idPath(id)}/cancel`, reason ? { reason } : {}),
+  recreate: (id: string, body: Omit<CreateAuctionRequest, "productId" | "skuId">) => api.post<ApiResponse<AuctionSummary>>(`/api/v1/auctions/${idPath(id)}/recreate`, body),
+  placeBid: (id: string, input: BidRequest, ifMatch: string, idempotencyKey = crypto.randomUUID()) => api.post(`/api/v1/auctions/${idPath(id)}/bids`, input, { headers: { "If-Match": ifMatch, "Idempotency-Key": idempotencyKey } }),
+  history: (id: string, page = 1, signal?: AbortSignal) => api.get<ApiResponse<AuctionStatusHistory>>(`/api/v1/auctions/${idPath(id)}/status-history${query(page, 20)}`, { signal }),
+  saga: (id: string, signal?: AbortSignal) => api.get<ApiResponse<AuctionSaga>>(`/api/v1/admin/auctions/${idPath(id)}/saga`, { signal }),
+  forceCancel: (id: string, reason: string) => api.post(`/api/v1/admin/auctions/${idPath(id)}/force-cancel`, { reason }),
+  configs: (page = 1, signal?: AbortSignal) => api.get<ApiResponse<PagedData<AuctionConfig>>>(`/api/v1/admin/auction-configs${query(page, 20)}`, { signal }),
+  updateConfig: (key: string, configValue: unknown, description?: string) => api.put<ApiResponse<AuctionConfig>>(`/api/v1/admin/auction-configs/${idPath(key)}`, { configValue, description }),
 };

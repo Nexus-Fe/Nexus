@@ -1,11 +1,3 @@
-import { RoutePlaceholder } from "@/components/layout/RoutePlaceholder";
+import { LoginScreenClient } from "@/components/client/ClientScreens";
 
-export default function LoginPage() {
-  return (
-    <RoutePlaceholder
-      area="Tài khoản"
-      title="Đăng nhập"
-      description="Biểu mẫu đăng nhập sẽ gọi authService và lưu access token sau khi gateway xác nhận."
-    />
-  );
-}
+export default function LoginPage() { return <LoginScreenClient />; }

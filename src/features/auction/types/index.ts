@@ -1,11 +1,14 @@
-export type AuctionSession = {
-  id: string;
-  productId: string;
-  status: string;
-  currentPrice: number;
-  endsAt: string;
-};
-
-export type BidRequest = {
-  amount: number;
-};
+export type AuctionStatus = "DRAFT" | "SCHEDULED" | "RUNNING" | "ENDED" | "SETTLED" | "FAILED" | "CANCELLED";
+export type Pagination = { pageIndex: number; pageSize: number; totalCount: number; totalPages: number; hasPreviousPage: boolean; hasNextPage: boolean };
+export type PagedData<T> = { items: T[]; pagination: Pagination };
+export type AuctionSummary = { auctionId: string; productId: string; skuId: string; sellerId?: string; productName: string; primaryImageUrl: string | null; status: AuctionStatus; startPriceAmount: number; currentPriceAmount: number | null; bidCount: number; scheduledStartAt: string; scheduledEndAt: string; createdAt?: string };
+export type AuctionDetail = AuctionSummary & { description: string | null; images: { url: string; isPrimary: boolean }[]; specifications: Record<string, unknown> | null; bidStepAmount: number; leadingBidderDisplayName: string | null; originalEndAt: string; startedAt: string | null; endedAt: string | null; extensionCount: number; maxExtensionCount: number; antiSnipingExtensionMinutes: number; minReputationToBid: number; recreatedFromAuctionId: string | null; createdAt: string };
+export type BidItem = { bidId: string; sequenceNo: number; bidderId: string; bidderDisplayName: string; amount: number; placedAt: string; isOutbid: boolean; isWinning: boolean; isInvalidated: boolean };
+export type MyBidItem = { auctionId: string; productId: string; productName: string; primaryImageUrl: string | null; auctionStatus: AuctionStatus; myHighestBidAmount: number; currentPriceAmount: number | null; isLeading: boolean; endsAt: string; lastBidAt: string };
+export type AuctionResult = { auctionId: string; status: AuctionStatus; hasWinner: boolean; winnerId: string | null; winnerDisplayName: string | null; sellerId: string; winningBidId: string | null; finalPriceAmount: number | null; determinedAt: string; orderId: string | null; paymentDeadlineAt: string | null; paidAt: string | null };
+export type AuctionStatusHistory = { items: { id: string; fromStatus: AuctionStatus | null; toStatus: AuctionStatus; reason: string | null; changedBy: string | null; changedAt: string }[]; pagination: Pagination };
+export type AuctionSaga = { auctionId: string; sagaType: string; currentState: string; stateData: Record<string, unknown>; createdAt: string; updatedAt: string };
+export type AuctionConfig = { configKey: string; configValue: unknown; description: string | null; version: number; isActive?: boolean; updatedBy: string | null; createdAt?: string; updatedAt: string };
+export type CreateAuctionRequest = { productId: string; skuId: string; startPriceAmount: number; bidStepAmount?: number; scheduledStartAt: string; scheduledEndAt: string };
+export type UpdateAuctionRequest = Partial<Pick<CreateAuctionRequest, "startPriceAmount" | "bidStepAmount" | "scheduledStartAt" | "scheduledEndAt">>;
+export type BidRequest = { amount: number };

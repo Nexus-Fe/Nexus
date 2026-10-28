@@ -28,7 +28,9 @@ export type Order = {
 };
 
 export type CreateOrderRequest = {
-  items: Array<{ productId: string; quantity: number }>;
+  quoteId: string;
   shippingAddress: string;
-  paymentMethod: "WALLET" | string;
+  contactPhone: string;
+  paymentMethod?: string;
+  note?: string;
 };

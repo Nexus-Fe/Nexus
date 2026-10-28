@@ -1,11 +1,3 @@
-import { RoutePlaceholder } from "@/components/layout/RoutePlaceholder";
+import { CatalogScreenClient } from "@/components/client/ClientScreens";
 
-export default function CatalogPage() {
-  return (
-    <RoutePlaceholder
-      area="Khu vực công khai"
-      title="Danh mục sản phẩm"
-      description="Trang danh sách sản phẩm sẽ dùng feature catalog để tải dữ liệu qua API Gateway."
-    />
-  );
-}
+export default function CatalogPage() { return <CatalogScreenClient />; }
