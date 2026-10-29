@@ -22,7 +22,6 @@ export const RegisterScreenClient = dynamic(
 export const ForgotPasswordScreenClient = dynamic(() => import("@/features/auth/AuthScreens").then((module) => module.ForgotPasswordScreen), { ssr: false, loading: ScreenLoading });
 export const ResetPasswordScreenClient = dynamic(() => import("@/features/auth/AuthScreens").then((module) => module.ResetPasswordScreen), { ssr: false, loading: ScreenLoading });
 export const ChangePasswordScreenClient = dynamic(() => import("@/features/auth/AuthScreens").then((module) => module.ChangePasswordScreen), { ssr: false, loading: ScreenLoading });
-export const SessionsScreenClient = dynamic(() => import("@/features/auth/AuthScreens").then((module) => module.SessionsScreen), { ssr: false, loading: ScreenLoading });
 export const AccountProfileScreenClient = dynamic(() => import("@/features/auth/AuthScreens").then((module) => module.AccountProfileScreen), { ssr: false, loading: ScreenLoading });
 
 export const HomeScreenClient = dynamic(

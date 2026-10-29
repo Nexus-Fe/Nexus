@@ -1,6 +1,6 @@
 export const ROUTES = {
   home: "/",
-  auth: { login: "/login", register: "/register", forgotPassword: "/account/forgot-password", resetPassword: "/account/reset-password", changePassword: "/account/change-password", sessions: "/account/sessions", profile: "/account/profile" },
+  auth: { login: "/login", register: "/register", forgotPassword: "/account/forgot-password", resetPassword: "/account/reset-password", changePassword: "/account/change-password", profile: "/account/profile" },
   catalog: {
     index: "/catalog",
     product: (id: string) => "/catalog/" + encodeURIComponent(id),

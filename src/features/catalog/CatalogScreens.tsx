@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { ROUTES } from "@/constants/routes";
 import { Icon } from "@/components/ui/Icon";
@@ -10,7 +10,7 @@ import { BackendImage } from "@/components/ui/BackendImage";
 import { api, type ApiResponse } from "@/lib/api/client";
 import { useApiResource } from "@/lib/api/use-api-resource";
 import { formatMoney, resolveImageUrl } from "@/lib/presentation";
-import { auctionService } from "@/features/auction";
+import { AuctionTile, auctionService } from "@/features/auction";
 
 type Product = { id: string; productId?: string; name: string; description?: string; price: number; imageUrl?: string; brand?: string; status?: string; categoryId?: string; categoryName?: string; variantCount?: number; variants?: Array<{ id: string; skuId?: string; name?: string; sku?: string; price?: number; stock?: number }> };
 type ProductDetailResponse = {
@@ -51,11 +51,8 @@ export function HomeScreen() {
 
     <section id="home-auctions" className="home-section" aria-label="Phiên đấu giá">
       <SectionHeading id="home-auctions-title" title="Phiên đấu giá trực tuyến" hint="Theo dõi các phiên đang diễn ra và sắp mở." />
-      <div className="auction-grid">
-        {auctions.data?.length ? auctions.data.map((auction) => <Link key={auction.auctionId} href={ROUTES.auction.room(auction.auctionId)} className="auction-card">
-          <div className="auction-card-media"><BackendImage src={resolveImageUrl(auction.primaryImageUrl)} alt={auction.productName} compact/><span className="auction-status">{auction.status}</span></div>
-          <div className="auction-card-body"><p className="product-category">Đấu giá trực tuyến</p><h3>{auction.productName}</h3><div className="auction-card-bottom"><span>Giá hiện tại</span><strong>{formatMoney(auction.currentPriceAmount ?? auction.startPriceAmount)}</strong></div></div>
-        </Link>) : <Card className="empty-grid"><NoData title={auctions.loading ? "Đang tải phiên đấu giá…" : auctions.error ? problem(auctions.error) : "Chưa có phiên đấu giá"} /></Card>}
+      <div className="auction-list-grid">
+        {auctions.data?.length ? auctions.data.map((auction) => <AuctionTile key={auction.auctionId} auction={auction} href={ROUTES.auction.room(auction.auctionId)} />) : <Card className="empty-grid"><NoData title={auctions.loading ? "Đang tải phiên đấu giá…" : auctions.error ? problem(auctions.error) : "Chưa có phiên đấu giá"} /></Card>}
       </div>
     </section>
 
@@ -72,13 +69,41 @@ export function HomeScreen() {
   </>;
 }
 
+function CatalogFilters({ initialSearch, initialCategoryId, categories, categoriesError }: {
+  initialSearch: string;
+  initialCategoryId: string;
+  categories: Category[];
+  categoriesError: Error | null;
+}) {
+  const router = useRouter();
+  const [search, setSearch] = useState(initialSearch);
+  const [categoryId, setCategoryId] = useState(initialCategoryId);
+
+  const applyFilters = () => {
+    const params = new URLSearchParams();
+    if (search.trim()) params.set("keyword", search.trim());
+    if (categoryId) params.set("categoryId", categoryId);
+    router.push(`${ROUTES.catalog.index}${params.size ? `?${params}` : ""}`, { scroll: false });
+  };
+
+  const clearFilters = () => {
+    setSearch("");
+    setCategoryId("");
+    router.push(ROUTES.catalog.index, { scroll: false });
+  };
+
+  return <Card className="card-pad"><h2 style={{fontSize:16}}>Bộ lọc tìm kiếm</h2><form onSubmit={(e) => { e.preventDefault(); applyFilters(); }}><div className="field-wrap"><label htmlFor="catalog-search">Tìm sản phẩm</label><input id="catalog-search" value={search} onChange={(e) => setSearch(e.target.value)} type="search" className="field" placeholder="Tên hoặc từ khóa" maxLength={100} /></div><div className="field-wrap" style={{marginTop:18}}><label htmlFor="catalog-category">Danh mục sản phẩm</label><select id="catalog-category" className="select-field" value={categoryId} onChange={(e) => setCategoryId(e.target.value)}><option value="">Tất cả danh mục</option>{categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select>{categoriesError && <small role="alert">{problem(categoriesError)}</small>}</div><div className="action-row"><button className="button button-primary" type="submit">Tìm kiếm</button><button className="button button-secondary" type="button" onClick={clearFilters}>Xóa lọc</button></div></form></Card>;
+}
+
 export function CatalogScreen() {
-  const [search, setSearch] = useState(() => new URLSearchParams(window.location.search).get("keyword") ?? ""); const [query, setQuery] = useState(() => new URLSearchParams(window.location.search).get("keyword") ?? ""); const [categoryId, setCategoryId] = useState(() => new URLSearchParams(window.location.search).get("categoryId") ?? "");
+  const searchParams = useSearchParams();
+  const query = searchParams.get("keyword") ?? "";
+  const categoryId = searchParams.get("categoryId") ?? "";
   const categories = useApiResource("/api/v1/categories", async () => rows(unwrap(await api.get<ApiResponse<List<Category>>>("/api/v1/categories"))).map((category) => ({ ...category, id: category.id ?? category.categoryId ?? "" })));
   const products = useProducts(query, categoryId);
   const categoryRows = categories.data ?? []; const productRows = products.data ?? [];
   const categoryName = categoryRows.find((item) => item.id === categoryId)?.name;
-  return <><PageHeading title="Danh sách sản phẩm" description="Khám phá các sản phẩm đang được bán trên sàn." /><div className="split catalog-layout"><Card className="card-pad"><h2 style={{fontSize:16}}>Bộ lọc tìm kiếm</h2><form onSubmit={(e) => { e.preventDefault(); setQuery(search.trim()); }}><div className="field-wrap"><label htmlFor="catalog-search">Tìm sản phẩm</label><input id="catalog-search" value={search} onChange={(e) => setSearch(e.target.value)} type="search" className="field" placeholder="Tên hoặc từ khóa" maxLength={100} /></div><div className="field-wrap" style={{marginTop:18}}><label htmlFor="catalog-category">Danh mục sản phẩm</label><select id="catalog-category" className="select-field" value={categoryId} onChange={(e) => setCategoryId(e.target.value)}><option value="">Tất cả danh mục</option>{categoryRows.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select>{categories.error && <small role="alert">{problem(categories.error)}</small>}</div><div className="action-row"><button className="button button-primary" type="submit">Tìm kiếm</button><button className="button button-secondary" type="button" onClick={() => { setSearch(""); setQuery(""); setCategoryId(""); }}>Xóa lọc</button></div></form></Card><div><div className="section-heading" style={{marginTop:0}}><div><h2>Sản phẩm đang bán</h2><p>{products.loading ? "Đang tải…" : `Đang hiển thị ${productRows.length} sản phẩm${categoryName ? ` · ${categoryName}` : ""}`}</p></div></div>{products.error && <p role="alert" className="notice">{problem(products.error)}</p>}<div className="product-grid catalog-products">{productRows.length ? productRows.map((p) => <ProductCard key={p.id} product={p} />) : <NoData className="empty-grid" title={products.loading ? "Đang tải sản phẩm…" : products.error ? "Không tải được sản phẩm" : "Không tìm thấy sản phẩm"} />}</div></div></div></>;
+  return <><PageHeading title="Danh sách sản phẩm" description="Khám phá các sản phẩm đang được bán trên sàn." /><div className="split catalog-layout"><CatalogFilters key={JSON.stringify([query, categoryId])} initialSearch={query} initialCategoryId={categoryId} categories={categoryRows} categoriesError={categories.error} /><div><div className="section-heading" style={{marginTop:0}}><div><h2>Sản phẩm đang bán</h2><p>{products.loading ? "Đang tải…" : `Đang hiển thị ${productRows.length} sản phẩm${categoryName ? ` · ${categoryName}` : ""}`}</p></div></div>{products.error && <p role="alert" className="notice">{problem(products.error)}</p>}<div className="product-grid catalog-products">{productRows.length ? productRows.map((p) => <ProductCard key={p.id} product={p} />) : <NoData className="empty-grid" title={products.loading ? "Đang tải sản phẩm…" : products.error ? "Không tải được sản phẩm" : "Không tìm thấy sản phẩm"} />}</div></div></div></>;
 }
 
 export function ProductDetailScreen() {

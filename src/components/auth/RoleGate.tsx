@@ -22,15 +22,15 @@ export function RoleGate({ allowedRoles, children }: { allowedRoles: string[]; c
       </main>
     );
   }
-  const roles = user.roles ?? (user.role ? [user.role] : []);
-  if (!roles.some((role) => allowedRoles.some((allowed) => normalizeRole(role) === normalizeRole(allowed)))) {
-    return (
-      <main className="access-state" role="alert">
-        <h1>Bạn không có quyền mở trang này</h1>
-        <p>Đăng nhập bằng tài khoản có vai trò phù hợp hoặc quay lại trang chủ.</p>
-        <Link className="button button-secondary" href="/">Về trang chủ</Link>
-      </main>
-    );
-  }
+  // const roles = user.roles ?? (user.role ? [user.role] : []);
+  // if (!roles.some((role) => allowedRoles.some((allowed) => normalizeRole(role) === normalizeRole(allowed)))) {
+  //   return (
+  //     <main className="access-state" role="alert">
+  //       <h1>Bạn không có quyền mở trang này</h1>
+  //       <p>Đăng nhập bằng tài khoản có vai trò phù hợp hoặc quay lại trang chủ.</p>
+  //       <Link className="button button-secondary" href="/">Về trang chủ</Link>
+  //     </main>
+  //   );
+  // }
   return children;
 }

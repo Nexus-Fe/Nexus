@@ -11,6 +11,17 @@ import { authService } from "@/features/auth";
 import { NavLinks } from "./NavLinks";
 import { useRouter } from "next/navigation";
 
+const roleDashboardLinks = [
+  { role: "admin", label: "Quản trị hệ thống", href: ROUTES.admin.overview, icon: "shield" },
+  { role: "staff", label: "Vận hành sàn", href: ROUTES.staff.auctions, icon: "gavel" },
+  { role: "seller", label: "Kênh người bán", href: ROUTES.seller.products, icon: "grid" },
+] as const;
+
+function dashboardsForRoles(roles: string[]) {
+  const normalizedRoles = new Set(roles.map((role) => role.toLocaleLowerCase("en-US")));
+  return roleDashboardLinks.filter((entry) => normalizedRoles.has(entry.role));
+}
+
 export function Brand({ compact = false }: { compact?: boolean }) {
   return <span className={"brand" + (compact ? " brand-compact" : "")}>NEXUS<span className="brand-mark">●</span></span>;
 }
@@ -19,6 +30,8 @@ function AccountNavigation() {
   const { user, clearSession } = useSession();
   const router = useRouter();
   const displayName = user?.displayName || user?.firstName || user?.username || user?.email || "tài khoản";
+  const userRoles = user?.roles ?? (user?.role ? [user.role] : []);
+  const hasPrivilegedRole = dashboardsForRoles(userRoles).length > 0;
   const logout = async () => {
     try { await authService.logout(); } catch { /* Clear the local session even when the Gateway is unavailable. */ } finally { clearSession(); router.replace(ROUTES.auth.login); }
   };
@@ -27,11 +40,10 @@ function AccountNavigation() {
       <details className="account-menu">
         <summary><Icon name="user" size={26} /><span>Tài khoản {displayName}</span><Icon name="chevronDown" size={18} /></summary>
         <div className="account-menu-panel">
-          <Link href={ROUTES.buyer.orders}>Đơn mua</Link>
+          {!hasPrivilegedRole && <Link href={ROUTES.buyer.orders}>Đơn mua</Link>}
           <Link href={ROUTES.buyer.wallet}>Ví của tôi</Link>
           <Link href={ROUTES.auth.profile}>Hồ sơ cá nhân</Link>
           <Link href={ROUTES.auth.changePassword}>Đổi mật khẩu</Link>
-          <Link href={ROUTES.auth.sessions}>Thiết bị đang đăng nhập</Link>
           <button type="button" onClick={() => void logout()}>Đăng xuất</button>
         </div>
       </details>
@@ -50,10 +62,15 @@ function PortalAccountControls() {
     try { await authService.logout(); } catch { /* Keep the local session closed if the Gateway is unavailable. */ }
     clearSession(); router.replace(ROUTES.auth.login);
   }
-  return <div className="header-actions"><Link href={ROUTES.auth.profile}>Hồ sơ</Link><Link href={ROUTES.auth.changePassword}>Đổi mật khẩu</Link><Link href={ROUTES.auth.sessions}>Thiết bị</Link>{user ? <button type="button" className="button button-secondary button-small" disabled={busy} onClick={() => void logout()}>{busy ? "Đang đăng xuất…" : "Đăng xuất"}</button> : <Link href={ROUTES.auth.login}>Đăng nhập</Link>}</div>;
+  return <div className="header-actions"><Link href={ROUTES.auth.profile}>Hồ sơ</Link><Link href={ROUTES.auth.changePassword}>Đổi mật khẩu</Link>{user ? <button type="button" className="button button-secondary button-small" disabled={busy} onClick={() => void logout()}>{busy ? "Đang đăng xuất…" : "Đăng xuất"}</button> : <Link href={ROUTES.auth.login}>Đăng nhập</Link>}</div>;
 }
 
 export function BuyerShell({ children }: { children: ReactNode }) {
+  const { user } = useSession();
+  const userRoles = user?.roles ?? (user?.role ? [user.role] : []);
+  const dashboardLinks = dashboardsForRoles(userRoles);
+  const hasPrivilegedRole = dashboardLinks.length > 0;
+
   return <div className="site-shell">
     <header className="buyer-header">
       <div className="buyer-header-inner">
@@ -65,8 +82,14 @@ export function BuyerShell({ children }: { children: ReactNode }) {
           <button type="submit" aria-label="Tìm kiếm"><Icon name="arrow" size={17} /></button>
         </form>
         <div className="header-actions">
-          <Link href={ROUTES.buyer.orders}><Icon name="orders" size={19} /><span>Đơn mua</span></Link>
-          <Link href={ROUTES.buyer.cart}><Icon name="bag" size={19} /><span>Giỏ hàng</span></Link>
+          {hasPrivilegedRole ? dashboardLinks.map(({ role, label, href, icon }) => (
+            <Link key={role} className="button button-secondary button-small role-dashboard-link" href={href} aria-label={label} title={label}>
+              <Icon name={icon} size={18} /><span>{label}</span>
+            </Link>
+          )) : <>
+            <Link href={ROUTES.buyer.orders}><Icon name="orders" size={19} /><span>Đơn mua</span></Link>
+            <Link href={ROUTES.buyer.cart}><Icon name="bag" size={19} /><span>Giỏ hàng</span></Link>
+          </>}
           <AccountNavigation />
         </div>
       </div>
