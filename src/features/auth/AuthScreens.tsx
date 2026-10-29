@@ -5,16 +5,14 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
 import { ROUTES } from "@/constants/routes";
 import { useSession } from "@/components/auth/SessionProvider";
-import { Badge, Card, NoData, PageHeading } from "@/components/ui/Primitives";
+import { Card, NoData } from "@/components/ui/Primitives";
 import { useApiResource } from "@/lib/api/use-api-resource";
 import { authService } from "./services/auth.service";
 import type { AuthUser } from "./types";
 
 function landingPath(user: AuthUser): string {
   const roles = (user.roles ?? (user.role ? [user.role] : [])).map((role) => role.toLocaleLowerCase("en-US"));
-  if (roles.includes("admin")) return ROUTES.admin.users;
-  if (roles.includes("staff")) return ROUTES.staff.sellers;
-  if (roles.includes("seller")) return ROUTES.seller.products;
+  if (roles.some((role) => role === "admin" || role === "staff" || role === "seller")) return ROUTES.home;
   if (roles.includes("buyer") || roles.includes("customer")) return ROUTES.buyer.cart;
   return ROUTES.home;
 }
@@ -183,24 +181,40 @@ export function ChangePasswordScreen() {
   return <Card className="auth-card"><h1>Đổi mật khẩu</h1><p>Dùng mật khẩu mới để bảo vệ tài khoản.</p><form className="auth-fields" onSubmit={submit}><label className="field-wrap">Mật khẩu hiện tại<input className="field" type="password" autoComplete="current-password" required value={oldPassword} onChange={e=>setOld(e.target.value)} /></label><label className="field-wrap">Mật khẩu mới<input className="field" type="password" autoComplete="new-password" minLength={8} required value={newPassword} onChange={e=>setNew(e.target.value)} /></label><label className="field-wrap">Nhập lại mật khẩu mới<input className="field" type="password" autoComplete="new-password" minLength={8} required value={confirmPassword} onChange={e=>setConfirm(e.target.value)} /></label>{error&&<p className="form-error" role="alert">{error}</p>}{message&&<p className="form-success" role="status">{message}</p>}<button className="button button-primary" disabled={busy}>{busy?"Đang cập nhật…":"Đổi mật khẩu"}</button></form></Card>;
 }
 
-type SessionRecord = { sessionId?: string; deviceInfo?: string; ipAddress?: string; lastActiveAt?: string; isCurrent?: boolean };
-export function SessionsScreen() {
-  const [revision,setRevision]=useState(0);const [error,setError]=useState("");const [busy,setBusy]=useState("");const [rows,setRows]=useState<SessionRecord[]|null>(null);
-  useEffect(()=>{let active=true;import("@/lib/api/client").then(({api})=>api.get<{data:{items?:SessionRecord[]}|SessionRecord[]}>('/api/v1/me/sessions')).then(result=>{if(active){const value=result.data;setRows(Array.isArray(value)?value:value.items??[]);setError("");}}).catch(reason=>{if(active)setError(reason instanceof Error?reason.message:"Không tải được phiên đăng nhập.");});return()=>{active=false;};},[revision]);
-  async function revoke(id:string){setBusy(id);setError("");try{const {api}=await import("@/lib/api/client");await api.delete(`/api/v1/me/sessions/${encodeURIComponent(id)}`);setRevision(v=>v+1);}catch(reason){setError(reason instanceof Error?reason.message:"Không thể thu hồi phiên.");}finally{setBusy("");}}
-  return <><PageHeading title="Thiết bị đang đăng nhập" description="Xem hoạt động phiên và thu hồi thiết bị bạn không còn sử dụng."/>{error&&<p className="notice" role="alert">{error}</p>}<Card>{rows===null?<NoData title={error?"Không tải được danh sách phiên":"Đang tải phiên đăng nhập…"}/>:rows.length?rows.map((session,index)=><div className="info-row" key={session.sessionId??index}><span><strong>{session.deviceInfo??"Thiết bị không xác định"}</strong><br/>{session.ipAddress??"Không có địa chỉ IP"} · {session.lastActiveAt?new Date(session.lastActiveAt).toLocaleString("vi-VN"):"Chưa có thời gian hoạt động"}{session.isCurrent&&<Badge tone="green">Thiết bị này</Badge>}</span>{!session.isCurrent&&session.sessionId&&<button className="button button-secondary button-small" disabled={busy===session.sessionId} onClick={()=>void revoke(session.sessionId!)}>{busy===session.sessionId?"Đang thu hồi…":"Đăng xuất thiết bị"}</button>}</div>):<NoData title="Không có phiên đăng nhập khác"/>}</Card></>;
-}
-
 export function AccountProfileScreen() {
+  const { user } = useSession();
   const [revision,setRevision]=useState(0);const [error,setError]=useState("");const [saved,setSaved]=useState("");const [busy,setBusy]=useState(false);
   const profile=useApiResource(`/api/v1/me:${revision}`,async()=>{const {api}=await import("@/lib/api/client");return api.get<{data:Record<string,unknown>}>('/api/v1/me').then(response=>response.data);});
   const reputation=useApiResource(`/api/v1/me/reputation:${revision}`,async()=>{const {api}=await import("@/lib/api/client");return api.get<{data:Record<string,unknown>}>('/api/v1/me/reputation').then(response=>response.data);});
   const penalties=useApiResource(`/api/v1/me/penalties:${revision}`,async()=>{const {api}=await import("@/lib/api/client");return api.get<{data:{items?:Record<string,unknown>[]}}>('/api/v1/me/penalties?page=1&limit=20').then(response=>response.data.items??[]);});
   async function save(event:FormEvent<HTMLFormElement>){event.preventDefault();setBusy(true);setError("");setSaved("");const values=new FormData(event.currentTarget);try{const {api}=await import("@/lib/api/client");await api.patch('/api/v1/me',{username:String(values.get("username")??"")||null,firstName:String(values.get("firstName")??""),lastName:String(values.get("lastName")??""),phoneNumber:String(values.get("phoneNumber")??""),address:{provinceId:Number(values.get("provinceId")),districtId:Number(values.get("districtId")),wardCode:String(values.get("wardCode")??""),streetAddress:String(values.get("streetAddress")??"")}});setSaved("Đã cập nhật hồ sơ.");setRevision(v=>v+1);}catch(reason){setError(reason instanceof Error?reason.message:"Không thể cập nhật hồ sơ.");}finally{setBusy(false);}}
   const p=profile.data??{};const r=reputation.data??{};const address=typeof p.address==="object"&&p.address!==null?p.address as Record<string,unknown>:{};
-  return <><PageHeading overline="Tài khoản" title="Hồ sơ cá nhân" description="Cập nhật thông tin liên hệ và xem điểm uy tín hiện tại."/>{profile.error&&<p role="alert" className="notice">{profile.error.message}</p>}
-    <div className="grid-3"><Card className="card-pad"><h2>Điểm uy tín</h2><strong>{String(r.reputationScore??p.reputationScore??"—")}</strong><p>{String(r.trustLevel??p.trustLevel??"")}</p></Card><Card className="card-pad"><h2>Đấu giá</h2><p>{r.canBid===true?"Đủ điều kiện đặt giá":r.canBid===false?"Chưa đủ điều kiện đặt giá":"Chưa có dữ liệu"}</p></Card><Card className="card-pad"><h2>Bán hàng</h2><p>{r.canSell===true?"Đủ điều kiện bán":r.canSell===false?"Chưa đủ điều kiện bán":"Chưa có dữ liệu"}</p></Card></div>
-    <div className="split"><Card className="card-pad"><h2>Thông tin tài khoản</h2><form className="auth-fields" onSubmit={e=>void save(e)}><label className="field-wrap">Tên đăng nhập<input className="field" name="username" defaultValue={String(p.username??"")} maxLength={100}/></label><div className="form-grid"><label className="field-wrap">Họ<input className="field" name="firstName" required defaultValue={String(p.firstName??"")}/></label><label className="field-wrap">Tên<input className="field" name="lastName" required defaultValue={String(p.lastName??"")}/></label></div><label className="field-wrap">Số điện thoại<input className="field" name="phoneNumber" required defaultValue={String(p.phoneNumber??"")}/></label><h3>Địa chỉ nhận hàng</h3><div className="form-grid"><label className="field-wrap">Mã tỉnh<input className="field" name="provinceId" type="number" required defaultValue={String(address.provinceId??"")}/></label><label className="field-wrap">Mã quận/huyện<input className="field" name="districtId" type="number" required defaultValue={String(address.districtId??"")}/></label><label className="field-wrap">Mã phường<input className="field" name="wardCode" required defaultValue={String(address.wardCode??"")}/></label><label className="field-wrap">Địa chỉ cụ thể<input className="field" name="streetAddress" required defaultValue={String(address.streetAddress??p.address??"")}/></label></div>{error&&<p role="alert" className="notice">{error}</p>}{saved&&<p role="status" className="form-success">{saved}</p>}<button className="button button-primary" disabled={busy||profile.loading}>{busy?"Đang lưu…":"Lưu hồ sơ"}</button></form></Card>
-      <Card className="card-pad"><h2>Lịch sử vi phạm</h2>{penalties.error&&<p role="alert" className="notice">{penalties.error.message}</p>}{penalties.data?.length?penalties.data.map((item,index)=><div className="info-row" key={String(item.id??index)}><span><strong>{String(item.violationType??"Vi phạm")}</strong><br/>{String(item.reason??"")}<br/>{String(item.issuedAt??"")}</span><span>{String(item.status??"")}</span></div>):<NoData title={penalties.loading?"Đang tải lịch sử…":penalties.error?"Không tải được lịch sử":"Chưa có vi phạm"}/>}</Card></div>
-  </>;
+  const displayName=[p.firstName,p.lastName].filter(Boolean).join(" ") || user?.displayName || user?.username || "Tài khoản Nexus";
+  const email=String(p.email??user?.email??"");
+  const isSeller=Boolean(user?.roles?.some(role=>role.toLowerCase()==="seller")||user?.role?.toLowerCase()==="seller");
+  return <div className="profile-page">
+    <nav className="profile-breadcrumb" aria-label="Đường dẫn"><Link href={ROUTES.home}>Tài khoản Nexus</Link><span aria-hidden="true">›</span><span>Hồ sơ cá nhân</span></nav>
+    <div className="profile-layout">
+      <aside className="profile-sidebar">
+        <div className="profile-identity"><span className="profile-avatar" aria-hidden="true">{String(displayName).charAt(0).toLocaleUpperCase("vi-VN")}</span><strong>{displayName}</strong>{email&&<small>{email}</small>}</div>
+        <nav className="profile-nav" aria-label="Điều hướng tài khoản"><Link href={ROUTES.auth.changePassword}>Đổi mật khẩu &amp; bảo mật</Link></nav>
+      </aside>
+      <div className="profile-content">
+        <section id="profile-information" className="profile-panel"><div className="profile-panel-heading"><div><h1>Hồ sơ cá nhân</h1><p>Cập nhật thông tin cá nhân và phương thức liên hệ.</p></div></div>
+          {profile.error&&<p role="alert" className="notice">{profile.error.message}</p>}
+          {profile.loading?<NoData title="Đang tải hồ sơ…"/>:profile.error?null:<form className="profile-form" key={revision} onSubmit={e=>void save(e)}>
+            <div className="profile-form-grid"><label className="field-wrap">Họ<input className="field" name="firstName" required defaultValue={String(p.firstName??"")}/></label><label className="field-wrap">Tên<input className="field" name="lastName" required defaultValue={String(p.lastName??"")}/></label></div>
+            <div className="profile-form-grid"><label className="field-wrap">Email<input className="field" type="email" value={email} readOnly aria-readonly="true" /></label><label className="field-wrap">Số điện thoại liên hệ<input className="field" name="phoneNumber" required defaultValue={String(p.phoneNumber??"")}/></label></div>
+            <label className="field-wrap">Tên đăng nhập<input className="field" name="username" defaultValue={String(p.username??"")} maxLength={100}/></label>
+            <div id="profile-address" className="profile-form-section"><h2>Địa chỉ liên hệ và giao hàng mặc định</h2><div className="profile-form-grid"><label className="field-wrap">Mã tỉnh<input className="field" name="provinceId" type="number" required defaultValue={String(address.provinceId??"")}/></label><label className="field-wrap">Mã quận/huyện<input className="field" name="districtId" type="number" required defaultValue={String(address.districtId??"")}/></label><label className="field-wrap">Mã phường<input className="field" name="wardCode" required defaultValue={String(address.wardCode??"")}/></label><label className="field-wrap">Địa chỉ cụ thể<input className="field" name="streetAddress" required defaultValue={String(address.streetAddress??"")}/></label></div></div>
+            {error&&<p role="alert" className="notice">{error}</p>}{saved&&<p role="status" className="form-success">{saved}</p>}
+            <div className="profile-actions"><button type="reset" className="button button-secondary" disabled={busy}>Hủy thao tác</button><button className="button button-primary" disabled={busy||profile.loading}>{busy?"Đang lưu…":"Lưu thay đổi"}</button></div>
+          </form>}
+        </section>
+        <section id="profile-reputation" className="profile-panel"><div className="profile-panel-heading"><div><h2>Điểm uy tín &amp; quyền hạn</h2><p>Thông tin được cập nhật từ tài khoản của bạn.</p></div></div><div className="profile-stats"><div><span>Điểm uy tín</span><strong>{String(r.reputationScore??p.reputationScore??"—")}</strong><small>{String(r.trustLevel??p.trustLevel??"")}</small></div><div><span>Đấu giá</span><strong>{r.canBid===true?"Đủ điều kiện đặt giá":r.canBid===false?"Chưa đủ điều kiện":"Chưa có dữ liệu"}</strong></div><div><span>Bán hàng</span><strong>{r.canSell===true?"Đủ điều kiện bán":r.canSell===false?"Chưa đủ điều kiện":"Chưa có dữ liệu"}</strong></div></div>{reputation.error&&<p role="alert" className="notice">{reputation.error.message}</p>}</section>
+        {isSeller&&<section id="profile-selling" className="profile-panel"><div className="profile-panel-heading"><div><h2>Kênh bán hàng</h2><p>Quản lý sản phẩm và phiên đấu giá của gian hàng.</p></div><Link className="button button-secondary" href={ROUTES.seller.products}>Truy cập Seller Center</Link></div></section>}
+        <section className="profile-panel"><div className="profile-panel-heading"><div><h2>Lịch sử vi phạm</h2><p>Các ghi nhận liên quan đến tài khoản.</p></div></div>{penalties.error&&<p role="alert" className="notice">{penalties.error.message}</p>}{penalties.data?.length?penalties.data.map((item,index)=><div className="info-row" key={String(item.id??index)}><span><strong>{String(item.violationType??"Vi phạm")}</strong><br/>{String(item.reason??"")}<br/>{String(item.issuedAt??"")}</span><span>{String(item.status??"")}</span></div>):<NoData title={penalties.loading?"Đang tải lịch sử…":penalties.error?"Không tải được lịch sử":"Chưa có vi phạm"}/>}</section>
+      </div>
+    </div>
+  </div>;
 }

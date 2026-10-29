@@ -7,7 +7,7 @@
 Route group trong ngoặc không xuất hiện trong URL:
 
 - `(public)`: `/`, `/catalog`, `/catalog/[id]`, `/auctions`, `/auctions/[id]`.
-- `(auth)`: `/login`, `/register`, `/account/forgot-password`, `/account/reset-password`, `/account/change-password`, `/account/sessions`, `/account/profile`.
+- `(auth)`: `/login`, `/register`, `/account/forgot-password`, `/account/reset-password`, `/account/change-password`, `/account/profile`.
 - `(dashboard)/buyer`: `/buyer/cart`, `/buyer/checkout`, `/buyer/orders`, `/buyer/orders/[id]`, `/buyer/orders/[id]/review`, `/buyer/reports`, `/buyer/wallet`, `/buyer/wallet/top-up`, `/buyer/auctions`, `/buyer/auctions/[id]/result`, `/buyer/auctions/[id]/payment`.
 - `(dashboard)/seller`: `/seller/shop`, `/seller/products`, `/seller/products/new`, `/seller/inventory`, `/seller/orders`, `/seller/orders/[id]`, `/seller/shipments`, `/seller/shipments/[id]`, `/seller/wallet`, `/seller/withdrawals`, `/seller/auctions`, `/seller/auctions/new`, `/seller/auctions/[id]`, `/seller/auctions/[id]/edit`, `/seller/auctions/[id]/recreate`, `/seller/auctions/[id]/result`.
 - `(dashboard)/staff`: `/staff/sellers`, `/staff/sellers/[id]`, `/staff/reports`, `/staff/auctions`, `/staff/auctions/[id]`, `/staff/withdrawals`, `/staff/product-moderation`, `/staff/transactions/discrepancies`.
