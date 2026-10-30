@@ -39,3 +39,11 @@ npm run lint
 npm run build
 npm run start
 ```
+
+## GitHub CI and VPS deployment
+
+`Frontend CI` runs `npm ci`, lint, typecheck, and a production build for pushes and pull requests. After a successful push to `dev`, it publishes an immutable image tagged `ghcr.io/<owner>/<repo>:sha-<commit-sha>` to GitHub Container Registry. The image contains the Next.js standalone server and needs a Node-capable host; GitHub Pages cannot run this app's server-side Gateway proxy.
+
+VPS deployment is manual through the **Deploy frontend to VPS** GitHub Actions workflow. Its `image_sha` input is the full SHA of a published `dev` commit. GitHub shows the manual workflow after this workflow file is present on the repository's default branch.
+
+Before the first deploy, create a GitHub `production` environment with these secrets: `VPS_HOST`, `VPS_USER`, `VPS_SSH_KEY`, `VPS_KNOWN_HOSTS`, `GHCR_READ_USER`, and `GHCR_READ_TOKEN` (a token with package read access for a private image). Set environment variables `API_GATEWAY_URL` and optionally `VPS_PORT` (default `22`). The VPS user needs Docker Compose access. The workflow copies `deploy/compose.yaml` to `~/nexus-fe` and binds the container to `127.0.0.1:3000`; configure a TLS reverse proxy on the VPS separately. `API_GATEWAY_URL` must be reachable **from the container**, not just from a browser or the VPS host.
