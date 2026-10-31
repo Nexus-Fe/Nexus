@@ -1,4 +1,4 @@
-# 🧭 Nexus — Marketplace Frontend
+# 🧭 NEXUS — Marketplace Frontend
 
 Nexus là frontend cho sàn marketplace, xây dựng bằng **Next.js App Router**, **React**, **TypeScript** và **Tailwind CSS**. Codebase được chia theo tính năng để hỗ trợ các khu vực dành cho khách truy cập, người mua, người bán, nhân viên vận hành và quản trị viên.
 
