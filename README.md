@@ -16,16 +16,50 @@ Mở [http://localhost:3000](http://localhost:3000). Đặt `API_GATEWAY_URL` tr
 
 Các màn Staff/Admin có chế độ demo FE local riêng để xem luồng khi backend chưa sẵn sàng. Cách bật, phạm vi và giới hạn được ghi tại [hướng dẫn demo Staff/Admin](docs/staff-admin-local-demo.md).
 
-## Cấu trúc
+## Cấu trúc dự án
 
 ```text
-src/
-├── app/          # Route groups và trang định tuyến
-├── components/   # UI và layout dùng chung
-├── features/     # Auth, catalog, commerce, seller, staff, admin, auction, wallet...
-├── widgets/      # UI phối hợp nhiều feature
-├── lib/api/      # API client và Gateway proxy cùng origin
-└── constants/    # Route và điều hướng
+Nexus/
+├── .github/workflows/          # CI và workflow triển khai
+├── deploy/                     # Docker Compose cho VPS
+├── design-plans/               # Kế hoạch thiết kế và triển khai
+├── docs/                       # Hướng dẫn chạy demo và vận hành
+├── DOCUMENTS/                  # Tài liệu kiến trúc dự án
+├── public/                     # Tài nguyên tĩnh
+├── src/
+│   ├── app/                    # Next.js App Router
+│   │   ├── (public)/           # Trang chủ, catalog, đấu giá công khai
+│   │   ├── (auth)/             # Đăng nhập và đăng ký
+│   │   ├── (dashboard)/        # Route Buyer, Seller, Staff, Admin
+│   │   └── api/gateway/        # Proxy cùng origin tới API Gateway
+│   ├── components/
+│   │   ├── auth/               # Phiên đăng nhập và kiểm tra role ở FE
+│   │   ├── client/             # Nạp các màn hình client
+│   │   ├── layout/             # Shell và bố cục dùng chung
+│   │   └── ui/                 # UI primitives dùng chung
+│   ├── constants/              # Route và điều hướng
+│   ├── features/               # Các module nghiệp vụ
+│   │   ├── admin/              # Quản trị
+│   │   ├── auction/            # Đấu giá
+│   │   ├── audit-log/          # Nhật ký kiểm toán
+│   │   ├── auth/               # Xác thực
+│   │   ├── catalog/            # Danh mục và sản phẩm
+│   │   ├── commerce/           # Giỏ hàng, đơn hàng, thanh toán
+│   │   ├── fulfillment/        # Kho vận và giao nhận
+│   │   ├── notification/       # Thông báo
+│   │   ├── profile/            # Hồ sơ người dùng
+│   │   ├── seller/             # Kênh người bán
+│   │   ├── staff/              # Nghiệp vụ nhân viên
+│   │   └── wallet/             # Ví và giao dịch
+│   ├── lib/
+│   │   ├── api/                # HTTP client và Gateway proxy helpers
+│   │   └── demo/               # Cấu hình và dữ liệu demo local
+│   ├── styles/                 # CSS toàn ứng dụng
+│   └── widgets/                # UI phối hợp nhiều feature
+├── .env.example                # Biến môi trường mẫu
+├── next.config.ts              # Cấu hình Next.js
+├── package.json                # Scripts và dependencies
+└── package-lock.json           # Khóa phiên bản dependencies
 ```
 
 Quy ước ranh giới module: [features](src/features/README.md), [routes](src/app/README.md), [widgets](src/widgets/README.md), [components](src/components/README.md) và [API client](src/lib/api/README.md).
