@@ -395,7 +395,10 @@ export function BecomeSellerScreen() {
   );
 
   useEffect(() => {
-    void syncOnboardingState(false);
+    const timer = window.setTimeout(() => {
+      void syncOnboardingState(false);
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, [syncOnboardingState]);
 
   function validateRegistrationForm(): ClassifiedSellerError | null {

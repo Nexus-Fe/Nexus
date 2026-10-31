@@ -86,6 +86,10 @@ export const SellerProductsScreenClient = dynamic(
   () => import("@/features/seller/SellerScreens").then((module) => module.SellerProductsScreen),
   { ssr: false, loading: ScreenLoading },
 );
+export const SellerProductDetailScreenClient = dynamic(
+  () => import("@/features/seller/SellerScreens").then((module) => module.SellerProductDetailScreen),
+  { ssr: false, loading: ScreenLoading },
+);
 export const SellerProductEditorScreenClient = dynamic(
   () => import("@/features/seller/SellerScreens").then((module) => module.SellerProductEditorScreen),
   { ssr: false, loading: ScreenLoading },
