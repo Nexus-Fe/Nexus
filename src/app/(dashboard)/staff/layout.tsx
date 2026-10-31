@@ -1,7 +1,7 @@
-import type { ReactNode } from "react";
+import { Suspense, type ReactNode } from "react";
 import { StaffShellClient } from "@/components/client/ClientShells";
-import { RoleGate } from "@/components/auth/RoleGate";
+import { StaffAdminDemoGate } from "@/components/auth/RoleGate";
 
 export default function StaffLayout({ children }: { children: ReactNode }) {
-  return <RoleGate allowedRoles={["Staff", "Admin"]}><StaffShellClient>{children}</StaffShellClient></RoleGate>;
+  return <Suspense fallback={<main className="route-loading" role="status">Đang kiểm tra phiên đăng nhập…</main>}><StaffAdminDemoGate allowedRoles={["Staff", "Admin"]}><StaffShellClient>{children}</StaffShellClient></StaffAdminDemoGate></Suspense>;
 }

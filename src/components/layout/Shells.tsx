@@ -18,7 +18,10 @@ const roleDashboardLinks = [
 ] as const;
 
 function dashboardsForRoles(roles: string[]) {
-  const normalizedRoles = new Set(roles.map((role) => role.toLocaleLowerCase("en-US")));
+  const normalizedRoles = new Set(roles.map((role) => {
+    const normalized = role.toLocaleLowerCase("en-US");
+    return normalized === "supportstaff" ? "staff" : normalized;
+  }));
   return roleDashboardLinks.filter((entry) => normalizedRoles.has(entry.role));
 }
 

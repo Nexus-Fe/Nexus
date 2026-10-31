@@ -39,6 +39,8 @@ async function proxy(request: NextRequest, context: RouteContext): Promise<Respo
   upstream.search = new URL(request.url).search;
 
   const headers = new Headers({ Accept: request.headers.get("accept") ?? "application/json" });
+  headers.set("X-Gateway-Mode", "Real");
+  headers.set("X-Gateway-Auth", "Enforce");
   const contentType = request.headers.get("content-type");
   const authorization = request.headers.get("authorization");
   if (contentType) headers.set("Content-Type", contentType);
@@ -64,24 +66,24 @@ async function proxy(request: NextRequest, context: RouteContext): Promise<Respo
     );
   }
 
-  // const mode = upstreamResponse.headers.get("X-Gateway-Mode");
-  // const authMode = upstreamResponse.headers.get("X-Gateway-Auth");
-  // if (mode?.toLocaleLowerCase("en-US") !== "real" || authMode?.toLocaleLowerCase("en-US") !== "enforce") {
-  //   return Response.json(
-  //     {
-  //       title: "Gateway chưa được cấu hình kết nối backend thật và xác thực bắt buộc.",
-  //       detail: "Yêu cầu bị chặn để tránh hiển thị dữ liệu giả hoặc dùng chế độ bỏ qua đăng nhập.",
-  //       status: 503,
-  //       errorCode: "GATEWAY_MODE_NOT_ALLOWED",
-  //     },
-  //     { status: 503, headers: { "Cache-Control": "no-store" } },
-  //   );
-  // }
+  const mode = upstreamResponse.headers.get("X-Gateway-Mode");
+  const authMode = upstreamResponse.headers.get("X-Gateway-Auth");
+  if (mode?.toLocaleLowerCase("en-US") !== "real" || authMode?.toLocaleLowerCase("en-US") !== "enforce") {
+    return Response.json(
+      {
+        title: "Gateway chưa được cấu hình kết nối backend thật và xác thực bắt buộc.",
+        detail: "Yêu cầu bị chặn để tránh hiển thị dữ liệu giả hoặc dùng chế độ bỏ qua đăng nhập.",
+        status: 503,
+        errorCode: "GATEWAY_MODE_NOT_ALLOWED",
+      },
+      { status: 503, headers: { "Cache-Control": "no-store" } },
+    );
+  }
 
   const responseHeaders = new Headers({
     "Cache-Control": "no-store",
-    "X-Gateway-Mode": "Real",
-    "X-Gateway-Auth": "Enforce",
+    "X-Gateway-Mode": mode,
+    "X-Gateway-Auth": authMode,
   });
   const responseType = upstreamResponse.headers.get("content-type");
   const traceId = upstreamResponse.headers.get("X-Trace-Id");

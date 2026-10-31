@@ -9,9 +9,11 @@ npm install
 npm run dev
 ```
 
-The app runs at [http://localhost:3000](http://localhost:3000). `.env.local` targets the Gateway host port documented by the backend stack (`http://localhost:8080`). Change only `API_GATEWAY_URL` when the real Gateway runs at another address. Business API traffic passes through a same-origin Route Handler that refuses responses unless the Gateway confirms `Real` mode and enforced authentication.
+The app runs at [http://localhost:3000](http://localhost:3000). `.env.local` targets the Gateway host port documented by the backend stack (`http://localhost:8080`). Change `API_GATEWAY_URL` when the real Gateway runs at another address. Business API traffic passes through a same-origin Route Handler that requires the Gateway to confirm `Real` mode and `Enforce` authentication.
 
-The backend must be running with Gateway authentication set to `Enforce` and every service (`users`, `catalog`, `commerce`, `auction`, `fulfillment`, `wallet`, and the remaining configured services) set to `Real`. The proxy returns an explicit 503 when the Gateway reports another mode. This frontend contains no fixtures or mock-mode switch.
+For a live integration check, the backend must run with Gateway authentication set to `Enforce` and each required service set to `Real`. The proxy requests those modes and returns 503 if the Gateway reports anything else.
+
+For a **local FE-only Staff/Admin demo**, set `NEXT_PUBLIC_STAFF_ADMIN_DEMO=1` in `.env.local` and start `npm run dev`. Only `/staff/sellers`, `/staff/sellers/[id]`, `/admin/categories`, and `/admin/users` use sample records stored in the browser session. These screens display a Demo notice and do not send business API requests. The demo flag has no effect in production builds. Remove the flag and restart the dev server to return to Gateway-backed behavior. This mode does not validate backend persistence, authorization, OTP, warehouse synchronization, or token revocation.
 
 ## Project shape
 
@@ -26,7 +28,7 @@ src/
 └── constants/    # Navigation and route paths
 ```
 
-The screens render client-side. User roles improve navigation, while the API Gateway remains responsible for enforcing authorization. The frontend refuses mock or authentication-bypass Gateway responses and does not supply fixture data.
+The screens render client-side. User roles improve navigation, while the API Gateway remains responsible for enforcing authorization in live mode. The optional Staff/Admin local demo is explicitly separate from live Gateway verification.
 
 The production build uses Next.js Webpack because the default Turbopack build panicked while starting the Tailwind CSS worker in this Windows environment. Development still uses the configured Turbopack.
 
