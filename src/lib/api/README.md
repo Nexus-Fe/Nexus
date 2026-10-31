@@ -4,7 +4,7 @@
 
 ## Cấu hình và hành vi
 
-- URL gốc đọc từ `NEXT_PUBLIC_API_URL`, mặc định `http://localhost:8000`; sao chép `.env.example` thành `.env.local` để cấu hình môi trường.
+- URL gốc đọc từ `NEXT_PUBLIC_API_URL`, mặc định `http://localhost:8080`; sao chép `.env.example` thành `.env.local` để cấu hình môi trường.
 - Client tự gửi `Accept: application/json`, thêm `Content-Type` khi body là object và thêm `Authorization: Bearer ...` nếu `localStorage` có `nexus_token`.
 - Đăng nhập/đăng ký lưu token trả về; lỗi HTTP được ném thành `ApiError` với `status`, `payload` và `traceId` nếu có.
 - Với HTTP 401, client xóa token và chuyển về `/login` (không chuyển hướng lại khi đang ở `/login` hoặc `/register`).
