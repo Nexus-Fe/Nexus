@@ -9,6 +9,7 @@ type GatewayLoginData = {
   expiresAt?: string;
   userId?: string;
   roles?: string[];
+  user?: AuthUser & { userId?: string };
 };
 
 function profileFromGateway(value: AuthUser & { userId?: string }, login: GatewayLoginData): AuthUser {
@@ -24,7 +25,7 @@ function profileFromGateway(value: AuthUser & { userId?: string }, login: Gatewa
 export const authService = {
   async login(credentials: LoginRequest) {
     const response = await api.post<ApiResponse<GatewayLoginData>>("/api/v1/auth/login", {
-      username: credentials.identifier.trim(),
+      identifier: credentials.identifier.trim(),
       password: credentials.password,
     }, { skipRefresh: true });
     const login = response.data;
@@ -35,10 +36,10 @@ export const authService = {
     const refreshToken = login.refreshToken;
     saveSessionTokens(accessToken, refreshToken);
     try {
-      const profile = await this.getCurrentUser();
+      const profile = login.user ?? (await this.getCurrentUser()).data;
       return {
         ...response,
-        data: { ...login, accessToken, refreshToken, user: profileFromGateway(profile.data, login) },
+        data: { ...login, accessToken, refreshToken, user: profileFromGateway(profile, login) },
       } satisfies ApiResponse<AuthResponse>;
     } catch (error) {
       clearSessionTokens();

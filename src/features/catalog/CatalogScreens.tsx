@@ -12,11 +12,11 @@ import { useApiResource } from "@/lib/api/use-api-resource";
 import { formatMoney, resolveImageUrl } from "@/lib/presentation";
 import { AuctionTile, auctionService } from "@/features/auction";
 
-type Product = { id: string; productId?: string; name: string; description?: string; price: number; imageUrl?: string; brand?: string; status?: string; categoryId?: string; categoryName?: string; variantCount?: number; variants?: Array<{ id: string; skuId?: string; name?: string; sku?: string; price?: number; stock?: number }> };
+type Product = { id: string; productId?: string; name: string; description?: string; price: number; minPrice?: number | null; primaryImageUrl?: string | null; imageUrl?: string; brand?: string; status?: string; categoryId?: string; categoryName?: string; variantCount?: number; variants?: Array<{ id: string; skuId?: string; name?: string; sku?: string; price?: number | null; status?: string; stock?: number }> };
 type ProductDetailResponse = {
   product: { productId: string; name: string; description?: string | null; brand?: string | null; status?: string | null; categoryId?: string | null };
   category?: { categoryId: string; name: string } | null;
-  variants?: Array<{ variantId: string; skuCode: string; name: string; price: number; status: string; attributes?: Array<{ attrName: string; attrValue: string }> }>;
+  variants?: Array<{ variantId: string; skuCode: string; name: string; price: number | null; status: string; attributes?: Array<{ attrName: string; attrValue: string }> }>;
   images?: Array<{ url: string; altText?: string | null }>;
   rating?: { avgRating: number; reviewCount: number } | null;
 };
@@ -30,8 +30,9 @@ function ProductCard({ product }: { product: Product }) {
   return <article className="product-card"><Link href={ROUTES.catalog.product(product.id)} className="product-media"><BackendImage src={resolveImageUrl(product.imageUrl ?? null)} alt={product.name} compact /></Link><div className="product-body"><p className="product-category">{product.brand ?? product.categoryName ?? ""}</p><h3><Link href={ROUTES.catalog.product(product.id)}>{product.name}</Link></h3><p className="product-seller">{product.status ?? ""}</p><div className="product-bottom"><strong>{formatMoney(product.price)}</strong><Link aria-label={`Xem ${product.name}`} href={ROUTES.catalog.product(product.id)} className="round-link"><Icon name="arrow" size={18} /></Link></div></div></article>;
 }
 function useProducts(search = "", categoryId = "") {
-  const key = `/api/v1/products?${new URLSearchParams({ page: "1", pageSize: "24", ...(search ? { keyword: search } : {}), ...(categoryId ? { categoryId } : {}) })}`;
-  return useApiResource(key, async () => rows(unwrap(await api.get<ApiResponse<List<Product>>>(key))).map((product) => ({ ...product, id: product.id ?? product.productId ?? "" })));
+  const path = search || categoryId ? "/api/v1/products/search" : "/api/v1/products";
+  const key = `${path}?${new URLSearchParams({ page: "1", pageSize: "24", status: "ACTIVE", ...(search ? { keyword: search } : {}), ...(categoryId ? { categoryId } : {}) })}`;
+  return useApiResource(key, async () => rows(unwrap(await api.get<ApiResponse<List<Product>>>(key))).filter((product) => !product.status || product.status.toUpperCase() === "ACTIVE").map((product) => ({ ...product, id: product.id ?? product.productId ?? "", price: product.minPrice ?? product.price ?? Number.NaN, imageUrl: product.primaryImageUrl ?? product.imageUrl })));
 }
 
 export function HomeScreen() {
@@ -108,10 +109,10 @@ export function CatalogScreen() {
 
 export function ProductDetailScreen() {
   const params = useParams<{ id: string }>(); const id = String(params.id ?? "");
-  const resource = useApiResource(id ? `/api/v1/product/${id}` : null, async () => {
-    const result = unwrap(await api.get<ApiResponse<ProductDetailResponse>>(`/api/v1/product/${encodeURIComponent(id)}`));
+  const resource = useApiResource(id ? `/api/v1/products/${id}` : null, async () => {
+    const result = unwrap(await api.get<ApiResponse<ProductDetailResponse>>(`/api/v1/products/${encodeURIComponent(id)}`));
     const product = result.product;
-    const prices = (result.variants ?? []).map((variant) => variant.price).filter(Number.isFinite);
+    const prices = (result.variants ?? []).map((variant) => variant.price).filter((price): price is number => typeof price === "number" && Number.isFinite(price));
     return {
       id: product.productId || id,
       name: product.name,
@@ -123,11 +124,14 @@ export function ProductDetailScreen() {
       imageUrl: result.images?.[0]?.url,
       price: prices.length ? Math.min(...prices) : Number.NaN,
       variantCount: result.variants?.length ?? 0,
-      variants: (result.variants ?? []).map((variant) => ({ id: variant.variantId, sku: variant.skuCode, name: variant.name, price: variant.price })),
+      variants: (result.variants ?? []).map((variant) => ({ id: variant.variantId, skuId: variant.variantId, sku: variant.skuCode, name: variant.name, price: variant.price, status: variant.status })),
     } satisfies Product;
   });
   const product = resource.data;
+  const [selectedSkuId, setSelectedSkuId] = useState("");
   const [cartError, setCartError] = useState(""); const [adding, setAdding] = useState(false);
-  const addToCart = async () => { if (!product) return; setAdding(true); setCartError(""); try { await api.post("/api/v1/cart/items", { productId: product.id, quantity: 1 }); window.location.assign(ROUTES.buyer.cart); } catch (error) { setCartError(problem(error instanceof Error ? error : new Error("Không thêm được sản phẩm vào giỏ."))); setAdding(false); } };
-  return product ? <><div className="crumbs"><Link href={ROUTES.home}>Trang chủ</Link><Icon name="chevron" size={14}/><Link href={ROUTES.catalog.index}>Sản phẩm</Link><Icon name="chevron" size={14}/><span>{product.name}</span></div><div className="split split-even"><div className="detail-media"><BackendImage src={resolveImageUrl(product.imageUrl ?? null)} alt={product.name} /></div><div><Badge>{product.categoryName ?? "Sản phẩm"}</Badge><h1 style={{fontSize:32,margin:"18px 0 8px"}}>{product.name}</h1><p className="page-description">{product.brand}</p><div className="detail-price">{formatMoney(product.price)}</div><Card className="info-list"><div className="info-row"><span>Trạng thái</span><strong>{product.status ?? "Chưa có dữ liệu"}</strong></div><div className="info-row"><span>Biến thể</span><strong>{product.variants?.length ?? product.variantCount ?? "Chưa có dữ liệu"}</strong></div></Card><div className="action-row"><button className="button button-primary" disabled={adding} onClick={() => void addToCart()}>{adding ? "Đang thêm…" : "Thêm vào giỏ"}</button><Link className="button button-secondary" href={ROUTES.buyer.cart}>Giỏ hàng</Link></div>{cartError && <p role="alert" className="notice">{cartError}</p>}</div></div><SectionHeading title="Thông tin sản phẩm" /><Card className="card-pad"><p>{product.description ?? ""}</p></Card></> : <><PageHeading title="Chi tiết sản phẩm" />{resource.error ? <p role="alert" className="notice">{problem(resource.error)}</p> : <NoData title={resource.loading ? "Đang tải sản phẩm…" : "Không tìm thấy sản phẩm"} />}</>;
+  const selectedVariant = product?.variants?.find((variant) => variant.skuId === selectedSkuId);
+  const canAdd = product?.status?.toUpperCase() === "ACTIVE" && selectedVariant?.status?.toUpperCase() === "ACTIVE" && typeof selectedVariant.price === "number" && selectedVariant.price > 0;
+  const addToCart = async () => { if (!product || !canAdd || !selectedSkuId) return; setAdding(true); setCartError(""); try { await api.post("/api/v1/carts/items", { productId: product.id, skuId: selectedSkuId, quantity: 1 }); window.location.assign(ROUTES.buyer.cart); } catch (error) { setCartError(problem(error instanceof Error ? error : new Error("Không thêm được sản phẩm vào giỏ."))); setAdding(false); } };
+  return product ? <><div className="crumbs"><Link href={ROUTES.home}>Trang chủ</Link><Icon name="chevron" size={14}/><Link href={ROUTES.catalog.index}>Sản phẩm</Link><Icon name="chevron" size={14}/><span>{product.name}</span></div><div className="split split-even"><div className="detail-media"><BackendImage src={resolveImageUrl(product.imageUrl ?? null)} alt={product.name} /></div><div><Badge>{product.categoryName ?? "Sản phẩm"}</Badge><h1 style={{fontSize:32,margin:"18px 0 8px"}}>{product.name}</h1><p className="page-description">{product.brand}</p><div className="detail-price">{formatMoney(selectedVariant?.price ?? product.price)}</div><Card className="info-list"><div className="info-row"><span>Trạng thái</span><strong>{product.status ?? "Chưa có dữ liệu"}</strong></div><div className="info-row"><span>Biến thể</span><strong>{product.variants?.length ?? product.variantCount ?? "Chưa có dữ liệu"}</strong></div></Card><label className="field-wrap">Chọn biến thể<select className="select-field" value={selectedSkuId} onChange={(event) => setSelectedSkuId(event.target.value)}><option value="">Chọn SKU</option>{product.variants?.filter((variant) => variant.status?.toUpperCase() === "ACTIVE" && typeof variant.price === "number" && variant.price > 0).map((variant) => <option key={variant.id} value={variant.skuId}>{variant.name ?? variant.sku} · {formatMoney(variant.price)}</option>)}</select></label><div className="action-row"><button className="button button-primary" disabled={adding || !canAdd} onClick={() => void addToCart()}>{adding ? "Đang thêm…" : "Thêm vào giỏ"}</button><Link className="button button-secondary" href={ROUTES.buyer.cart}>Giỏ hàng</Link></div>{cartError && <p role="alert" className="notice">{cartError}</p>}</div></div><SectionHeading title="Thông tin sản phẩm" /><Card className="card-pad"><p>{product.description ?? ""}</p></Card></> : <><PageHeading title="Chi tiết sản phẩm" />{resource.error ? <p role="alert" className="notice">{problem(resource.error)}</p> : <NoData title={resource.loading ? "Đang tải sản phẩm…" : "Không tìm thấy sản phẩm"} />}</>;
 }
