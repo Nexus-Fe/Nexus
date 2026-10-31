@@ -10,6 +10,7 @@ export const ROUTES = {
     room: (id: string) => "/auctions/" + encodeURIComponent(id),
   },
   buyer: {
+    becomeSeller: "/buyer/become-seller",
     auctions: "/buyer/auctions",
     auctionResult: (id: string) => "/buyer/auctions/" + encodeURIComponent(id) + "/result",
     auctionPayment: (id: string) => "/buyer/auctions/" + encodeURIComponent(id) + "/payment",

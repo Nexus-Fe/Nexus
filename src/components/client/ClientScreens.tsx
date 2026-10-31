@@ -78,6 +78,10 @@ export const BuyerTopUpScreenClient = dynamic(() => import("@/features/wallet/Wa
 export const SellerWalletScreenClient = dynamic(() => import("@/features/wallet/WalletOperationsScreens").then((module) => module.SellerWalletScreen), { ssr: false, loading: ScreenLoading });
 export const SellerWithdrawalsScreenClient = dynamic(() => import("@/features/wallet/WalletOperationsScreens").then((module) => module.SellerWithdrawalsScreen), { ssr: false, loading: ScreenLoading });
 
+export const BecomeSellerScreenClient = dynamic(
+  () => import("@/features/seller/SellerScreens").then((module) => module.BecomeSellerScreen),
+  { ssr: false, loading: ScreenLoading },
+);
 export const SellerProductsScreenClient = dynamic(
   () => import("@/features/seller/SellerScreens").then((module) => module.SellerProductsScreen),
   { ssr: false, loading: ScreenLoading },
@@ -132,4 +136,3 @@ export const AdminRolesScreenClient = dynamic(
 export const AdminOverviewScreenClient = dynamic(() => import("@/features/admin/AdminScreens").then((module) => module.AdminOverviewScreen), { ssr: false, loading: ScreenLoading });
 export const AdminAuditLogScreenClient = dynamic(() => import("@/features/admin/AdminScreens").then((module) => module.AdminAuditLogScreen), { ssr: false, loading: ScreenLoading });
 export const AdminContractScreenClient = dynamic(() => import("@/features/admin/AdminScreens").then((module) => module.AdminContractScreen), { ssr: false, loading: ScreenLoading });
-

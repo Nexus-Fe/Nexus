@@ -31,7 +31,9 @@ function AccountNavigation() {
   const router = useRouter();
   const displayName = user?.displayName || user?.firstName || user?.username || user?.email || "tài khoản";
   const userRoles = user?.roles ?? (user?.role ? [user.role] : []);
-  const hasPrivilegedRole = dashboardsForRoles(userRoles).length > 0;
+  const dashboardLinks = dashboardsForRoles(userRoles);
+  const hasPrivilegedRole = dashboardLinks.length > 0;
+  const isSeller = userRoles.some((role) => role.toLocaleLowerCase("en-US") === "seller");
   const logout = async () => {
     try { await authService.logout(); } catch { /* Clear the local session even when the Gateway is unavailable. */ } finally { clearSession(); router.replace(ROUTES.auth.login); }
   };
@@ -41,6 +43,14 @@ function AccountNavigation() {
         <summary><Icon name="user" size={26} /><span>Tài khoản {displayName}</span><Icon name="chevronDown" size={18} /></summary>
         <div className="account-menu-panel">
           {!hasPrivilegedRole && <Link href={ROUTES.buyer.orders}>Đơn mua</Link>}
+          {isSeller ? (
+            <>
+              <Link href={ROUTES.seller.products}>Kênh người bán</Link>
+              <Link href={ROUTES.seller.shop}>Hồ sơ gian hàng &amp; Kho</Link>
+            </>
+          ) : (
+            <Link href={ROUTES.buyer.becomeSeller}>Đăng ký bán hàng</Link>
+          )}
           <Link href={ROUTES.buyer.wallet}>Ví của tôi</Link>
           <Link href={ROUTES.auth.profile}>Hồ sơ cá nhân</Link>
           <Link href={ROUTES.auth.changePassword}>Đổi mật khẩu</Link>

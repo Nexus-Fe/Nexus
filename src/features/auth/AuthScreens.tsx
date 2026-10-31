@@ -191,13 +191,23 @@ export function AccountProfileScreen() {
   const p=profile.data??{};const r=reputation.data??{};const address=typeof p.address==="object"&&p.address!==null?p.address as Record<string,unknown>:{};
   const displayName=[p.firstName,p.lastName].filter(Boolean).join(" ") || user?.displayName || user?.username || "Tài khoản Nexus";
   const email=String(p.email??user?.email??"");
-  const isSeller=Boolean(user?.roles?.some(role=>role.toLowerCase()==="seller")||user?.role?.toLowerCase()==="seller");
+  const isSeller=Boolean(user?.roles?.some(role=>role.toLowerCase()==="seller")||user?.role?.toLowerCase()==="seller"||p.isSeller===true);
   return <div className="profile-page">
     <nav className="profile-breadcrumb" aria-label="Đường dẫn"><Link href={ROUTES.home}>Tài khoản Nexus</Link><span aria-hidden="true">›</span><span>Hồ sơ cá nhân</span></nav>
     <div className="profile-layout">
       <aside className="profile-sidebar">
         <div className="profile-identity"><span className="profile-avatar" aria-hidden="true">{String(displayName).charAt(0).toLocaleUpperCase("vi-VN")}</span><strong>{displayName}</strong>{email&&<small>{email}</small>}</div>
-        <nav className="profile-nav" aria-label="Điều hướng tài khoản"><Link href={ROUTES.auth.changePassword}>Đổi mật khẩu &amp; bảo mật</Link></nav>
+        <nav className="profile-nav" aria-label="Điều hướng tài khoản">
+          <Link href={ROUTES.auth.changePassword}>Đổi mật khẩu &amp; bảo mật</Link>
+          {isSeller ? (
+            <>
+              <Link href={ROUTES.seller.products}>Kênh người bán</Link>
+              <Link href={ROUTES.seller.shop}>Hồ sơ gian hàng &amp; Kho GHN</Link>
+            </>
+          ) : (
+            <Link href={ROUTES.buyer.becomeSeller}>Đăng ký bán hàng (Become Seller)</Link>
+          )}
+        </nav>
       </aside>
       <div className="profile-content">
         <section id="profile-information" className="profile-panel"><div className="profile-panel-heading"><div><h1>Hồ sơ cá nhân</h1><p>Cập nhật thông tin cá nhân và phương thức liên hệ.</p></div></div>
@@ -208,11 +218,34 @@ export function AccountProfileScreen() {
             <label className="field-wrap">Tên đăng nhập<input className="field" name="username" defaultValue={String(p.username??"")} maxLength={100}/></label>
             <div id="profile-address" className="profile-form-section"><h2>Địa chỉ liên hệ và giao hàng mặc định</h2><div className="profile-form-grid"><label className="field-wrap">Mã tỉnh<input className="field" name="provinceId" type="number" required defaultValue={String(address.provinceId??"")}/></label><label className="field-wrap">Mã quận/huyện<input className="field" name="districtId" type="number" required defaultValue={String(address.districtId??"")}/></label><label className="field-wrap">Mã phường<input className="field" name="wardCode" required defaultValue={String(address.wardCode??"")}/></label><label className="field-wrap">Địa chỉ cụ thể<input className="field" name="streetAddress" required defaultValue={String(address.streetAddress??"")}/></label></div></div>
             {error&&<p role="alert" className="notice">{error}</p>}{saved&&<p role="status" className="form-success">{saved}</p>}
-            <div className="profile-actions"><button type="reset" className="button button-secondary" disabled={busy}>Hủy thao tác</button><button className="button button-primary" disabled={busy||profile.loading}>{busy?"Đang lưu…":"Lưu thay đổi"}</button></div>
+            <div className="profile-actions"><button type="reset" className="button button-secondary" disabled={busy}>Hủy thao tác</button><button type="submit" className="button button-primary" disabled={busy||profile.loading}>{busy?"Đang lưu…":"Lưu thay đổi"}</button></div>
           </form>}
         </section>
         <section id="profile-reputation" className="profile-panel"><div className="profile-panel-heading"><div><h2>Điểm uy tín &amp; quyền hạn</h2><p>Thông tin được cập nhật từ tài khoản của bạn.</p></div></div><div className="profile-stats"><div><span>Điểm uy tín</span><strong>{String(r.reputationScore??p.reputationScore??"—")}</strong><small>{String(r.trustLevel??p.trustLevel??"")}</small></div><div><span>Đấu giá</span><strong>{r.canBid===true?"Đủ điều kiện đặt giá":r.canBid===false?"Chưa đủ điều kiện":"Chưa có dữ liệu"}</strong></div><div><span>Bán hàng</span><strong>{r.canSell===true?"Đủ điều kiện bán":r.canSell===false?"Chưa đủ điều kiện":"Chưa có dữ liệu"}</strong></div></div>{reputation.error&&<p role="alert" className="notice">{reputation.error.message}</p>}</section>
-        {isSeller&&<section id="profile-selling" className="profile-panel"><div className="profile-panel-heading"><div><h2>Kênh bán hàng</h2><p>Quản lý sản phẩm và phiên đấu giá của gian hàng.</p></div><Link className="button button-secondary" href={ROUTES.seller.products}>Truy cập Seller Center</Link></div></section>}
+        {isSeller ? (
+          <section id="profile-selling" className="profile-panel">
+            <div className="profile-panel-heading">
+              <div>
+                <h2>Kênh bán hàng</h2>
+                <p>Tài khoản của bạn đã có quyền Seller. Quản lý sản phẩm, kho GHN và phiên đấu giá của gian hàng.</p>
+              </div>
+              <div className="action-row" style={{ marginTop: 0 }}>
+                <Link className="button button-primary" href={ROUTES.seller.products}>Truy cập Seller Center</Link>
+                <Link className="button button-secondary" href={ROUTES.seller.shop}>Hồ sơ gian hàng &amp; Kho GHN</Link>
+              </div>
+            </div>
+          </section>
+        ) : (
+          <section id="profile-selling" className="profile-panel">
+            <div className="profile-panel-heading">
+              <div>
+                <h2>Đăng ký trở thành Seller</h2>
+                <p>Mở gian hàng trên NEXUS, xác thực email doanh nghiệp và đồng bộ kho lấy hàng GHN.</p>
+              </div>
+              <Link className="button button-primary" href={ROUTES.buyer.becomeSeller}>Đăng ký bán hàng</Link>
+            </div>
+          </section>
+        )}
         <section className="profile-panel"><div className="profile-panel-heading"><div><h2>Lịch sử vi phạm</h2><p>Các ghi nhận liên quan đến tài khoản.</p></div></div>{penalties.error&&<p role="alert" className="notice">{penalties.error.message}</p>}{penalties.data?.length?penalties.data.map((item,index)=><div className="info-row" key={String(item.id??index)}><span><strong>{String(item.violationType??"Vi phạm")}</strong><br/>{String(item.reason??"")}<br/>{String(item.issuedAt??"")}</span><span>{String(item.status??"")}</span></div>):<NoData title={penalties.loading?"Đang tải lịch sử…":penalties.error?"Không tải được lịch sử":"Chưa có vi phạm"}/>}</section>
       </div>
     </div>

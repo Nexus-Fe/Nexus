@@ -10,6 +10,7 @@ export const buyerNavigation: NavigationItem[] = [
   { label: "Đấu giá của tôi", href: ROUTES.buyer.auctions, icon: "gavel" },
   { label: "Ví của tôi", href: ROUTES.buyer.wallet, icon: "wallet" },
   { label: "Báo cáo", href: ROUTES.buyer.reports, icon: "flag" },
+  { label: "Đăng ký bán hàng", href: ROUTES.buyer.becomeSeller, icon: "warehouse" },
 ];
 
 export const sellerNavigation: NavigationItem[] = [

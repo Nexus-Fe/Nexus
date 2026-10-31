@@ -1,5 +1,5 @@
 import Link from "next/link";
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import { Icon } from "./Icon";
 
 export function ButtonLink({ href, children, variant = "primary", small = false }: { href: string; children: ReactNode; variant?: "primary" | "secondary" | "light"; small?: boolean }) {
@@ -10,8 +10,8 @@ export function DisabledAction({ children, small = false }: { children: ReactNod
   return <button className={"button button-disabled" + (small ? " button-small" : "")} disabled title="Thao tác này chưa có API hoạt động">{children}</button>;
 }
 
-export function Card({ children, className = "" }: { children: ReactNode; className?: string }) {
-  return <section className={"card " + className}>{children}</section>;
+export function Card({ children, className = "", style }: { children: ReactNode; className?: string; style?: CSSProperties }) {
+  return <section className={"card " + className} style={style}>{children}</section>;
 }
 
 export function Badge({ children, tone = "sky" }: { children: ReactNode; tone?: "sky" | "green" | "amber" | "slate" | "red" | "indigo" }) {
@@ -33,4 +33,3 @@ export function NoData({ className = "", title = "Chưa có dữ liệu" }: { cl
 export function EmptyTable({ columns }: { columns: string[] }) {
   return <div className="table-scroll"><table className="data-table"><thead><tr>{columns.map((column) => <th key={column}>{column}</th>)}</tr></thead><tbody><tr className="table-empty"><td colSpan={columns.length}><NoData /></td></tr></tbody></table></div>;
 }
-
