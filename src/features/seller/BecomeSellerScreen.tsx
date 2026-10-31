@@ -220,14 +220,6 @@ export function BecomeSellerScreen() {
 
   const syncOnboardingState = useCallback(
     async (isManualRefresh = false) => {
-      if (isManualRefresh) {
-        setRefreshingStatus(true);
-        setClassifiedError(null);
-        setStatusNotice(null);
-      } else {
-        setInitialLoading(true);
-      }
-
       try {
         // 1. Load personal profile & roles from GET /api/v1/me
         let meShopName = "";
@@ -393,6 +385,13 @@ export function BecomeSellerScreen() {
     },
     [appendBlocker, isSellerRole, loadSellerWarehouseProfile, refreshUser, user],
   );
+
+  const handleManualRefresh = useCallback(async () => {
+    setRefreshingStatus(true);
+    setClassifiedError(null);
+    setStatusNotice(null);
+    await syncOnboardingState(true);
+  }, [syncOnboardingState]);
 
   useEffect(() => {
     void syncOnboardingState(false);
@@ -747,7 +746,7 @@ export function BecomeSellerScreen() {
               type="button"
               className="button button-secondary"
               disabled={refreshingStatus || initialLoading}
-              onClick={() => void syncOnboardingState(true)}
+              onClick={() => void handleManualRefresh()}
             >
               <Icon name="clock" size={16} />
               {refreshingStatus ? "Đang kiểm tra…" : "Kiểm tra trạng thái hồ sơ"}
@@ -1006,7 +1005,7 @@ export function BecomeSellerScreen() {
                   type="button"
                   className="button button-secondary"
                   disabled={refreshingStatus}
-                  onClick={() => void syncOnboardingState(true)}
+                  onClick={() => void handleManualRefresh()}
                 >
                   Làm mới trạng thái
                 </button>
@@ -1175,7 +1174,7 @@ export function BecomeSellerScreen() {
                   type="button"
                   className="button button-primary"
                   disabled={refreshingStatus}
-                  onClick={() => void syncOnboardingState(true)}
+                  onClick={() => void handleManualRefresh()}
                 >
                   {refreshingStatus ? "Đang đồng bộ…" : "Cập nhật kết quả duyệt từ Staff"}
                 </button>
@@ -1464,7 +1463,7 @@ export function BecomeSellerScreen() {
                       <button
                         type="button"
                         className="button button-secondary button-small"
-                        onClick={() => void syncOnboardingState(true)}
+                        onClick={() => void handleManualRefresh()}
                       >
                         Đọc trạng thái từ API
                       </button>
