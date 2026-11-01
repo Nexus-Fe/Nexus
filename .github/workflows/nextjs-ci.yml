@@ -4,10 +4,12 @@ on:
   push:
     branches:
       - main
+      - dev
       - feature/**
   pull_request:
     branches:
       - main
+      - dev
 
 jobs:
   build:
@@ -37,4 +39,4 @@ jobs:
         run: npm run build
         env:
           NEXT_TELEMETRY_DISABLED: 1
-          NEXT_PUBLIC_API_URL: http://localhost:8080
+          API_GATEWAY_URL: http://localhost:8080

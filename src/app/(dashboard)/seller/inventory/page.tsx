@@ -1,7 +1,3 @@
-import { RoutePlaceholder } from "@/components/layout/RoutePlaceholder";
+import { SellerInventoryScreenClient } from "@/components/client/ClientScreens";
 
-export default function SellerInventoryPage() {
-  return (
-    <RoutePlaceholder area="Cổng người bán" title="Kho hàng" description="Màn hình tồn kho sẽ hiển thị dữ liệu được quản lý qua Catalog Service." />
-  );
-}
+export default function SellerInventoryPage() { return <SellerInventoryScreenClient />; }

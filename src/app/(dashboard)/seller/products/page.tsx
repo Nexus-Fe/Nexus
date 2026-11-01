@@ -1,7 +1,3 @@
-import { RoutePlaceholder } from "@/components/layout/RoutePlaceholder";
+import { SellerProductsScreenClient } from "@/components/client/ClientScreens";
 
-export default function SellerProductsPage() {
-  return (
-    <RoutePlaceholder area="Cổng người bán" title="Sản phẩm đang bán" description="Người bán sẽ quản lý thông tin sản phẩm trong feature catalog." />
-  );
-}
+export default function SellerProductsPage() { return <SellerProductsScreenClient />; }

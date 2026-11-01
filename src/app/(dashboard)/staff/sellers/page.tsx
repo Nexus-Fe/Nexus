@@ -1,7 +1,3 @@
-import { RoutePlaceholder } from "@/components/layout/RoutePlaceholder";
+import { StaffSellersScreenClient } from "@/components/client/ClientScreens";
 
-export default function StaffSellerApprovalPage() {
-  return (
-    <RoutePlaceholder area="Cổng nhân viên vận hành" title="Duyệt người bán" description="Danh sách hồ sơ cần duyệt sẽ được nối với chức năng quản lý người bán của backend." />
-  );
-}
+export default function StaffSellerApprovalPage() { return <StaffSellersScreenClient />; }

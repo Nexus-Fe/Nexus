@@ -1,7 +1,5 @@
-import { RoutePlaceholder } from "@/components/layout/RoutePlaceholder";
+import { AdminCategoriesScreenClient } from "@/components/client/ClientScreens";
 
 export default function AdminCategoriesPage() {
-  return (
-    <RoutePlaceholder area="Cổng quản trị viên" title="Danh mục sản phẩm" description="Quản trị viên sẽ cấu hình danh mục thông qua feature catalog." />
-  );
+  return <AdminCategoriesScreenClient />;
 }

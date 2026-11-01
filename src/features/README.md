@@ -13,7 +13,7 @@ features/[feature]/
 └── index.ts      # Interface công khai của feature
 ```
 
-Các thư mục components/hooks hiện để trống để làm khung. Types và endpoint ban đầu được suy ra từ hai kế hoạch được duyệt; cần đối chiếu OpenAPI/DTO backend trước khi dùng dữ liệu thật.
+Các màn hình trong route được nạp bằng Client Components. Request đi qua cùng-origin Gateway proxy; endpoint đã được đối chiếu với controller/DTO của Gateway.
 
 ## Feature và backend dự kiến
 
@@ -28,4 +28,4 @@ Các thư mục components/hooks hiện để trống để làm khung. Types v�
 | `notification` | Notification Service (:8007) |
 | `wallet` | Wallet Service (:8008) |
 
-Đây là bản đồ mục tiêu từ tài liệu kế hoạch, chưa được xác minh bằng source backend trong repo này. Frontend chỉ gọi API Gateway; mapping từ gateway sang microservice là trách nhiệm backend.
+Frontend chỉ gọi API Gateway; mapping từ gateway sang microservice là trách nhiệm backend. Browser không có chế độ mock hoặc auth bypass.

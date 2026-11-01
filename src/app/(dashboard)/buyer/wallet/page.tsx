@@ -1,7 +1,3 @@
-import { RoutePlaceholder } from "@/components/layout/RoutePlaceholder";
+import { WalletScreenClient } from "@/components/client/ClientScreens";
 
-export default function BuyerWalletPage() {
-  return (
-    <RoutePlaceholder area="Cổng người mua" title="Ví của tôi" description="Số dư và lịch sử giao dịch sẽ được tải qua feature wallet." />
-  );
-}
+export default function BuyerWalletPage() { return <WalletScreenClient />; }

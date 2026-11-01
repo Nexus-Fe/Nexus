@@ -1,7 +1,3 @@
-import { RoutePlaceholder } from "@/components/layout/RoutePlaceholder";
+import { OrdersScreenClient } from "@/components/client/ClientScreens";
 
-export default function BuyerOrdersPage() {
-  return (
-    <RoutePlaceholder area="Cổng người mua" title="Đơn hàng của tôi" description="Trang này sẽ liệt kê đơn hàng và trạng thái Saga do backend trả về." />
-  );
-}
+export default function BuyerOrdersPage() { return <OrdersScreenClient />; }
