@@ -9,47 +9,6 @@ export type GhnWarehouseAddress = {
   streetAddress: string;
 };
 
-export type CreateSellerRegistrationPayload = {
-  shopName: string;
-  businessEmail: string;
-  hotline: string;
-  identityCardNumber: string;
-  provinceId: number;
-  districtId: number;
-  wardCode: string;
-  streetAddress: string;
-  pickupAddress?: string;
-  warehouseAddress: GhnWarehouseAddress;
-};
-
-export type SellerRegistrationCreatedResponse = {
-  registrationId: string;
-  status: string;
-  submittedAt?: string;
-};
-
-export type VerifySellerOtpPayload = {
-  registrationId: string;
-  otpCode: string;
-};
-
-export type VerifySellerOtpResponse = {
-  registrationId: string;
-  status: string;
-  message?: string;
-};
-
-export type ResendSellerOtpPayload = {
-  registrationId: string;
-  businessEmail: string;
-};
-
-export type ResendSellerOtpResponse = {
-  registrationId?: string;
-  cooldown?: number;
-  message?: string;
-};
-
 export type SellerRegistrationStatusRecord = {
   registrationId?: string;
   status?: string;
@@ -57,6 +16,7 @@ export type SellerRegistrationStatusRecord = {
   rejectionReason?: string | null;
   submittedAt?: string | null;
   shopName?: string | null;
+  description?: string | null;
   businessEmail?: string | null;
   hotline?: string | null;
   pickupAddress?: string | GhnWarehouseAddress | null;
@@ -349,6 +309,7 @@ export type SafeRegistrationDraft = {
   userId: string;
   registrationId: string;
   shopName: string;
+  description?: string;
   businessEmail: string;
   hotline: string;
   warehouseAddress: GhnWarehouseAddress;
@@ -367,6 +328,7 @@ export function saveSafeRegistrationDraft(draft: SafeRegistrationDraft): void {
       userId: draft.userId,
       registrationId: draft.registrationId,
       shopName: draft.shopName,
+      description: draft.description,
       businessEmail: draft.businessEmail,
       hotline: draft.hotline,
       warehouseAddress: {
@@ -413,15 +375,6 @@ export const sellerService = {
 
   updateProfile: (payload: Record<string, unknown>) =>
     api.patch<ApiResponse<Record<string, unknown>>>("/api/v1/seller/profile", payload),
-
-  registerSeller: (payload: CreateSellerRegistrationPayload) =>
-    api.post<ApiResponse<SellerRegistrationCreatedResponse>>("/api/v1/seller/registration", payload),
-
-  verifyRegistrationOtp: (payload: VerifySellerOtpPayload) =>
-    api.post<ApiResponse<VerifySellerOtpResponse>>("/api/v1/seller/otp/verify", payload),
-
-  resendRegistrationOtp: (payload: ResendSellerOtpPayload) =>
-    api.post<ApiResponse<ResendSellerOtpResponse>>("/api/v1/seller/registration/otp/resend", payload),
 
   getRegistrationStatus: (signal?: AbortSignal) =>
     api.get<ApiResponse<SellerRegistrationStatusRecord>>("/api/v1/seller/registration", { signal }),

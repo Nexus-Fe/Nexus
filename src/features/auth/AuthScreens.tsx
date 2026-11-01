@@ -10,6 +10,8 @@ import { useApiResource } from "@/lib/api/use-api-resource";
 import { authService } from "./services/auth.service";
 import { ApiError } from "@/lib/api/client";
 import type { AuthUser } from "./types";
+import { ShopRegistrationForm, ShopRegistrationReview, emptyShopRegistrationFields, validateShopRegistrationFields, type ShopRegistrationFields } from "@/features/seller/components/ShopRegistrationForm";
+import { keepSellerRegistrationHandoff } from "@/features/seller/services/seller-registration-handoff";
 
 function landingPath(user: AuthUser): string {
   const roles = (user.roles ?? (user.role ? [user.role] : [])).map((role) => role.toLocaleLowerCase("en-US"));
@@ -55,12 +57,18 @@ export function LoginScreen() {
   </Card>;
 }
 
-type RegisterFields = { firstName: string; lastName: string; email: string; phoneNumber: string; password: string };
+type RegisterFields = { username: string; firstName: string; lastName: string; email: string; phoneNumber: string; password: string; confirmPassword: string };
+type RegistrationChoice = "buyer" | "seller";
+type RegistrationStep = "account" | "shop" | "review" | "verify" | "signingIn" | "complete";
 
 export function RegisterScreen() {
-  const [fields, setFields] = useState<RegisterFields>({ firstName: "", lastName: "", email: "", phoneNumber: "", password: "" });
+  const router = useRouter();
+  const { setAuthenticatedUser } = useSession();
+  const [choice, setChoice] = useState<RegistrationChoice>("buyer");
+  const [fields, setFields] = useState<RegisterFields>({ username: "", firstName: "", lastName: "", email: "", phoneNumber: "", password: "", confirmPassword: "" });
+  const [shop, setShop] = useState<ShopRegistrationFields>(emptyShopRegistrationFields);
   const [otp, setOtp] = useState("");
-  const [step, setStep] = useState<"register" | "verify" | "complete">("register");
+  const [step, setStep] = useState<RegistrationStep>("account");
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -76,21 +84,56 @@ export function RegisterScreen() {
     setFields((current) => ({ ...current, [field]: value }));
   }
 
-  async function register(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  function validateAccount(): string | null {
+    if (fields.username.trim().length < 3 || fields.username.trim().length > 50) return "Tên đăng nhập cần từ 3 đến 50 ký tự.";
+    if (!fields.firstName.trim() || !fields.lastName.trim()) return "Vui lòng nhập họ và tên.";
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(fields.email.trim())) return "Email tài khoản chưa đúng định dạng.";
+    if (!/^[0-9+() -]{9,15}$/.test(fields.phoneNumber.trim())) return "Số điện thoại cần từ 9 đến 15 ký tự số.";
+    if (fields.password.length < 8) return "Mật khẩu cần ít nhất 8 ký tự.";
+    if (fields.password !== fields.confirmPassword) return "Mật khẩu xác nhận không khớp.";
+    return null;
+  }
+
+  async function sendAccountOtp() {
+    const validationError = validateAccount();
+    if (validationError) { setError(validationError); setStep("account"); return; }
     setError(null);
     setMessage(null);
     setSubmitting(true);
     try {
-      await authService.register(fields);
+      await authService.register({ ...fields, username: fields.username.trim(), firstName: fields.firstName.trim(), lastName: fields.lastName.trim(), email: fields.email.trim(), phoneNumber: fields.phoneNumber.trim() });
       setStep("verify");
       setResendIn(60);
-      setMessage("Mã xác minh đã được gửi đến email đăng ký.");
+      setMessage(`Mã xác thực tài khoản đã được gửi tới ${fields.email.trim()}.`);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Không thể tạo tài khoản.");
     } finally {
       setSubmitting(false);
     }
+  }
+
+  function continueFromAccount(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError(null);
+    const validationError = validateAccount();
+    if (validationError) { setError(validationError); return; }
+    if (choice === "buyer") {
+      void sendAccountOtp();
+      return;
+    }
+    setShop((current) => ({ ...current, hotline: current.hotline || fields.phoneNumber.trim() }));
+    setStep("shop");
+  }
+
+  function reviewShop(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const errors = validateShopRegistrationFields(shop);
+    if (Object.keys(errors).length) {
+      setError(Object.values(errors)[0] ?? "Vui lòng kiểm tra lại thông tin shop.");
+      return;
+    }
+    setError(null);
+    setStep("review");
   }
 
   async function verify(event: FormEvent<HTMLFormElement>) {
@@ -100,9 +143,20 @@ export function RegisterScreen() {
     setSubmitting(true);
     try {
       await authService.verifyOtp(fields.email, otp);
-      setStep("complete");
-      setMessage("Tài khoản đã được xác minh. Bạn có thể đăng nhập.");
+      if (choice === "seller") keepSellerRegistrationHandoff(fields.email, shop);
+      setStep("signingIn");
+      try {
+        const session = await authService.login({ identifier: fields.email.trim(), password: fields.password });
+        setAuthenticatedUser(session.data.user);
+        setFields((current) => ({ ...current, password: "", confirmPassword: "" }));
+        router.replace(ROUTES.home);
+      } catch {
+        setFields((current) => ({ ...current, password: "", confirmPassword: "" }));
+        setStep("complete");
+        setMessage("Tài khoản đã xác thực. Hãy đăng nhập để tiếp tục; không cần xác thực OTP lại.");
+      }
     } catch (reason) {
+      setStep("verify");
       setError(reason instanceof Error ? reason.message : "Mã xác minh không hợp lệ.");
     } finally {
       setSubmitting(false);
@@ -124,28 +178,55 @@ export function RegisterScreen() {
     }
   }
 
-  return <Card className="auth-card">
-    <h1>{step === "verify" ? "Xác minh email" : step === "complete" ? "Tạo tài khoản hoàn tất" : "Tạo tài khoản thành viên"}</h1>
-    <p>{step === "verify" ? `Nhập mã xác minh đã gửi tới ${fields.email}.` : step === "complete" ? "Tài khoản đã sẵn sàng để đăng nhập." : "Tạo tài khoản NEXUS để bắt đầu hành trình mua sắm và đấu giá."}</p>
-    {step === "register" && <form className="auth-fields" onSubmit={register}>
+  const title = step === "account" ? "Tạo tài khoản Nexus" : step === "shop" ? "Thông tin gian hàng" : step === "review" ? "Xem lại đăng ký" : step === "verify" ? "Xác thực tài khoản" : step === "signingIn" ? "Đang đăng nhập" : "Tài khoản đã xác thực";
+  const description = step === "account" ? "Chọn cách bắt đầu. Mọi tài khoản mới đều có quyền Buyer trước." : step === "shop" ? "Thông tin shop sẽ được chuyển sang trang mở shop sau khi bạn xác thực tài khoản." : step === "review" ? "Kiểm tra thông tin shop trước khi tạo tài khoản và nhận OTP." : step === "verify" ? `Nhập mã OTP gửi tới email tài khoản ${fields.email}.` : step === "signingIn" ? "Đang mở phiên mua sắm cho tài khoản Buyer của bạn…" : "Bạn có thể đăng nhập. Shop đã nhập vẫn được giữ trong phiên trình duyệt này.";
+  const currentStep = step === "account" ? 1 : step === "shop" || step === "review" ? 2 : choice === "seller" ? 3 : 2;
+
+  return <Card className={`auth-card registration-card${choice === "seller" && (step === "shop" || step === "review") ? " registration-card-wide" : ""}`}>
+    <h1>{title}</h1>
+    <p>{description}</p>
+    {step !== "complete" && <ol className="registration-stepper" aria-label="Các bước đăng ký">
+      {["Tài khoản", ...(choice === "seller" ? ["Thông tin shop"] : []), "Xác thực email"].map((label, index) => <li className={index + 1 === currentStep ? "active" : index + 1 < currentStep ? "complete" : ""} key={label}><span>{index + 1}</span>{label}</li>)}
+    </ol>}
+    {step === "account" && <form className="auth-fields" onSubmit={continueFromAccount}>
+      <fieldset className="registration-choice">
+        <legend>Bạn muốn bắt đầu với</legend>
+        <label><input type="radio" name="registration-choice" checked={choice === "buyer"} onChange={() => setChoice("buyer")} /><span><strong>Mua hàng</strong><small>Tài khoản Buyer để khám phá và đặt hàng.</small></span></label>
+        <label><input type="radio" name="registration-choice" checked={choice === "seller"} onChange={() => setChoice("seller")} /><span><strong>Mở gian hàng</strong><small>Tài khoản vẫn là Buyer; quyền bán cần Staff duyệt.</small></span></label>
+      </fieldset>
+      <label className="field-wrap" htmlFor="register-username">Tên đăng nhập<input id="register-username" className="field" autoComplete="username" minLength={3} maxLength={50} required value={fields.username} onChange={(event) => updateField("username", event.target.value)} /></label>
       <div className="form-grid">
-        <div className="field-wrap"><label htmlFor="register-first">Họ</label><input id="register-first" className="field" autoComplete="given-name" required value={fields.firstName} onChange={(event) => updateField("firstName", event.target.value)} /></div>
-        <div className="field-wrap"><label htmlFor="register-last">Tên</label><input id="register-last" className="field" autoComplete="family-name" required value={fields.lastName} onChange={(event) => updateField("lastName", event.target.value)} /></div>
+        <label className="field-wrap" htmlFor="register-first">Họ<input id="register-first" className="field" autoComplete="family-name" required value={fields.firstName} onChange={(event) => updateField("firstName", event.target.value)} /></label>
+        <label className="field-wrap" htmlFor="register-last">Tên<input id="register-last" className="field" autoComplete="given-name" required value={fields.lastName} onChange={(event) => updateField("lastName", event.target.value)} /></label>
       </div>
-      <div className="field-wrap"><label htmlFor="register-email">Email</label><input id="register-email" className="field" type="email" autoComplete="email" required value={fields.email} onChange={(event) => updateField("email", event.target.value)} /></div>
-      <div className="field-wrap"><label htmlFor="register-phone">Số điện thoại</label><input id="register-phone" className="field" type="tel" autoComplete="tel" required value={fields.phoneNumber} onChange={(event) => updateField("phoneNumber", event.target.value)} /></div>
-      <div className="field-wrap"><label htmlFor="register-password">Mật khẩu</label><input id="register-password" className="field" type="password" autoComplete="new-password" minLength={8} required value={fields.password} onChange={(event) => updateField("password", event.target.value)} /></div>
-      <button className="button button-primary" type="submit" disabled={submitting}>{submitting ? "Đang gửi…" : "Tạo tài khoản"}</button>
+      <label className="field-wrap" htmlFor="register-email">Email tài khoản · nhận OTP<input id="register-email" className="field" type="email" autoComplete="email" required value={fields.email} onChange={(event) => updateField("email", event.target.value)} /></label>
+      <label className="field-wrap" htmlFor="register-phone">Số điện thoại<input id="register-phone" className="field" type="tel" autoComplete="tel" required value={fields.phoneNumber} onChange={(event) => updateField("phoneNumber", event.target.value)} /></label>
+      <div className="form-grid">
+        <label className="field-wrap" htmlFor="register-password">Mật khẩu<input id="register-password" className="field" type="password" autoComplete="new-password" minLength={8} required value={fields.password} onChange={(event) => updateField("password", event.target.value)} /></label>
+        <label className="field-wrap" htmlFor="register-confirm-password">Xác nhận mật khẩu<input id="register-confirm-password" className="field" type="password" autoComplete="new-password" minLength={8} required value={fields.confirmPassword} onChange={(event) => updateField("confirmPassword", event.target.value)} /></label>
+      </div>
+      <button className="button button-primary" type="submit" disabled={submitting}>{submitting ? "Đang gửi mã…" : choice === "seller" ? "Tiếp tục nhập thông tin shop" : "Tạo tài khoản và gửi OTP"}</button>
     </form>}
+    {step === "shop" && <form className="auth-fields" onSubmit={reviewShop}>
+      <ShopRegistrationForm idPrefix="new-seller" value={shop} onChange={setShop} />
+      <div className="action-row"><button className="button button-secondary" type="button" onClick={() => setStep("account")}>Quay lại</button><button className="button button-primary" type="submit">Kiểm tra thông tin</button></div>
+    </form>}
+    {step === "review" && <div className="auth-fields">
+      <div className="info-row"><span>Tài khoản</span><strong>{fields.username.trim()} · {fields.email.trim()}</strong></div>
+      <ShopRegistrationReview value={shop} />
+      <p className="status-note">Tiếp tục sẽ tạo tài khoản Buyer và gửi một OTP tới email tài khoản. Hồ sơ shop chưa được gửi.</p>
+      <div className="action-row"><button className="button button-secondary" type="button" onClick={() => setStep("shop")}>Sửa thông tin shop</button><button className="button button-primary" type="button" disabled={submitting} onClick={() => void sendAccountOtp()}>{submitting ? "Đang gửi OTP…" : "Tạo tài khoản và gửi OTP"}</button></div>
+    </div>}
     {step === "verify" && <form className="auth-fields" onSubmit={verify}>
-      <div className="field-wrap"><label htmlFor="register-otp">Mã xác minh</label><input id="register-otp" className="field" inputMode="numeric" autoComplete="one-time-code" minLength={6} required value={otp} onChange={(event) => setOtp(event.target.value)} /></div>
-      <button className="button button-primary" type="submit" disabled={submitting}>{submitting ? "Đang xác minh…" : "Xác minh tài khoản"}</button>
-      <button className="button button-secondary" type="button" disabled={submitting||resendIn>0} onClick={() => void resendOtp()}>{resendIn>0?`Gửi lại mã sau ${resendIn}s`:"Gửi lại mã"}</button>
+      <label className="field-wrap" htmlFor="register-otp">Mã OTP tài khoản<input id="register-otp" className="field" inputMode="numeric" autoComplete="one-time-code" minLength={6} maxLength={6} pattern="[0-9]{6}" required value={otp} onChange={(event) => setOtp(event.target.value.replace(/\D/g, "").slice(0, 6))} /></label>
+      <button className="button button-primary" type="submit" disabled={submitting || otp.length !== 6}>{submitting ? "Đang xác thực và đăng nhập…" : "Xác thực và tiếp tục"}</button>
+      <button className="button button-secondary" type="button" disabled={submitting || resendIn > 0} onClick={() => void resendOtp()}>{resendIn > 0 ? `Gửi lại mã sau ${resendIn}s` : "Gửi lại OTP tài khoản"}</button>
     </form>}
-    {step === "complete" && <Link className="button button-primary" href={ROUTES.auth.login}>Đăng nhập</Link>}
+    {step === "signingIn" && <p className="status-note" role="status">Đang đăng nhập tự động sau khi xác thực OTP…</p>}
+    {step === "complete" && <div className="auth-fields"><p className="form-success" role="status">{message}</p><Link className="button button-primary" href={ROUTES.auth.login}>Đăng nhập</Link></div>}
     {error && <p className="form-error" role="alert">{error}</p>}
-    {message && <p className="form-success" role="status">{message}</p>}
-    <p className="auth-footnote">Đã có tài khoản? <Link href={ROUTES.auth.login}>Đăng nhập</Link></p>
+    {message && step !== "complete" && <p className="form-success" role="status">{message}</p>}
+    {step === "account" && <p className="auth-footnote">Đã có tài khoản? <Link href={ROUTES.auth.login}>Đăng nhập</Link></p>}
   </Card>;
 }
 
