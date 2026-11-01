@@ -8,6 +8,7 @@ import { useSession } from "@/components/auth/SessionProvider";
 import { Card, NoData } from "@/components/ui/Primitives";
 import { useApiResource } from "@/lib/api/use-api-resource";
 import { authService } from "./services/auth.service";
+import { ApiError } from "@/lib/api/client";
 import type { AuthUser } from "./types";
 
 function landingPath(user: AuthUser): string {
@@ -34,7 +35,7 @@ export function LoginScreen() {
       setAuthenticatedUser(response.data.user);
       router.replace(landingPath(response.data.user));
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "Không thể đăng nhập.");
+      setError(reason instanceof ApiError && reason.status === 423 ? "Tài khoản tạm khóa do đăng nhập sai nhiều lần. Vui lòng thử lại sau." : reason instanceof Error ? reason.message : "Không thể đăng nhập.");
     } finally {
       setSubmitting(false);
     }
@@ -51,7 +52,6 @@ export function LoginScreen() {
     </form>
     <p className="auth-footnote"><Link href={ROUTES.auth.forgotPassword}>Quên mật khẩu?</Link></p>
     <p className="auth-footnote">Chưa có tài khoản, <Link href={ROUTES.auth.register}>Đăng kí ngay</Link></p>
-    <span className="sr-only">Phiên làm việc được xác thực bởi API Gateway ở chế độ Real.</span>
   </Card>;
 }
 
@@ -165,7 +165,7 @@ export function ForgotPasswordScreen() {
     finally { setBusy(false); }
   }
   return <Card className="auth-card"><h1>Quên mật khẩu</h1><p>Nhập email đăng ký để nhận mã OTP đặt lại mật khẩu.</p>
-    {sent ? <div><p className="form-success" role="status">Nếu email tồn tại, hướng dẫn đặt lại mật khẩu đã được gửi.</p><div className="action-row"><Link className="button button-primary" href={ROUTES.auth.resetPassword}>Nhập mã OTP</Link><button className="button button-secondary" type="button" disabled={busy||resendIn>0} onClick={()=>{setBusy(true);setError("");void authService.resendOtp(email,"FORGOT_PASSWORD").then(response=>setResendIn(response.data.resendCooldown||60)).catch(reason=>setError(reason instanceof Error?reason.message:"Không thể gửi lại mã OTP.")).finally(()=>setBusy(false));}}>{resendIn>0?`Gửi lại mã sau ${resendIn}s`:"Gửi lại mã OTP"}</button></div>{error&&<p className="form-error" role="alert">{error}</p>}</div> : <form className="auth-fields" onSubmit={submit}><div className="field-wrap"><label htmlFor="forgot-email">Email</label><input id="forgot-email" className="field" type="email" autoComplete="email" required value={email} onChange={event => setEmail(event.target.value)} /></div>{error && <p className="form-error" role="alert">{error}</p>}<button className="button button-primary" disabled={busy}>{busy ? "Đang gửi…" : "Gửi mã OTP"}</button></form>}
+    {sent ? <div><p className="form-success" role="status">Nếu email tồn tại, hướng dẫn đặt lại mật khẩu đã được gửi.</p><div className="action-row"><Link className="button button-primary" href={ROUTES.auth.resetPassword}>Nhập mã OTP</Link><button className="button button-secondary" type="button" disabled={busy||resendIn>0} onClick={()=>{setBusy(true);setError("");void import("@/lib/api/client").then(({api})=>api.post("/api/v1/auth/password/forgot",{email})).then(()=>setResendIn(60)).catch(reason=>setError(reason instanceof Error?reason.message:"Không thể gửi lại mã OTP.")).finally(()=>setBusy(false));}}>{resendIn>0?`Gửi lại mã sau ${resendIn}s`:"Gửi lại mã OTP"}</button></div>{error&&<p className="form-error" role="alert">{error}</p>}</div> : <form className="auth-fields" onSubmit={submit}><div className="field-wrap"><label htmlFor="forgot-email">Email</label><input id="forgot-email" className="field" type="email" autoComplete="email" required value={email} onChange={event => setEmail(event.target.value)} /></div>{error && <p className="form-error" role="alert">{error}</p>}<button className="button button-primary" disabled={busy}>{busy ? "Đang gửi…" : "Gửi mã OTP"}</button></form>}
     <p className="auth-footnote"><Link href={ROUTES.auth.login}>Quay lại đăng nhập</Link></p></Card>;
 }
 

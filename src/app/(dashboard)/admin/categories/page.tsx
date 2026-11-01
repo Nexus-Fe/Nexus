@@ -1,5 +1,5 @@
-import { AdminContractScreenClient } from "@/components/client/ClientScreens";
+import { AdminCategoriesScreenClient } from "@/components/client/ClientScreens";
 
 export default function AdminCategoriesPage() {
-  return <AdminContractScreenClient screen="categories" />;
+  return <AdminCategoriesScreenClient />;
 }
