@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { Badge, Card, NoData, PageHeading, SectionHeading } from "@/components/ui/Primitives";
 import { BackendImage } from "@/components/ui/BackendImage";
@@ -39,6 +39,7 @@ function ProductDetailsForm({ product, onSaved }: { product: SellerProductDetail
 
 export function SellerProductDetailScreen() {
   const params = useParams<{ id: string }>();
+  const router = useRouter();
   const id = String(params.id ?? "");
   const product = useApiResource(id ? `seller-product:${id}` : null, (signal) => sellerCatalogService.detail(id, signal));
   const [skuCode, setSkuCode] = useState("");
@@ -71,10 +72,29 @@ export function SellerProductDetailScreen() {
     catch (cause) { setError(cause instanceof Error ? cause.message : "Không tải được ảnh."); }
     finally { setBusy(false); }
   }
-  async function publish() {
+  async function changeStatus(status: "ACTIVE" | "INACTIVE") {
     setBusy(true); setError(""); setNotice("");
-    try { await sellerCatalogService.publish(id); setNotice("Sản phẩm đã được kích hoạt."); product.reload(); }
-    catch (cause) { setError(cause instanceof Error ? cause.message : "Không kích hoạt được sản phẩm."); }
+    try { await sellerCatalogService.changeStatus(id, status); setNotice(status === "ACTIVE" ? "Sản phẩm đã được kích hoạt." : "Sản phẩm đã tạm ngừng bán."); product.reload(); }
+    catch (cause) { setError(cause instanceof Error ? cause.message : "Không đổi được trạng thái sản phẩm."); }
+    finally { setBusy(false); }
+  }
+  async function deleteProduct() {
+    if (!window.confirm("Xóa sản phẩm này? Thao tác sẽ ẩn sản phẩm và các biến thể khỏi sàn.")) return;
+    setBusy(true); setError(""); setNotice("");
+    try { await sellerCatalogService.deleteProduct(id); router.replace(ROUTES.seller.products); }
+    catch (cause) { setError(cause instanceof Error ? cause.message : "Không xóa được sản phẩm."); setBusy(false); }
+  }
+  async function setDefaultVariant(variantId: string) {
+    setBusy(true); setError(""); setNotice("");
+    try { await sellerCatalogService.setDefaultVariant(id, variantId); setNotice("Đã chọn biến thể mặc định."); product.reload(); }
+    catch (cause) { setError(cause instanceof Error ? cause.message : "Không chọn được biến thể mặc định."); }
+    finally { setBusy(false); }
+  }
+  async function deleteImage(imageId: string) {
+    if (!window.confirm("Xóa ảnh này khỏi sản phẩm?")) return;
+    setBusy(true); setError(""); setNotice("");
+    try { await sellerCatalogService.deleteImage(id, imageId); setNotice("Đã xóa ảnh."); product.reload(); }
+    catch (cause) { setError(cause instanceof Error ? cause.message : "Không xóa được ảnh."); }
     finally { setBusy(false); }
   }
 
@@ -83,14 +103,14 @@ export function SellerProductDetailScreen() {
     {product.error && <p className="notice" role="alert">{product.error.message} Kiểm tra route /api/v1/seller/products trên Gateway.</p>}
     {error && <p className="notice" role="alert">{error}</p>}{notice && <p className="form-success" role="status">{notice}</p>}
     {!data ? <Card><NoData title={product.loading ? "Đang tải sản phẩm…" : "Chưa tải được sản phẩm"} /></Card> : <div className="seller-product-workspace">
-      <Card className="card-pad"><div className="seller-product-summary"><div><Badge>{data.status}</Badge><p>Mã sản phẩm: {data.productId}</p></div><Link className="button button-secondary" href={ROUTES.seller.inventory}>Xem tồn kho</Link></div></Card>
+      <Card className="card-pad"><div className="seller-product-summary"><div><Badge>{data.status}</Badge><p>Mã sản phẩm: {data.productId}</p></div><div className="action-row"><Link className="button button-secondary" href={ROUTES.seller.inventory}>Xem tồn kho</Link>{data.status.toUpperCase() === "ACTIVE" && <button type="button" className="button button-secondary" disabled={busy} onClick={() => void changeStatus("INACTIVE")}>Tạm ngừng bán</button>}<button type="button" className="button button-secondary" disabled={busy} onClick={() => void deleteProduct()}>Xóa sản phẩm</button></div></div></Card>
       <ProductDetailsForm key={data.productId} product={data} onSaved={() => { setNotice("Đã lưu sản phẩm."); product.reload(); }} />
-      <Card className="card-pad"><SectionHeading title={`Biến thể (${data.variants.length}/10)`} /><div className="table-scroll"><table className="data-table"><thead><tr><th>SKU</th><th>Tên</th><th>Thuộc tính</th><th>Giá</th><th>Trạng thái</th></tr></thead><tbody>{data.variants.map((variant) => <tr key={variant.variantId}><td>{variant.skuCode}</td><td>{variant.name}</td><td>{variant.attributes.map((attribute) => `${attribute.attrName}: ${attribute.attrValue}`).join(", ") || "—"}</td><td>{formatMoney(variant.price)}</td><td><Badge>{variant.status}</Badge></td></tr>)}</tbody></table></div>
+      <Card className="card-pad"><SectionHeading title={`Biến thể (${data.variants.length}/10)`} /><div className="table-scroll"><table className="data-table"><thead><tr><th>SKU</th><th>Tên</th><th>Thuộc tính</th><th>Giá</th><th>Trạng thái</th><th>Biến thể mặc định</th></tr></thead><tbody>{data.variants.map((variant) => <tr key={variant.variantId}><td>{variant.skuCode}</td><td>{variant.name}</td><td>{variant.attributes.map((attribute) => `${attribute.attrName}: ${attribute.attrValue}`).join(", ") || "—"}</td><td>{formatMoney(variant.price)}</td><td><Badge>{variant.status}</Badge></td><td>{variant.isActive ? <Badge>Mặc định</Badge> : <button type="button" className="button button-secondary" disabled={busy || variant.status.toUpperCase() !== "ACTIVE"} onClick={() => void setDefaultVariant(variant.variantId)}>Đặt mặc định</button>}</td></tr>)}</tbody></table></div>
         {data.variants.length < 10 && <form className="auth-fields seller-product-form" onSubmit={(event) => void addVariant(event)}><h3>Thêm biến thể</h3><div className="form-grid"><label className="field-wrap">Mã SKU<input className="field" required value={skuCode} onChange={(event) => setSkuCode(event.target.value)} /></label><label className="field-wrap">Tên biến thể<input className="field" required value={variantName} onChange={(event) => setVariantName(event.target.value)} /></label><label className="field-wrap">Màu sắc<input className="field" value={color} onChange={(event) => setColor(event.target.value)} /></label><label className="field-wrap">Kích cỡ<input className="field" value={size} onChange={(event) => setSize(event.target.value)} /></label><label className="field-wrap">Giá (VND)<input className="field" type="number" min="1" required value={price} onChange={(event) => setPrice(event.target.value)} /></label></div><button className="button button-primary" disabled={busy || !Number.isFinite(Number(price)) || Number(price) <= 0}>Thêm biến thể</button></form>}
         <p className="status-note">Sửa hoặc xóa biến thể cần Gateway chuyển tiếp /api/v1/variants. Các thao tác này chưa khả dụng.</p>
       </Card>
-      <Card className="card-pad"><SectionHeading title={`Ảnh sản phẩm (${data.images.length}/5)`} /><div className="seller-product-images">{data.images.map((image) => <div className="seller-product-image" key={image.id}><BackendImage src={resolveImageUrl(image.url)} alt={image.altText || data.name} compact /><span>{image.isActive ? "Ảnh đại diện" : image.altText || "Ảnh sản phẩm"}</span></div>)}</div>{data.images.length < 5 && <form className="auth-fields seller-product-form" onSubmit={(event) => void upload(event)}><label className="field-wrap">Tải ảnh JPG, PNG hoặc WEBP (tối đa 5 MB)<input className="field" type="file" accept="image/jpeg,image/png,image/webp" required onChange={(event) => setFile(event.target.files?.[0] ?? null)} /></label><label className="field-wrap">Mô tả ảnh<input className="field" value={altText} onChange={(event) => setAltText(event.target.value)} /></label><button className="button button-primary" disabled={busy || !file}>Tải ảnh lên</button></form>}</Card>
-      <Card className="card-pad"><SectionHeading title="Kích hoạt bán hàng" /><p>Cần ít nhất một biến thể đang hoạt động có giá hợp lệ và một ảnh đang hoạt động. Kiểm tra tồn kho của đúng SKU trước khi mở bán.</p><button className="button button-primary" type="button" disabled={busy || data.status.toUpperCase() === "ACTIVE" || !activeVariants.length || !hasImage} onClick={() => void publish()}>{busy ? "Đang xử lý…" : "Kích hoạt sản phẩm"}</button></Card>
+      <Card className="card-pad"><SectionHeading title={`Ảnh sản phẩm (${data.images.length}/5)`} /><div className="seller-product-images">{data.images.map((image) => <div className="seller-product-image" key={image.id}><BackendImage src={resolveImageUrl(image.url)} alt={image.altText || data.name} compact /><span>{image.isActive ? "Ảnh đại diện" : image.altText || "Ảnh sản phẩm"}</span>{!image.isActive && <button type="button" className="button button-secondary" disabled>Đặt ảnh đại diện</button>}<button type="button" className="button button-secondary" disabled={busy || (data.status.toUpperCase() === "ACTIVE" && data.images.length === 1)} onClick={() => void deleteImage(image.id)}>Xóa ảnh</button></div>)}</div>{data.images.length < 5 && <form className="auth-fields seller-product-form" onSubmit={(event) => void upload(event)}><label className="field-wrap">Tải ảnh JPG, PNG hoặc WEBP (tối đa 5 MB)<input className="field" type="file" accept="image/jpeg,image/png,image/webp" required onChange={(event) => setFile(event.target.files?.[0] ?? null)} /></label><label className="field-wrap">Mô tả ảnh<input className="field" value={altText} onChange={(event) => setAltText(event.target.value)} /></label><button className="button button-primary" disabled={busy || !file}>Tải ảnh lên</button></form>}{data.images.length > 1 && <p className="status-note">Đổi ảnh đại diện cần Gateway chuyển tiếp /api/v1/images. Nút này sẽ mở khi route hoạt động.</p>}{data.status.toUpperCase() === "ACTIVE" && data.images.length === 1 && <p className="status-note">Không xóa ảnh duy nhất khi sản phẩm đang mở bán.</p>}</Card>
+      <Card className="card-pad"><SectionHeading title="Kích hoạt bán hàng" /><p>Cần ít nhất một biến thể đang hoạt động có giá hợp lệ và một ảnh đang hoạt động. Kiểm tra tồn kho của đúng SKU trước khi mở bán.</p><button className="button button-primary" type="button" disabled={busy || data.status.toUpperCase() === "ACTIVE" || !activeVariants.length || !hasImage} onClick={() => void changeStatus("ACTIVE")}>{busy ? "Đang xử lý…" : data.status.toUpperCase() === "INACTIVE" ? "Mở bán lại" : "Kích hoạt sản phẩm"}</button></Card>
     </div>}
   </>;
 }

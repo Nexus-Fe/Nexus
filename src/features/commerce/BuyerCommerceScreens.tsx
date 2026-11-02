@@ -9,11 +9,11 @@ import { ROUTES } from "@/constants/routes";
 import { api, type ApiResponse } from "@/lib/api/client";
 import { useApiResource } from "@/lib/api/use-api-resource";
 import { formatMoney } from "@/lib/presentation";
+import { fulfillmentService } from "@/features/fulfillment";
 
 type CartItem = { id: string; productId: string; skuId: string; sellerId: string; productName: string; quantity: number; unitPriceSnapshot: number };
 type Cart = { id: string; buyerId: string; status: string; itemCount: number; subtotalAmount: number; items: CartItem[] };
 type Order = { id: string; buyerId: string; status: string; totalAmount: number; paymentDeadlineAt: string };
-type Shipment = { id: string; orderId: string; trackingNumber: string | null; status: string; receiverName: string; receiverPhone: string; receiverAddress: string };
 type Paged<T> = { items: T[]; pagination: { pageIndex: number; pageSize: number; totalCount: number; totalPages: number; hasNextPage: boolean } };
 
 function unwrap<T>(response: ApiResponse<T> | T): T {
@@ -27,7 +27,10 @@ function useCart() {
 export function CartScreen() {
   const cart = useCart();
   const items = cart.data?.items ?? [];
-  const groups = Object.groupBy(items, (item) => item.sellerId);
+  const groups = items.reduce<Record<string, CartItem[]>>((result, item) => {
+    (result[item.sellerId] ??= []).push(item);
+    return result;
+  }, {});
   return <>
     <PageHeading title="Giỏ hàng của bạn" />
     {cart.error && <p className="notice" role="alert">{cart.error.message}</p>}
@@ -35,7 +38,7 @@ export function CartScreen() {
       <div className="buyer-cart-items">
         {items.length ? Object.entries(groups).map(([sellerId, sellerItems]) => <Card className="card-pad" key={sellerId}>
           <h2>Gian hàng {sellerId.slice(0, 8)}</h2>
-          {sellerItems?.map((item) => <div className="info-row" key={item.id}><div><strong>{item.productName}</strong><p>SKU {item.skuId} · {formatMoney(item.unitPriceSnapshot)} × {item.quantity}</p></div><strong>{formatMoney(item.unitPriceSnapshot * item.quantity)}</strong></div>)}
+          {sellerItems.map((item) => <div className="info-row" key={item.id}><label className="cart-item-select"><input type="checkbox" disabled aria-label={`Chọn ${item.productName}`} /><span><strong>{item.productName}</strong><span>SKU {item.skuId} · {formatMoney(item.unitPriceSnapshot)} × {item.quantity}</span></span></label><strong>{formatMoney(item.unitPriceSnapshot * item.quantity)}</strong></div>)}
           <p className="status-note">Chọn món, đổi số lượng hoặc xóa món sẽ khả dụng khi Commerce cung cấp API ghi giỏ hàng.</p>
         </Card>) : <Card><NoData title={cart.loading ? "Đang tải giỏ hàng…" : cart.error ? "Không tải được giỏ hàng" : "Giỏ hàng đang trống"} /></Card>}
       </div>
@@ -74,7 +77,7 @@ export function OrderDetailScreen() {
   const { id } = useParams<{ id: string }>();
   const orderId = String(id ?? "");
   const order = useApiResource(orderId ? `buyer-order:${orderId}` : null, (signal) => api.get<ApiResponse<Order> | Order>(`/api/v1/orders/${encodeURIComponent(orderId)}`, { signal }).then(unwrap));
-  const shipment = useApiResource(orderId ? `buyer-shipment:${orderId}` : null, (signal) => api.get<ApiResponse<Shipment> | Shipment>(`/api/v1/shipments/order/${encodeURIComponent(orderId)}`, { signal }).then(unwrap));
+  const shipment = useApiResource(orderId ? `buyer-shipment:${orderId}` : null, (signal) => fulfillmentService.getShipmentByOrderId(orderId, signal));
   const pending = order.data?.status.replace(/[^a-z]/gi, "").toUpperCase() === "PENDINGPAYMENT";
   return <>
     <PageHeading title="Chi tiết đơn hàng" />

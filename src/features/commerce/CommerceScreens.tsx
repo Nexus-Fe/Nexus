@@ -24,7 +24,7 @@ export function BuyerOrderReviewScreen() {
 }
 
 export function BuyerReportsScreen() {
-  const [targetId,setTargetId]=useState("");const [violationType,setType]=useState("FRAUD");const [description,setDescription]=useState("");const [error,setError]=useState("");const [success,setSuccess]=useState("");const [busy,setBusy]=useState(false);
+  const [targetId,setTargetId]=useState("");const [violationType,setType]=useState("FRAUD");const [description,setDescription]=useState("");const [error,setError]=useState("");const [success,setSuccess]=useState("");const [,setBusy]=useState(false);
   const reports=useApiResource("/api/v1/me/reports?page=1&limit=20",async()=>{const result=unwrap(await api.get<ApiResponse<{items:UserReport[]}>>('/api/v1/me/reports?page=1&limit=20'));return result.items??[];});
   async function submit(event:React.FormEvent<HTMLFormElement>){event.preventDefault();setBusy(true);setError("");setSuccess("");try{await api.post('/api/v1/users/reports',{reportedUserId:targetId,violationType,description,evidenceUrls:[]});setSuccess("Đã gửi báo cáo. Trạng thái sẽ cập nhật khi được xử lý.");setTargetId("");setDescription("");reports.reload();}catch(reason){setError(errorText(reason as Error));}finally{setBusy(false);}}
   return <div className="buyer-reports-page">

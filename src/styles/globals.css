@@ -296,6 +296,9 @@ h1,h2,h3 { letter-spacing: -.025em; }
 .seller-product-image { display: grid; gap: 8px; min-width: 0; }
 .seller-product-image img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 10px; }
 .seller-product-image span { font-size: 13px; color: var(--muted); overflow-wrap: anywhere; }
+.cart-item-select { display: flex; align-items: flex-start; gap: 12px; min-width: 0; }
+.cart-item-select input { margin-top: 4px; }
+.cart-item-select span { display: grid; gap: 4px; min-width: 0; overflow-wrap: anywhere; }
 .buyer-cart-summary { min-width: 0; }
 .order-detail-payment { display: grid; gap: 12px; min-width: 0; }
 .order-detail-products .section-heading { margin: 0 0 14px; }

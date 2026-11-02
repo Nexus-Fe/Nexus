@@ -23,6 +23,7 @@ export type AuthUser = {
   roles?: string[];
   permissions?: string[];
   reputationScore?: number;
+  status?: string;
 };
 
 export type AuthResponse = {

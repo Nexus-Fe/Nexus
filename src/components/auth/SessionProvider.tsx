@@ -43,9 +43,21 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       const response = await api.get<ApiResponse<AuthUser> | AuthUser>("/api/v1/me");
       const profile = "data" in response ? response.data : response;
       if (!profile?.id || !profile.email) throw new Error("Phản hồi hồ sơ không hợp lệ.");
+      if (["BANNED", "DELETED"].includes(profile.status?.toUpperCase() ?? "")) {
+        clearSessionTokens();
+        setUser(null);
+        setRestoreError(null);
+        return;
+      }
       setUser(profile);
       setRestoreError(null);
     } catch (error) {
+      if (error instanceof ApiError && ["ACCOUNT_BANNED", "USER_BANNED"].includes(error.errorCode ?? "")) {
+        clearSessionTokens();
+        setUser(null);
+        setRestoreError(null);
+        return;
+      }
       if (error instanceof ApiError && [401, 403].includes(error.status) && !hasRefreshToken()) {
         setUser(null);
         setRestoreError(null);
@@ -60,7 +72,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const timer = window.setTimeout(() => { void refreshUser(); }, 0);
-    return () => window.clearTimeout(timer);
+    const refreshWhenVisible = () => { if (document.visibilityState === "visible") void refreshUser(); };
+    document.addEventListener("visibilitychange", refreshWhenVisible);
+    return () => { window.clearTimeout(timer); document.removeEventListener("visibilitychange", refreshWhenVisible); };
   }, [refreshUser]);
 
   const value = useMemo(

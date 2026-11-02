@@ -1,9 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
-import { staffAdminDemoEnabled } from "@/lib/demo/staff-admin-demo";
 import { useSession } from "./SessionProvider";
 
 function normalizeRole(role: string): string {
@@ -11,9 +9,8 @@ function normalizeRole(role: string): string {
   return normalized === "staff" ? "supportstaff" : normalized;
 }
 
-export function RoleGate({ allowedRoles, children, demoAccess = false }: { allowedRoles: string[]; children: ReactNode; demoAccess?: boolean }) {
+export function RoleGate({ allowedRoles, children }: { allowedRoles: string[]; children: ReactNode }) {
   const { user, ready, restoreError, refreshUser } = useSession();
-  if (demoAccess && staffAdminDemoEnabled) return children;
   if (!ready) {
     return <main className="route-loading" role="status" aria-live="polite">Đang kiểm tra phiên đăng nhập…</main>;
   }
@@ -40,10 +37,4 @@ export function RoleGate({ allowedRoles, children, demoAccess = false }: { allow
     );
   }
   return children;
-}
-
-export function StaffAdminDemoGate({ allowedRoles, children }: { allowedRoles: string[]; children: ReactNode }) {
-  const pathname = usePathname();
-  const demoRoute = pathname === "/admin/categories" || pathname === "/admin/users" || pathname === "/staff/sellers" || /^\/staff\/sellers\/[^/]+$/.test(pathname);
-  return <RoleGate allowedRoles={allowedRoles} demoAccess={demoRoute}>{children}</RoleGate>;
 }
