@@ -35,8 +35,8 @@ export function LoginScreen() {
     setSubmitting(true);
     try {
       const response = await authService.login({ identifier, password });
-      setAuthenticatedUser(response.data.user);
-      router.replace(landingPath(response.data.user));
+      setAuthenticatedUser(response.user);
+      router.replace(landingPath(response.user));
     } catch (reason) {
       setError(reason instanceof ApiError && reason.status === 423 ? "Tài khoản tạm khóa do đăng nhập sai nhiều lần. Vui lòng thử lại sau." : reason instanceof Error ? reason.message : "Không thể đăng nhập.");
     } finally {
@@ -149,7 +149,7 @@ export function RegisterScreen() {
       setStep("signingIn");
       try {
         const session = await authService.login({ identifier: fields.email.trim(), password: fields.password });
-        setAuthenticatedUser(session.data.user);
+        setAuthenticatedUser(session.user);
         setFields((current) => ({ ...current, password: "", confirmPassword: "" }));
         router.replace(ROUTES.home);
       } catch {
@@ -171,7 +171,7 @@ export function RegisterScreen() {
     setSubmitting(true);
     try {
       const response = await authService.resendOtp(fields.email, "REGISTER");
-      setResendIn(response.data.resendCooldown || 60);
+      setResendIn(("data" in response ? response.data : response).resendCooldown || 60);
       setMessage("Đã gửi lại mã xác minh.");
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Không thể gửi lại mã xác minh.");

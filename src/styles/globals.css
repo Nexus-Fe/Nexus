@@ -288,6 +288,14 @@ h1,h2,h3 { letter-spacing: -.025em; }
 .split-even { grid-template-columns: repeat(2,minmax(0,1fr)); }
 .buyer-cart-layout { display: grid; grid-template-columns: minmax(0,1.8fr) minmax(280px,1fr); align-items: start; gap: 22px; min-width: 0; }
 .buyer-cart-items,.order-detail-layout { display: grid; gap: 22px; min-width: 0; }
+.seller-product-workspace { display: grid; gap: 22px; min-width: 0; }
+.seller-product-summary { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.seller-product-summary p,.seller-wrap-value { overflow-wrap: anywhere; }
+.seller-product-form { margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--line); }
+.seller-product-images { display: grid; grid-template-columns: repeat(auto-fill,minmax(130px,1fr)); gap: 14px; }
+.seller-product-image { display: grid; gap: 8px; min-width: 0; }
+.seller-product-image img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 10px; }
+.seller-product-image span { font-size: 13px; color: var(--muted); overflow-wrap: anywhere; }
 .buyer-cart-summary { min-width: 0; }
 .order-detail-payment { display: grid; gap: 12px; min-width: 0; }
 .order-detail-products .section-heading { margin: 0 0 14px; }

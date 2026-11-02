@@ -3,8 +3,6 @@
 import { useState, type FormEvent } from "react";
 import { Badge, Card, NoData, PageHeading, SectionHeading } from "@/components/ui/Primitives";
 import { useApiResource } from "@/lib/api/use-api-resource";
-import { staffAdminDemoEnabled } from "@/lib/demo/staff-admin-demo";
-import { StaffAdminDemoNotice } from "@/widgets/staff-admin-demo/DemoNotice";
 import { adminUsersService, type AdminUser } from "./services/admin-users.service";
 
 type Action = "ban" | "unban" | "delete";
@@ -85,8 +83,7 @@ export function AdminUsersScreen() {
   }
 
   return <>
-    <PageHeading overline="Bảng điều khiển Admin" title="Quản lý tài khoản" description={staffAdminDemoEnabled ? "Tra cứu và xử lý tài khoản mẫu trên máy local." : "Tra cứu và xử lý tài khoản qua User API."} />
-    <StaffAdminDemoNotice />
+    <PageHeading overline="Bảng điều khiển Admin" title="Quản lý tài khoản" description="Tra cứu và xử lý tài khoản qua User API." />
     <SectionHeading title="Danh sách tài khoản" />
     <Card>
       <form className="toolbar" onSubmit={applySearch}>

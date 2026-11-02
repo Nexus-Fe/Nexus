@@ -23,8 +23,8 @@ function transactionDate(value: string): string {
 }
 
 export function WalletScreen() {
-  const balance = useApiResource("buyer-wallet-balance", (signal) => walletService.getBalance(signal).then((response) => response.data));
-  const transactions = useApiResource("buyer-wallet-transactions", (signal) => walletService.getTransactions(signal).then((response) => response.data.items));
+  const balance = useApiResource("buyer-wallet-balance", (signal) => walletService.getBalance(signal));
+  const transactions = useApiResource("buyer-wallet-transactions", (signal) => walletService.getTransactions(signal).then((response) => response.items));
 
   return <div className="color-indigo">
     <PageHeading title="Ví & lịch sử giao dịch" />
@@ -32,7 +32,7 @@ export function WalletScreen() {
       <div>
         <h2>Số dư ví</h2>
         {balance.error && <p className="notice" role="alert">Không tải được số dư: {balance.error.message}</p>}
-        {balance.loading ? <NoData title="Đang tải số dư…" /> : balance.data ? <strong>{formatMoney(balance.data.balance)}</strong> : !balance.error && <NoData title="Chưa có dữ liệu ví" />}
+        {balance.loading ? <NoData title="Đang kiểm tra ví…" /> : balance.data ? <><strong>{formatMoney(balance.data.balance)}</strong><p className="status-note">Ví {balance.data.status === "ACTIVE" ? "đã sẵn sàng" : `đang ở trạng thái ${balance.data.status}`} · mã {balance.data.walletId}</p></> : !balance.error && <NoData title="Chưa xác nhận được ví" />}
       </div>
     </Card>
     <SectionHeading title="10 giao dịch gần nhất" />

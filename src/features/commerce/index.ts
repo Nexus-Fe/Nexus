@@ -1,2 +1,2 @@
 export { commerceService } from "./services/commerce.service";
-export type { Cart, CartItem, CreateOrderRequest, Order, OrderStatus } from "./types";
+export type { Cart, CartItem, Order, OrderStatus } from "./types";

@@ -1,15 +1,20 @@
 export type CartItem = {
+  id: string;
   productId: string;
-  name: string;
-  price: number;
+  skuId: string;
+  sellerId: string;
+  productName: string;
+  unitPriceSnapshot: number;
   quantity: number;
-  imageUrl?: string;
 };
 
 export type Cart = {
-  cartId: string;
+  id: string;
+  buyerId: string;
+  status: string;
+  itemCount: number;
   items: CartItem[];
-  totalAmount: number;
+  subtotalAmount: number;
 };
 
 export type OrderStatus =
@@ -20,17 +25,9 @@ export type OrderStatus =
   | (string & {});
 
 export type Order = {
-  orderId: string;
+  id: string;
+  buyerId: string;
   status: OrderStatus;
   totalAmount: number;
-  createdAt: string;
-  message?: string;
-};
-
-export type CreateOrderRequest = {
-  quoteId: string;
-  shippingAddress: string;
-  contactPhone: string;
-  paymentMethod?: string;
-  note?: string;
+  paymentDeadlineAt: string;
 };
