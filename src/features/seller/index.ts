@@ -46,3 +46,28 @@ export type {
   ProductActivationGateCheck,
 } from "./services/seller-catalog.service";
 
+// Seller Core Types & REST APIs
+export * from "./types/seller.types";
+export * from "./services/seller.api";
+
+// Onboarding Components
+export * from "./components/Onboarding";
+
+// Profile Components
+export * from "./components/Profile";
+
+// Product Components
+export * from "./components/Product";
+
+// Inventory Components
+export * from "./components/Inventory";
+
+// Access Control Gate
+export * from "./components/SellerRoleGate";
+
+
+
+
+
+
+
