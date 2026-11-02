@@ -10,29 +10,18 @@ export type GhnWarehouseAddress = {
 };
 
 export type SellerRegistrationStatusRecord = {
-  registrationId?: string;
-  status?: string;
-  reason?: string | null;
-  rejectionReason?: string | null;
-  submittedAt?: string | null;
-  shopName?: string | null;
-  description?: string | null;
+  status: string;
+  rejectionReason: string | null;
+  nextStep: string | null;
   businessEmail?: string | null;
-  hotline?: string | null;
-  pickupAddress?: string | GhnWarehouseAddress | null;
-  warehouseAddress?: string | GhnWarehouseAddress | null;
-  provinceId?: number | null;
-  districtId?: number | null;
-  wardCode?: string | null;
-  streetAddress?: string | null;
 };
 
 export type SellerProfile = {
   shopId?: string;
   sellerId?: string;
   shopName: string;
+  description?: string | null;
   hotline?: string;
-  description?: string;
   pickupAddress?: string | GhnWarehouseAddress;
   warehouseAddress?: string | GhnWarehouseAddress;
   provinceId?: number;
@@ -127,9 +116,8 @@ export function normalizeSellerRegistrationStatus(
   ) {
     return "PENDING_APPROVAL";
   }
-  if (normalized === "PENDING") {
-    return options?.otpVerified ? "PENDING_APPROVAL" : "PENDING";
-  }
+  if (normalized === "PENDING") return "PENDING_APPROVAL";
+  if (normalized === "OTP_VERIFICATION_REQUIRED") return "PENDING";
   return null;
 }
 
@@ -143,28 +131,28 @@ export function getSellerStatusMeta(status: SellerRegistrationStatus): {
     case "PENDING":
       return {
         code: "PENDING",
-        label: "PENDING · Chờ xác thực OTP email doanh nghiệp",
+        label: "Chờ xác thực email doanh nghiệp",
         tone: "amber",
         summary: "Hồ sơ đã ghi nhận bước 1. Vui lòng nhập mã OTP 6 chữ số đã gửi tới email doanh nghiệp để chuyển sang hàng đợi Staff duyệt.",
       };
     case "PENDING_APPROVAL":
       return {
         code: "PENDING_APPROVAL",
-        label: "PENDING_APPROVAL · Chờ Staff thẩm định & phê duyệt",
+        label: "Chờ Staff duyệt",
         tone: "sky",
         summary: "Email doanh nghiệp đã xác thực. Hồ sơ đang nằm trong hàng đợi Staff thẩm định thông tin gian hàng và kho lấy hàng GHN.",
       };
     case "APPROVED":
       return {
         code: "APPROVED",
-        label: "APPROVED · Đã phê duyệt mở gian hàng",
+        label: "Đã phê duyệt mở gian hàng",
         tone: "green",
         summary: "Hồ sơ đã được Staff phê duyệt. Tài khoản của bạn đã nhận quyền Seller và kho lấy hàng đã đồng bộ.",
       };
     case "REJECTED":
       return {
         code: "REJECTED",
-        label: "REJECTED · Hồ sơ bị từ chối",
+        label: "Hồ sơ bị từ chối",
         tone: "red",
         summary: "Hồ sơ đăng ký mở gian hàng chưa đạt yêu cầu thẩm định của Staff. Xem lý do từ chối bên dưới và cập nhật lại hồ sơ.",
       };
@@ -309,7 +297,6 @@ export type SafeRegistrationDraft = {
   userId: string;
   registrationId: string;
   shopName: string;
-  description?: string;
   businessEmail: string;
   hotline: string;
   warehouseAddress: GhnWarehouseAddress;
@@ -328,7 +315,6 @@ export function saveSafeRegistrationDraft(draft: SafeRegistrationDraft): void {
       userId: draft.userId,
       registrationId: draft.registrationId,
       shopName: draft.shopName,
-      description: draft.description,
       businessEmail: draft.businessEmail,
       hotline: draft.hotline,
       warehouseAddress: {
@@ -371,11 +357,20 @@ export function loadSafeRegistrationDraft(userId?: string | null): SafeRegistrat
 
 export const sellerService = {
   getProfile: (signal?: AbortSignal) =>
-    api.get<ApiResponse<SellerProfile>>("/api/v1/seller/profile", { signal }),
+    api.get<ApiResponse<SellerProfile> | SellerProfile>("/api/v1/sellers/profile", { signal }),
 
   updateProfile: (payload: Record<string, unknown>) =>
-    api.patch<ApiResponse<Record<string, unknown>>>("/api/v1/seller/profile", payload),
+    api.patch<ApiResponse<Record<string, unknown>> | Record<string, unknown>>("/api/v1/sellers/profile", payload),
 
   getRegistrationStatus: (signal?: AbortSignal) =>
-    api.get<ApiResponse<SellerRegistrationStatusRecord>>("/api/v1/seller/registration", { signal }),
+    api.get<ApiResponse<SellerRegistrationStatusRecord>>("/api/v1/sellers/status", { signal }),
+
+  register: (payload: { shopName: string; businessEmail: string; hotline: string; identityCardNumber: string; warehouseAddress: GhnWarehouseAddress }) =>
+    api.post<ApiResponse<{ status: string; businessEmail: string; otpExpiresInSeconds: number }>>("/api/v1/sellers/registration", payload),
+
+  verifyOtp: (businessEmail: string, otpCode: string) =>
+    api.post<ApiResponse<{ status: string; sellerId: string; businessEmail: string; shopName: string }>>("/api/v1/sellers/otp/verify", { businessEmail, otpCode }),
+
+  resendOtp: (businessEmail: string) =>
+    api.post<ApiResponse<unknown>>("/api/v1/sellers/otp/resend", { businessEmail }),
 };

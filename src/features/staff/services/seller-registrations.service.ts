@@ -1,9 +1,11 @@
 import { api, type ApiResponse } from "@/lib/api/client";
-import { staffAdminDemoEnabled } from "@/lib/demo/staff-admin-demo";
 
 export type SellerRegistration = {
   registrationId: string;
   userId?: string;
+  applicantName?: string;
+  applicantEmail?: string;
+  applicantPhone?: string | null;
   shopName: string;
   businessEmail?: string | null;
   hotline?: string | null;
@@ -21,31 +23,31 @@ export type SellerRegistration = {
 
 export type SellerRegistrationPage = { items: SellerRegistration[]; total: number; page: number; limit: number };
 
-type ListPayload = { items?: SellerRegistration[]; registrations?: SellerRegistration[]; total?: number; page?: number; limit?: number };
+type ListPayload = { items: SellerRegistration[]; pagination: { pageIndex: number; pageSize: number; totalCount: number } };
+
+function unwrap<T>(response: ApiResponse<T> | T): T {
+  return response && typeof response === "object" && "data" in response ? response.data : response;
+}
 
 const basePath = "/api/v1/admin/seller-registrations";
 const detailPath = (id: string) => `${basePath}/${encodeURIComponent(id)}`;
 
 export const sellerRegistrationsService = {
   async list(query: { page: number; limit: number; status: string }, signal?: AbortSignal): Promise<SellerRegistrationPage> {
-    if (staffAdminDemoEnabled) return (await import("../demo/seller-registrations-demo")).sellerRegistrationsDemo.list(query);
-    const params = new URLSearchParams({ page: String(query.page), limit: String(query.limit) });
+    const params = new URLSearchParams({ page: String(query.page), pageSize: String(query.limit) });
     if (query.status) params.set("status", query.status);
-    const response = await api.get<ApiResponse<ListPayload>>(`${basePath}?${params}`, { signal });
-    const payload = response.data;
-    return { items: payload.items ?? payload.registrations ?? [], total: payload.total ?? 0, page: payload.page ?? query.page, limit: payload.limit ?? query.limit };
+    const response = await api.get<ApiResponse<ListPayload> | ListPayload>(`${basePath}?${params}`, { signal });
+    const payload = unwrap(response);
+    return { items: payload.items ?? [], total: payload.pagination?.totalCount ?? 0, page: payload.pagination?.pageIndex ?? query.page, limit: payload.pagination?.pageSize ?? query.limit };
   },
   async detail(id: string, signal?: AbortSignal): Promise<SellerRegistration> {
-    if (staffAdminDemoEnabled) return (await import("../demo/seller-registrations-demo")).sellerRegistrationsDemo.detail(id);
-    const response = await api.get<ApiResponse<SellerRegistration>>(detailPath(id), { signal });
-    return response.data;
+    const response = await api.get<ApiResponse<SellerRegistration> | SellerRegistration>(detailPath(id), { signal });
+    return unwrap(response);
   },
   async approve(id: string): Promise<void> {
-    if (staffAdminDemoEnabled) return (await import("../demo/seller-registrations-demo")).sellerRegistrationsDemo.approve(id);
     await api.put<ApiResponse<{ status: string }>>(`${detailPath(id)}/approve`, {});
   },
   async reject(id: string, rejectionReason: string): Promise<void> {
-    if (staffAdminDemoEnabled) return (await import("../demo/seller-registrations-demo")).sellerRegistrationsDemo.reject(id, rejectionReason);
     await api.put<ApiResponse<{ status: string }>>(`${detailPath(id)}/reject`, { rejectionReason });
   },
 };

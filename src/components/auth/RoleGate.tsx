@@ -12,12 +12,15 @@ function normalizeRole(role: string): string {
 }
 
 export function RoleGate({ allowedRoles, children, demoAccess = false }: { allowedRoles: string[]; children: ReactNode; demoAccess?: boolean }) {
-  const { user, ready } = useSession();
+  const { user, ready, restoreError, refreshUser } = useSession();
   if (demoAccess && staffAdminDemoEnabled) return children;
   if (!ready) {
     return <main className="route-loading" role="status" aria-live="polite">Đang kiểm tra phiên đăng nhập…</main>;
   }
   if (!user) {
+    if (restoreError) {
+      return <main className="access-state" role="alert"><h1>Chưa khôi phục được phiên</h1><p>{restoreError}</p><button type="button" className="button button-primary" onClick={() => void refreshUser()}>Thử lại</button></main>;
+    }
     return (
       <main className="access-state">
         <h1>Đăng nhập để tiếp tục</h1>

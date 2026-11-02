@@ -80,7 +80,7 @@ function readField(value: unknown, key: keyof ApiProblem): string | undefined {
 async function readPayload(response: Response): Promise<unknown> {
   if (response.status === 204) return undefined;
   const contentType = response.headers.get("content-type") ?? "";
-  if (contentType.includes("application/json")) {
+  if (contentType.includes("json")) {
     try {
       return await response.json();
     } catch {
@@ -193,14 +193,13 @@ async function refreshAccessToken(): Promise<string | null> {
       });
       const payload = await readPayload(response);
       if (!response.ok || typeof payload !== "object" || payload === null) {
-        clearSessionTokens();
+        if ([400, 401, 403].includes(response.status)) clearSessionTokens();
         return null;
       }
-      const data = (payload as ApiResponse<Record<string, unknown>>).data;
+      const data = "data" in payload ? (payload as ApiResponse<Record<string, unknown>>).data : payload as Record<string, unknown>;
       const access = data?.accessToken;
       const refresh = data?.refreshToken;
       if (typeof access !== "string" || typeof refresh !== "string") {
-        clearSessionTokens();
         return null;
       }
       saveSessionTokens(access, refresh);
