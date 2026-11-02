@@ -94,7 +94,7 @@ export default function SellerOnboardingPage() {
   }
 
   return (
-    <div style={{ maxWidth: 920, margin: "0 auto", padding: "32px 16px", display: "grid", gap: 24 }}>
+    <div className="w-full py-8 px-4 sm:px-6 space-y-6">
       {/* Tiêu đề trang chuẩn Nexus */}
       <PageHeading
         title="Đăng Ký Mở Shop (Seller Onboarding)"
@@ -103,9 +103,9 @@ export default function SellerOnboardingPage() {
 
       {/* Hiển thị Trạng thái hoặc Form đăng ký */}
       {showForm ? (
-        <div style={{ display: "grid", gap: 16 }}>
+        <div className="w-full space-y-4">
           {applicationStatus?.status === "REJECTED" && (
-            <div style={{ display: "flex", justifyContent: "flex-end" }}>
+            <div className="flex justify-end">
               <button
                 type="button"
                 onClick={() => setShowForm(false)}
