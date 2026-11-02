@@ -1,7 +1,7 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import { ApiError, api, clearSessionTokens, hasRefreshToken, type ApiResponse } from "@/lib/api/client";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { ApiError, api, clearSessionTokens, hasRefreshToken, SESSION_INVALIDATED_EVENT, type ApiResponse } from "@/lib/api/client";
 import type { AuthUser } from "@/features/auth/types";
 
 type SessionContextValue = {
@@ -19,13 +19,16 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [ready, setReady] = useState(false);
   const [restoreError, setRestoreError] = useState<string | null>(null);
+  const sessionVersion = useRef(0);
 
   const setAuthenticatedUser = useCallback((authenticatedUser: AuthUser) => {
+    sessionVersion.current += 1;
     setUser(authenticatedUser);
     setRestoreError(null);
   }, []);
 
   const clearSession = useCallback(() => {
+    sessionVersion.current += 1;
     clearSessionTokens();
     setUser(null);
     setRestoreError(null);
@@ -33,6 +36,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const refreshUser = useCallback(async () => {
+    const version = sessionVersion.current;
     if (!hasRefreshToken()) {
       setUser(null);
       setRestoreError(null);
@@ -41,21 +45,19 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     }
     try {
       const response = await api.get<ApiResponse<AuthUser> | AuthUser>("/api/v1/me");
+      if (version !== sessionVersion.current || !hasRefreshToken()) return;
       const profile = "data" in response ? response.data : response;
       if (!profile?.id || !profile.email) throw new Error("Phản hồi hồ sơ không hợp lệ.");
       if (["BANNED", "DELETED"].includes(profile.status?.toUpperCase() ?? "")) {
-        clearSessionTokens();
-        setUser(null);
-        setRestoreError(null);
+        clearSession();
         return;
       }
       setUser(profile);
       setRestoreError(null);
     } catch (error) {
+      if (version !== sessionVersion.current) return;
       if (error instanceof ApiError && ["ACCOUNT_BANNED", "USER_BANNED"].includes(error.errorCode ?? "")) {
-        clearSessionTokens();
-        setUser(null);
-        setRestoreError(null);
+        clearSession();
         return;
       }
       if (error instanceof ApiError && [401, 403].includes(error.status) && !hasRefreshToken()) {
@@ -68,14 +70,16 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     } finally {
       setReady(true);
     }
-  }, []);
+  }, [clearSession]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => { void refreshUser(); }, 0);
     const refreshWhenVisible = () => { if (document.visibilityState === "visible") void refreshUser(); };
+    const handleInvalidation = () => clearSession();
     document.addEventListener("visibilitychange", refreshWhenVisible);
-    return () => { window.clearTimeout(timer); document.removeEventListener("visibilitychange", refreshWhenVisible); };
-  }, [refreshUser]);
+    window.addEventListener(SESSION_INVALIDATED_EVENT, handleInvalidation);
+    return () => { window.clearTimeout(timer); document.removeEventListener("visibilitychange", refreshWhenVisible); window.removeEventListener(SESSION_INVALIDATED_EVENT, handleInvalidation); };
+  }, [clearSession, refreshUser]);
 
   const value = useMemo(
     () => ({ user, ready, restoreError, setAuthenticatedUser, refreshUser, clearSession }),
