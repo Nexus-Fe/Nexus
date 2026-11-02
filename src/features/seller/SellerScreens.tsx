@@ -41,13 +41,8 @@ export function SellerProductsScreen() {
         overline="Kênh người bán"
         title="Quản lý sản phẩm"
         description="Sản phẩm và trạng thái từ Catalog API."
-        action={
-          <ButtonLink href={ROUTES.seller.newProduct}>
-            <Icon name="plus" size={17} /> Tạo sản phẩm
-          </ButtonLink>
-        }
       />
-      <SectionHeading title="Danh sách sản phẩm" />
+      <SectionHeading title="Danh sách sản phẩm" action={<ButtonLink href={ROUTES.seller.newProduct}><Icon name="plus" size={17} /> Tạo sản phẩm</ButtonLink>} />
       <Card>
         <form
           className="toolbar"
@@ -157,11 +152,6 @@ export function SellerProductEditorScreen() {
   };
   return (
     <>
-      <div className="crumbs">
-        <Link href={ROUTES.seller.products}>Quản lý sản phẩm</Link>
-        <Icon name="chevron" size={14} />
-        <span>Tạo sản phẩm</span>
-      </div>
       <PageHeading title="Tạo sản phẩm" description="Thông tin sẽ được gửi đến Catalog API." />
       <form onSubmit={(e) => void submit(e)}>
         <Card className="card-pad">
@@ -503,11 +493,6 @@ export function SellerOrderDetailScreen() {
   );
   return (
     <>
-      <div className="crumbs">
-        <Link href={ROUTES.seller.orders}>Đơn cần xử lý</Link>
-        <Icon name="chevron" size={14} />
-        <span>{id}</span>
-      </div>
       <PageHeading
         title="Chi tiết đơn bán"
         description="Chấp nhận hoặc từ chối trong hạn xử lý theo quy tắc đơn hàng."
@@ -556,11 +541,6 @@ export function SellerShipmentDetailScreen() {
   );
   return (
     <>
-      <div className="crumbs">
-        <Link href={ROUTES.seller.shipments}>Vận chuyển</Link>
-        <Icon name="chevron" size={14} />
-        <span>{id}</span>
-      </div>
       <PageHeading
         overline="Kênh người bán"
         title="Theo dõi vận đơn"

@@ -1,15 +1,14 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { ROUTES } from "@/constants/routes";
 import { useSession } from "@/components/auth/SessionProvider";
 import { Icon } from "@/components/ui/Icon";
 import { Badge, ButtonLink, Card, PageHeading, SectionHeading } from "@/components/ui/Primitives";
 import { ApiError, api, type ApiResponse } from "@/lib/api/client";
 import {
-  getSellerStatusMeta,
+  classifySellerRegistrationError,
   loadSafeRegistrationDraft,
   normalizeSellerRegistrationStatus,
   saveSafeRegistrationDraft,
@@ -22,7 +21,7 @@ import {
   type SellerRegistrationStatusRecord,
 } from "./services/seller.service";
 import { ShopRegistrationForm, validateShopRegistrationFields, type ShopRegistrationFields, type ShopRegistrationErrors } from "./components/ShopRegistrationForm";
-import { keepSellerRegistrationHandoff, takeSellerRegistrationHandoff } from "./services/seller-registration-handoff";
+import { takeSellerRegistrationHandoff } from "./services/seller-registration-handoff";
 
 type PersonalFormState = {
   firstName: string;
@@ -36,6 +35,21 @@ function unwrap<T>(value: ApiResponse<T> | T): T {
     return (value as ApiResponse<T>).data;
   }
   return value as T;
+}
+
+function sellerOtpErrorMessage(error: unknown): string {
+  if (error instanceof ApiError) {
+    switch (error.errorCode?.toUpperCase()) {
+      case "OTP_INVALID": return "Mã OTP không đúng. Kiểm tra email doanh nghiệp và nhập lại mã.";
+      case "OTP_EXPIRED": return "Mã OTP đã hết hạn. Chọn Gửi lại mã để nhận mã mới.";
+      case "OTP_ALREADY_USED": return "Mã OTP này đã được sử dụng. Kiểm tra trạng thái hồ sơ hoặc gửi mã mới.";
+      case "OTP_MAX_ATTEMPTS_EXCEEDED": return "Đã nhập sai quá số lần cho phép. Điền lại hồ sơ để nhận mã mới.";
+      case "DRAFT_NOT_FOUND": return "Phiên đăng ký đã hết hạn. Điền lại hồ sơ để nhận mã mới.";
+      case "OTP_COOLDOWN_ACTIVE": return "Vui lòng chờ 60 giây trước khi gửi lại mã.";
+    }
+    if ([502, 503, 504].includes(error.status)) return "Không kết nối được Gateway hoặc UserService. Vui lòng thử lại.";
+  }
+  return error instanceof Error ? error.message : "Không thể xác thực email doanh nghiệp. Vui lòng thử lại.";
 }
 
 function formatWarehouseAddress(
@@ -110,7 +124,6 @@ export function BecomeSellerScreen() {
   // Shop & GHN Warehouse fields
   const [shopForm, setShopForm] = useState<Omit<ShopRegistrationFields, "identityCardNumber">>({
     shopName: "",
-    description: "",
     businessEmail: "",
     hotline: "",
     provinceId: "202",
@@ -123,8 +136,15 @@ export function BecomeSellerScreen() {
   const [registrationId, setRegistrationId] = useState("");
   const [currentStatus, setCurrentStatus] = useState<SellerRegistrationStatus | null>(null);
   const [rejectionReason, setRejectionReason] = useState<string | null>(null);
-  const [submittedAt, setSubmittedAt] = useState<string | null>(null);
+  const [nextStep, setNextStep] = useState<string | null>(null);
   const [editingAfterReject, setEditingAfterReject] = useState(false);
+  const [otpOpen, setOtpOpen] = useState(false);
+  const [otpCode, setOtpCode] = useState("");
+  const [otpEmail, setOtpEmail] = useState("");
+  const [otpBusy, setOtpBusy] = useState(false);
+  const [otpError, setOtpError] = useState("");
+  const [otpNotice, setOtpNotice] = useState("");
+  const otpInputRef = useRef<HTMLInputElement>(null);
 
   // Synchronized Seller Profile & Warehouse (when APPROVED)
   const [sellerProfile, setSellerProfile] = useState<SellerProfile | null>(null);
@@ -167,7 +187,7 @@ export function BecomeSellerScreen() {
         if (err instanceof ApiError && (err.status === 404 || err.status === 502 || err.status === 503 || err.status === 504)) {
           appendBlocker({
             service: "UserService (users)",
-            endpoint: "/api/v1/seller/profile",
+            endpoint: "/api/v1/sellers/profile",
             method: "GET",
             role: "Seller",
             httpStatus: err.status,
@@ -176,7 +196,7 @@ export function BecomeSellerScreen() {
             actualResponse: `${err.message} (HTTP ${err.status}${err.errorCode ? ` · ${err.errorCode}` : ""})`,
             expectedResponse: "{ shopId, shopName, hotline, pickupAddress, ghnShopId, provinceId, districtId, wardCode }",
             blockedSurface: "Đọc thông tin kho GHN đã đồng bộ trên /buyer/become-seller và /seller/shop",
-            recommendation: "Bổ sung GET /api/v1/seller/profile trong User.Api/Controllers/SellerController.cs trả về SellerProfile đã duyệt kèm thông tin địa chỉ kho GHN.",
+            recommendation: "Kiểm tra kết nối Gateway đến GET /api/v1/sellers/profile.",
           });
         }
       }
@@ -225,10 +245,8 @@ export function BecomeSellerScreen() {
         const savedDraft = loadSafeRegistrationDraft(currentUserId || user?.id);
         if (savedDraft) {
           setRegistrationId((prev) => prev || savedDraft.registrationId);
-          setSubmittedAt((prev) => prev || savedDraft.submittedAt || null);
           setShopForm((prev) => ({
             shopName: prev.shopName || savedDraft.shopName,
-            description: prev.description || savedDraft.description || "",
             businessEmail: prev.businessEmail || savedDraft.businessEmail,
             hotline: prev.hotline || savedDraft.hotline,
             provinceId: String(savedDraft.warehouseAddress.provinceId || prev.provinceId || "202"),
@@ -243,59 +261,28 @@ export function BecomeSellerScreen() {
           }));
         }
 
-        // 3. Query GET /api/v1/seller/registration for registration status
+        // 3. Read the persisted Seller status from UserService.
         try {
           const statusRes = await sellerService.getRegistrationStatus();
-          const record: SellerRegistrationStatusRecord = unwrap(statusRes) ?? {};
-          const resolvedStatus = normalizeSellerRegistrationStatus(record.status, {
-            otpVerified: savedDraft?.otpVerified,
-            isSellerRole: meHasSellerRole,
-          });
-
-          if (record.registrationId) {
-            setRegistrationId(record.registrationId);
-          }
-          if (record.submittedAt) {
-            setSubmittedAt(record.submittedAt);
-          }
-          const reason = record.rejectionReason ?? record.reason ?? null;
+          const record: SellerRegistrationStatusRecord = unwrap(statusRes);
+          const resolvedStatus = normalizeSellerRegistrationStatus(record.status, { isSellerRole: meHasSellerRole });
+          const reason = record.rejectionReason ?? null;
           setRejectionReason(reason ? String(reason) : null);
-
-          if (record.shopName) {
-            setShopForm((prev) => ({ ...prev, shopName: String(record.shopName) }));
-          }
-          if (record.description) {
-            setShopForm((prev) => ({ ...prev, description: String(record.description) }));
-          }
+          setNextStep(record.nextStep ?? null);
           if (record.businessEmail) {
             setShopForm((prev) => ({ ...prev, businessEmail: String(record.businessEmail) }));
-          }
-          if (record.hotline) {
-            setShopForm((prev) => ({ ...prev, hotline: String(record.hotline) }));
+            if (resolvedStatus === "PENDING") setOtpEmail(String(record.businessEmail));
           }
 
-          if (resolvedStatus) {
-            setCurrentStatus(resolvedStatus);
-            if (currentUserId && (record.registrationId || savedDraft?.registrationId)) {
-              saveSafeRegistrationDraft({
-                userId: currentUserId,
-                registrationId: record.registrationId ?? savedDraft?.registrationId ?? "",
-                shopName: String(record.shopName ?? savedDraft?.shopName ?? meShopName ?? ""),
-                description: String(record.description ?? savedDraft?.description ?? ""),
-                businessEmail: String(record.businessEmail ?? savedDraft?.businessEmail ?? ""),
-                hotline: String(record.hotline ?? savedDraft?.hotline ?? ""),
-                warehouseAddress: savedDraft?.warehouseAddress ?? {
-                  provinceId: Number(record.provinceId ?? 202),
-                  districtId: Number(record.districtId ?? 1442),
-                  wardCode: String(record.wardCode ?? "20101"),
-                  streetAddress: String(record.streetAddress ?? ""),
-                },
-                status: resolvedStatus,
-                otpVerified: resolvedStatus === "PENDING_APPROVAL" || resolvedStatus === "APPROVED",
-                rejectionReason: reason ? String(reason) : null,
-                submittedAt: record.submittedAt ?? savedDraft?.submittedAt,
-              });
-            }
+          setCurrentStatus(resolvedStatus);
+          if (resolvedStatus && currentUserId && savedDraft?.otpVerified) {
+            saveSafeRegistrationDraft({
+              ...savedDraft,
+              userId: currentUserId,
+              businessEmail: String(record.businessEmail ?? savedDraft.businessEmail),
+              status: resolvedStatus,
+              rejectionReason: reason ? String(reason) : null,
+            });
           }
 
           if (resolvedStatus === "APPROVED" || meHasSellerRole) {
@@ -306,16 +293,13 @@ export function BecomeSellerScreen() {
             setStatusNotice("Đã đồng bộ trạng thái hồ sơ mới nhất từ hệ thống.");
           }
         } catch (err) {
-          // Handle missing or failing GET /api/v1/seller/registration
+          // Preserve a verified local result while the status endpoint is unavailable.
           if (meHasSellerRole) {
             setCurrentStatus("APPROVED");
             await loadSellerWarehouseProfile();
-          } else if (savedDraft) {
+          } else if (savedDraft?.otpVerified) {
             setCurrentStatus(savedDraft.status);
             setRejectionReason(savedDraft.rejectionReason ?? null);
-          } else if (meShopName) {
-            // /api/v1/me returned a shopName for this user even though GET /api/v1/seller/registration failed
-            setCurrentStatus("PENDING_APPROVAL");
           }
 
           if (err instanceof ApiError) {
@@ -332,7 +316,7 @@ export function BecomeSellerScreen() {
             if (isMissingEndpoint && (savedDraft || meShopName || isManualRefresh || err.status >= 500)) {
               appendBlocker({
                 service: "UserService (users)",
-                endpoint: "/api/v1/seller/registration",
+                endpoint: "/api/v1/sellers/status",
                 method: "GET",
                 role: "Buyer (Authenticated)",
                 httpStatus: err.status,
@@ -340,10 +324,9 @@ export function BecomeSellerScreen() {
                 traceId: err.traceId,
                 actualResponse: `${err.message} (HTTP ${err.status}${err.errorCode ? ` · ${err.errorCode}` : ""})`,
                 expectedResponse:
-                  "{ registrationId, status: 'PENDING' | 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED', rejectionReason, submittedAt, shopName, warehouseAddress }",
+                  "{ status: 'NOT_REGISTERED' | 'OTP_VERIFICATION_REQUIRED' | 'PENDING' | 'APPROVED' | 'REJECTED', rejectionReason, nextStep, businessEmail }",
                 blockedSurface: "Đọc trạng thái hồ sơ và lý do từ chối trên /buyer/become-seller",
-                recommendation:
-                  "Gateway đã có route GET /api/v1/seller/registration (UsersController.cs:450), nhưng User.Api/Controllers/SellerController.cs chưa có action [HttpGet('/api/v1/seller/registration')] để trả trạng thái SellerProfile và RejectionReason theo x-user-id.",
+                recommendation: "Kiểm tra kết nối Gateway đến GET /api/v1/sellers/status.",
               });
             }
           }
@@ -386,6 +369,13 @@ export function BecomeSellerScreen() {
     void syncOnboardingState(false);
   }, [isSellerRole, ready, router, syncOnboardingState, user]);
 
+  useEffect(() => {
+    if (!otpOpen) return;
+    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    otpInputRef.current?.focus();
+    return () => previousFocus?.focus();
+  }, [otpOpen]);
+
   function validateRegistrationForm(): ClassifiedSellerError | null {
     const errors = validateShopRegistrationFields({ ...shopForm, identityCardNumber });
     if (!Object.keys(errors).length) return null;
@@ -401,8 +391,7 @@ export function BecomeSellerScreen() {
     };
   }
 
-  function submitRegistration(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  async function sendBusinessOtp() {
     setClassifiedError(null);
     setStatusNotice(null);
 
@@ -412,15 +401,127 @@ export function BecomeSellerScreen() {
       return;
     }
 
-    if (user?.email) {
-      keepSellerRegistrationHandoff(user.email, { ...shopForm, identityCardNumber });
+    setOtpBusy(true);
+    try {
+      const businessEmail = shopForm.businessEmail.trim();
+      const result = unwrap(await sellerService.register({
+        shopName: shopForm.shopName.trim(),
+        businessEmail,
+        hotline: shopForm.hotline.trim(),
+        identityCardNumber: identityCardNumber.trim(),
+        warehouseAddress: {
+          provinceId: Number(shopForm.provinceId),
+          districtId: Number(shopForm.districtId),
+          wardCode: shopForm.wardCode.trim(),
+          streetAddress: shopForm.streetAddress.trim(),
+        },
+      }));
+      if (result.status.toUpperCase() !== "OTP_VERIFICATION_REQUIRED") throw new Error("Chưa xác nhận được yêu cầu gửi OTP. Vui lòng kiểm tra trạng thái hồ sơ.");
+      setOtpEmail(result.businessEmail || businessEmail);
+      setOtpCode("");
+      setOtpError("");
+      setOtpNotice(`Yêu cầu gửi mã tới ${result.businessEmail || businessEmail} đã được tiếp nhận.`);
+      setOtpOpen(true);
+      setCurrentStatus("PENDING");
+      setNextStep("VERIFY_OTP_VIA_POST_/api/v1/sellers/otp/verify");
+    } catch (error) {
+      setClassifiedError(error instanceof ApiError || error instanceof TypeError ? classifySellerRegistrationError(error) : {
+        category: "BUSINESS_RULE",
+        categoryLabel: "Phản hồi hồ sơ",
+        title: "Chưa xác nhận được yêu cầu mở shop",
+        detail: error instanceof Error ? error.message : "Vui lòng kiểm tra trạng thái hồ sơ rồi thử lại.",
+      });
+    } finally {
+      setOtpBusy(false);
     }
-    setStatusNotice("Thông tin đã được kiểm tra và giữ trong phiên này. Chưa có hồ sơ nào được gửi; thao tác gửi đang chờ API tương thích với một OTP tài khoản.");
   }
+
+  async function verifyBusinessOtp(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!/^\d{6}$/.test(otpCode)) {
+      setOtpError("Nhập mã OTP gồm 6 chữ số.");
+      return;
+    }
+    setOtpBusy(true);
+    setOtpError("");
+    try {
+      const result = unwrap(await sellerService.verifyOtp(otpEmail, otpCode));
+      if (result.status.toUpperCase() !== "PENDING") throw new Error("Chưa xác nhận được trạng thái hồ sơ. Vui lòng kiểm tra lại.");
+      setCurrentStatus("PENDING_APPROVAL");
+      setRegistrationId(result.sellerId);
+      setNextStep("AWAITING_STAFF_APPROVAL");
+      setRejectionReason(null);
+      setEditingAfterReject(false);
+      setIdentityCardNumber("");
+      setOtpCode("");
+      setOtpOpen(false);
+      setStatusNotice("✓ Hồ sơ đã gửi · Chờ Staff duyệt");
+      if (user?.id) {
+        saveSafeRegistrationDraft({
+          userId: user.id,
+          registrationId: result.sellerId,
+          shopName: shopForm.shopName.trim(),
+          businessEmail: otpEmail,
+          hotline: shopForm.hotline.trim(),
+          warehouseAddress: {
+            provinceId: Number(shopForm.provinceId),
+            districtId: Number(shopForm.districtId),
+            wardCode: shopForm.wardCode.trim(),
+            streetAddress: shopForm.streetAddress.trim(),
+          },
+          status: "PENDING_APPROVAL",
+          otpVerified: true,
+        });
+      }
+    } catch (error) {
+      const message = sellerOtpErrorMessage(error);
+      if (error instanceof ApiError && ["OTP_MAX_ATTEMPTS_EXCEEDED", "DRAFT_NOT_FOUND"].includes(error.errorCode ?? "")) {
+        setOtpOpen(false);
+        setCurrentStatus(null);
+        setOtpEmail("");
+        setClassifiedError({ category: "BUSINESS_RULE", categoryLabel: "Xác thực email", title: "Cần gửi lại hồ sơ", detail: message });
+      } else {
+        setOtpError(message);
+      }
+    } finally {
+      setOtpBusy(false);
+    }
+  }
+
+  async function resendBusinessOtp() {
+    setOtpBusy(true);
+    setOtpError("");
+    setOtpNotice("");
+    try {
+      await sellerService.resendOtp(otpEmail);
+      setOtpNotice(`Mã mới đã gửi tới ${otpEmail}.`);
+    } catch (error) {
+      const message = sellerOtpErrorMessage(error);
+      if (error instanceof ApiError && error.errorCode === "DRAFT_NOT_FOUND") {
+        setOtpOpen(false);
+        setCurrentStatus(null);
+        setOtpEmail("");
+        setClassifiedError({ category: "BUSINESS_RULE", categoryLabel: "Xác thực email", title: "Cần gửi lại hồ sơ", detail: message });
+      } else {
+        setOtpError(message);
+      }
+    } finally {
+      setOtpBusy(false);
+    }
+  }
+
+  function cancelBusinessOtp() {
+    if (otpBusy) return;
+    setOtpOpen(false);
+    setOtpCode("");
+    setOtpError("");
+    setOtpNotice("");
+    setStatusNotice("Chưa nộp hồ sơ cho Staff. Bạn có thể nhập lại mã OTP hoặc sửa hồ sơ và gửi mã mới.");
+  }
+
   const effectiveStatus: SellerRegistrationStatus | null = isSellerRole
     ? "APPROVED"
     : currentStatus;
-  const statusMeta = effectiveStatus ? getSellerStatusMeta(effectiveStatus) : null;
 
   const syncedWarehouse = formatWarehouseAddress(
     sellerProfile?.pickupAddress ?? sellerProfile?.warehouseAddress,
@@ -437,111 +538,7 @@ export function BecomeSellerScreen() {
 
   return (
     <>
-      <div className="crumbs">
-        <Link href={ROUTES.home}>Trang chủ</Link>
-        <Icon name="chevron" size={14} />
-        <Link href={ROUTES.auth.profile}>Tài khoản</Link>
-        <Icon name="chevron" size={14} />
-        <span>Đăng ký trở thành Seller</span>
-      </div>
-
-      <PageHeading
-        overline="Kênh đối tác NEXUS"
-        title="Đăng ký mở gian hàng Seller"
-        description="Chuẩn bị thông tin gian hàng và kho lấy hàng. Email liên hệ shop không bắt buộc; OTP chỉ gửi tới email tài khoản."
-        action={
-          <div className="action-row" style={{ marginTop: 0 }}>
-            <button
-              type="button"
-              className="button button-secondary"
-              disabled={refreshingStatus || initialLoading}
-              onClick={() => void handleManualRefresh()}
-            >
-              <Icon name="clock" size={16} />
-              {refreshingStatus ? "Đang kiểm tra…" : "Kiểm tra trạng thái hồ sơ"}
-            </button>
-            {effectiveStatus === "APPROVED" && (
-              <ButtonLink href={ROUTES.seller.products}>
-                <Icon name="grid" size={16} /> Vào Kênh người bán
-              </ButtonLink>
-            )}
-          </div>
-        }
-      />
-
-      {/* Lifecycle Status Bar: PENDING -> PENDING_APPROVAL -> APPROVED / REJECTED */}
-      <Card className="card-pad" style={{ marginBottom: 22 }}>
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            flexWrap: "wrap",
-            gap: 12,
-            marginBottom: 16,
-          }}
-        >
-          <div>
-            <strong style={{ fontSize: 15 }}>Tiến trình thẩm định &amp; bàn giao hồ sơ Seller</strong>
-            <p style={{ margin: "4px 0 0", fontSize: 12, color: "var(--muted)" }}>
-              Buyer tạo tài khoản và xác thực email cá nhân → Chuẩn bị hồ sơ shop → Staff duyệt → Mở kênh bán
-            </p>
-          </div>
-          {statusMeta ? (
-            <Badge tone={statusMeta.tone}>{statusMeta.label}</Badge>
-          ) : (
-            <Badge tone="slate">CHƯA NỘP HỒ SƠ</Badge>
-          )}
-        </div>
-
-        <div className="grid-4">
-          {(
-            [
-              {
-                code: "PENDING",
-                title: "1. PENDING",
-                desc: "Thông tin đã ghi nhận ở trạng thái chờ xử lý.",
-              },
-              {
-                code: "PENDING_APPROVAL",
-                title: "2. PENDING_APPROVAL",
-                desc: "Đã xác thực OTP, hồ sơ đang chờ Staff thẩm định.",
-              },
-              {
-                code: "APPROVED",
-                title: "3. APPROVED",
-                desc: "Staff đã phê duyệt, cấp role Seller và đồng bộ kho GHN.",
-              },
-              {
-                code: "REJECTED",
-                title: "4. REJECTED",
-                desc: "Hồ sơ bị từ chối kèm lý do cụ thể từ Staff.",
-              },
-            ] as const
-          ).map((step) => {
-            const isActive = effectiveStatus === step.code;
-            return (
-              <div
-                key={step.code}
-                style={{
-                  padding: "14px 16px",
-                  borderRadius: 10,
-                  border: isActive ? "2px solid var(--sky)" : "1px solid var(--line)",
-                  background: isActive ? "var(--sky-soft)" : "#f8fafc",
-                }}
-              >
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-                  <strong style={{ fontSize: 13 }}>{step.title}</strong>
-                  {isActive && <Badge tone={getSellerStatusMeta(step.code).tone}>Hiện tại</Badge>}
-                </div>
-                <p style={{ margin: "6px 0 0", fontSize: 12, color: "var(--muted)", lineHeight: 1.45 }}>
-                  {step.desc}
-                </p>
-              </div>
-            );
-          })}
-        </div>
-      </Card>
+      <PageHeading title="Đăng kí mở gian hàng" />
 
       {statusNotice && (
         <p role="status" className="form-success" style={{ marginBottom: 18 }}>
@@ -722,15 +719,13 @@ export function BecomeSellerScreen() {
             </Card>
           )}
 
-          {/* PENDING state remains visible for legacy/API status; no shop OTP action is offered. */}
+          {/* Backend draft exists in Redis until the business OTP is verified. */}
           {effectiveStatus === "PENDING" && (
             <Card className="card-pad" style={{ marginBottom: 24 }}>
-              <div className="status-card-heading"><h2>Hồ sơ đang chờ xử lý</h2><Badge tone="amber">PENDING</Badge></div>
-              <p>Trạng thái này được hiển thị theo dữ liệu đã ghi nhận. Mã OTP chỉ dùng để xác thực tài khoản bằng email cá nhân; màn này không gửi hoặc xác thực OTP riêng cho shop.</p>
-              <div className="info-row"><span>Mã hồ sơ</span><strong>{registrationId || "—"}</strong></div>
-              <div className="info-row"><span>Tên shop</span><strong>{shopForm.shopName || "—"}</strong></div>
-              <div className="info-row"><span>Email liên hệ shop</span><strong>{shopForm.businessEmail || "Không cung cấp"}</strong></div>
-              <button type="button" className="button button-secondary" disabled={refreshingStatus} onClick={() => void handleManualRefresh()}>{refreshingStatus ? "Đang kiểm tra…" : "Kiểm tra trạng thái"}</button>
+              <div className="status-card-heading"><h2>Đang chờ xác thực email doanh nghiệp</h2><Badge tone="amber">Chưa nộp hồ sơ</Badge></div>
+               <p>Chưa nộp hồ sơ cho Staff. Bản nháp và mã OTP chỉ có hiệu lực tạm thời; nhập mã thành công để nộp hồ sơ hoặc sửa thông tin rồi gửi mã mới.</p>
+              <div className="info-row"><span>Email nhận OTP</span><strong>{otpEmail || shopForm.businessEmail || "—"}</strong></div>
+               <div className="action-row"><button type="button" className="button button-primary" disabled={!otpEmail || (nextStep !== null && !nextStep.startsWith("VERIFY_OTP_VIA_POST_"))} onClick={() => { setOtpError(""); setOtpNotice(""); setStatusNotice(null); setOtpOpen(true); }}>Nhập mã OTP</button><button type="button" className="button button-secondary" onClick={() => { setCurrentStatus(null); setOtpEmail(""); setNextStep(null); setStatusNotice(null); }}>Sửa hồ sơ và gửi mã mới</button></div>
             </Card>
           )}
           {/* PENDING_APPROVAL STATE: Waiting for Staff approval */}
@@ -738,15 +733,15 @@ export function BecomeSellerScreen() {
             <Card className="card-pad" style={{ marginBottom: 24 }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 12 }}>
                 <h2 style={{ margin: 0, fontSize: 20 }}>Hồ sơ đang chờ Staff thẩm định &amp; phê duyệt</h2>
-                <Badge tone="sky">PENDING_APPROVAL</Badge>
+                <Badge tone="green">✓ Chờ Staff duyệt</Badge>
               </div>
               <p style={{ fontSize: 13, color: "var(--muted)", lineHeight: 1.6 }}>
-                Hồ sơ đăng ký mở gian hàng của bạn đã được chuyển sang hàng đợi thẩm định của Staff (<code>/staff/sellers</code>). Sau khi Staff phê duyệt, tài khoản của bạn sẽ tự động nhận vai trò <strong>Seller</strong> và mở lối vào Kênh người bán.
+                Hồ sơ đăng ký mở gian hàng của bạn đã được chuyển sang hàng đợi thẩm định của Staff. Sau khi Staff phê duyệt, tài khoản của bạn sẽ nhận vai trò <strong>Seller</strong> và có thể vào Kênh người bán.
               </p>
               <div className="info-row">
                 <span>Trạng thái thẩm định</span>
                 <strong>
-                  <Badge tone="sky">PENDING_APPROVAL</Badge>
+                  <Badge tone="sky">Chờ Staff duyệt</Badge>
                 </strong>
               </div>
               <div className="info-row">
@@ -775,12 +770,6 @@ export function BecomeSellerScreen() {
                 <span>Định danh CCCD</span>
                 <strong>Đã mã hóa / Không hiển thị công khai</strong>
               </div>
-              {submittedAt && (
-                <div className="info-row">
-                  <span>Thời điểm gửi hồ sơ</span>
-                  <strong>{submittedAt}</strong>
-                </div>
-              )}
               <div className="action-row">
                 <button
                   type="button"
@@ -794,13 +783,13 @@ export function BecomeSellerScreen() {
             </Card>
           )}
 
-          {/* Shop form is shared with the public registration flow. This screen never calls the legacy Seller OTP endpoint. */}
+          {/* The first request stores a draft; verification submits it for Staff review. */}
           {showRegistrationForm && (
-            <form onSubmit={(event) => void submitRegistration(event)} autoComplete="off">
-              <div className="split" style={{ alignItems: "start" }}>
+            <div>
+              <div className="split seller-onboarding-form" style={{ alignItems: "start" }}>
                 <div className="mini-list">
                   <Card className="card-pad">
-                    <SectionHeading title="Tài khoản Buyer" hint="Đây là email cá nhân đã đăng nhập; email liên hệ shop không nhận mã xác thực." />
+                    <SectionHeading title="Tài khoản Buyer" hint="Email tài khoản đã được xác thực khi đăng ký. Hồ sơ shop dùng email doanh nghiệp riêng." />
                     <div className="info-row"><span>Chủ tài khoản</span><strong>{[personal.firstName, personal.lastName].filter(Boolean).join(" ") || user?.displayName || user?.username || "Buyer"}</strong></div>
                     <div className="info-row"><span>Email tài khoản</span><strong>{personal.email || user?.email || "—"}</strong></div>
                     <div className="info-row"><span>Số điện thoại</span><strong>{personal.phoneNumber || "Chưa cập nhật"}</strong></div>
@@ -818,20 +807,49 @@ export function BecomeSellerScreen() {
                 </div>
                 <div className="mini-list">
                   <Card className="card-pad">
-                    <h2 style={{ margin: "0 0 14px", fontSize: 18 }}>Điều kiện và trạng thái gửi</h2>
+                    <h2 style={{ margin: "0 0 14px", fontSize: 18 }}>Các bước mở shop</h2>
                     <div className="info-row"><span>Điểm uy tín hiện tại</span><strong>{reputationScore !== null ? `${reputationScore} điểm` : "Chưa có dữ liệu"}</strong></div>
                     <div className="info-row"><span>Điểm tối thiểu</span><strong>&gt;= 50 điểm</strong></div>
-                    <div className="info-row"><span>Email nhận OTP</span><strong>{personal.email || user?.email || "Email tài khoản"}</strong></div>
-                    <p className="status-note">Thông tin được kiểm tra và giữ trong bộ nhớ phiên. Chưa gửi shop tới Staff; nút bên dưới không gọi API đăng ký Seller.</p>
-                    <div className="action-row">
-                      <button type="submit" className="button button-primary full-width" disabled={initialLoading}>Kiểm tra và giữ thông tin trong phiên</button>
-                      {editingAfterReject && <button type="button" className="button button-secondary full-width" onClick={() => setEditingAfterReject(false)}>Hủy chỉnh sửa</button>}
+                    <div className="info-row"><span>Email nhận OTP</span><strong>{shopForm.businessEmail || "Email doanh nghiệp"}</strong></div>
+                    <p className="status-note seller-onboarding-note">Chọn Nộp hồ sơ để nhận OTP qua email doanh nghiệp. Hồ sơ chỉ chuyển đến Staff sau khi bạn xác nhận mã thành công.</p>
+                    <div className="seller-onboarding-actions">
+                      <button type="button" className="button button-primary full-width" disabled={initialLoading || otpBusy || Object.keys(validateShopRegistrationFields({ ...shopForm, identityCardNumber })).length > 0} onClick={() => void sendBusinessOtp()}>{otpBusy ? "Đang gửi mã…" : "Nộp hồ sơ"}</button>
                       <button type="button" className="button button-secondary full-width" disabled={refreshingStatus || initialLoading} onClick={() => void handleManualRefresh()}>{refreshingStatus ? "Đang kiểm tra…" : "Kiểm tra trạng thái hồ sơ"}</button>
+                      {editingAfterReject && <button type="button" className="button button-secondary full-width" onClick={() => setEditingAfterReject(false)}>Hủy chỉnh sửa</button>}
                     </div>
                   </Card>
                 </div>
               </div>
-            </form>
+            </div>
+          )}
+          {otpOpen && (
+            <div className="seller-otp-backdrop" onKeyDown={(event) => {
+              if (event.key === "Escape" && !otpBusy) cancelBusinessOtp();
+              if (event.key !== "Tab") return;
+              const focusable = Array.from(event.currentTarget.querySelectorAll<HTMLElement>("button:not([disabled]), input:not([disabled])"));
+              const first = focusable[0];
+              const last = focusable[focusable.length - 1];
+              if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+              else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+            }}>
+              <section className="seller-otp-dialog" role="dialog" aria-modal="true" aria-labelledby="seller-otp-title" aria-describedby="seller-otp-description">
+                <div className="seller-otp-heading">
+                  <h2 id="seller-otp-title">Xác minh email doanh nghiệp</h2>
+                  <button type="button" className="button button-secondary button-small" disabled={otpBusy} onClick={cancelBusinessOtp}>Hủy xác thực</button>
+                </div>
+                <p id="seller-otp-description" className="seller-otp-description">Mã OTP đã gửi tới <strong>{otpEmail}</strong>. Xác thực thành công sẽ nộp hồ sơ để Staff duyệt.</p>
+                <form className="seller-otp-form" onSubmit={(event) => void verifyBusinessOtp(event)}>
+                  <label className="seller-otp-label" htmlFor="seller-business-otp">Mã xác thực gồm 6 chữ số</label>
+                  <input ref={otpInputRef} id="seller-business-otp" className="field seller-otp-input" type="text" inputMode="numeric" pattern="[0-9]{6}" autoComplete="one-time-code" maxLength={6} required value={otpCode} onChange={(event) => { setOtpCode(event.target.value.replace(/\D/g, "").slice(0, 6)); setOtpError(""); }} />
+                  {otpError && <p className="form-error" role="alert">{otpError}</p>}
+                  {otpNotice && <p className="form-success" role="status">{otpNotice}</p>}
+                  <div className="seller-otp-actions">
+                    <button type="button" className="button button-secondary" disabled={otpBusy} onClick={() => void resendBusinessOtp()}>Gửi lại mã</button>
+                    <button type="submit" className="button button-primary" disabled={otpBusy || otpCode.length !== 6}>{otpBusy ? "Đang xác thực…" : "Xác nhận và nộp hồ sơ"}</button>
+                  </div>
+                </form>
+              </section>
+            </div>
           )}
           {/* Explicit Backend Blocker Report Card (per P0 requirement: "Nếu thiếu API đọc trạng thái hồ sơ, ghi blocker cụ thể.") */}
           {blockers.length > 0 && (

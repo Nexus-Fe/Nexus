@@ -66,16 +66,35 @@ function AccountNavigation() {
   </div>;
 }
 
-function PortalAccountControls() {
+function PortalAccountMenu({ role }: { role: string }) {
   const { user, clearSession } = useSession();
   const router = useRouter();
   const [busy, setBusy] = useState(false);
+  const displayName = user?.displayName?.trim()
+    || [user?.firstName, user?.lastName].filter(Boolean).join(" ").trim()
+    || user?.username?.trim()
+    || user?.email
+    || "Tài khoản Nexus";
   async function logout() {
     setBusy(true);
     try { await authService.logout(); } catch { /* Keep the local session closed if the Gateway is unavailable. */ }
     clearSession(); router.replace(ROUTES.auth.login);
   }
-  return <div className="header-actions"><Link href={ROUTES.auth.profile}>Hồ sơ</Link><Link href={ROUTES.auth.changePassword}>Đổi mật khẩu</Link>{user ? <button type="button" className="button button-secondary button-small" disabled={busy} onClick={() => void logout()}>{busy ? "Đang đăng xuất…" : "Đăng xuất"}</button> : <Link href={ROUTES.auth.login}>Đăng nhập</Link>}</div>;
+  return <details className="portal-account-menu">
+    <summary className="sidebar-bottom">
+      <div className="avatar" aria-hidden="true">{displayName.charAt(0).toLocaleUpperCase("vi-VN")}</div>
+      <div className="portal-account-trigger-copy"><strong title={displayName}>{displayName}</strong><span>{role}</span></div>
+      <Icon name="chevronDown" size={16} />
+    </summary>
+    <div className="account-menu-panel portal-account-menu-panel">
+      <Link className="portal-menu-home" href={ROUTES.home}>Quay lại trang chủ</Link>
+      {user ? <>
+        <Link href={ROUTES.auth.profile}>Hồ sơ</Link>
+        <Link href={ROUTES.auth.changePassword}>Đổi mật khẩu</Link>
+        <button type="button" disabled={busy} onClick={() => void logout()}>{busy ? "Đang đăng xuất…" : "Đăng xuất"}</button>
+      </> : <Link href={ROUTES.auth.login}>Đăng nhập</Link>}
+    </div>
+  </details>;
 }
 
 export function BuyerShell({ children }: { children: ReactNode }) {
@@ -114,7 +133,24 @@ export function BuyerShell({ children }: { children: ReactNode }) {
 }
 
 export function PortalShell({ children, role, subtitle, items }: { children: ReactNode; role: string; subtitle: string; items: NavigationItem[] }) {
-  return <div className="portal-shell"><aside className="portal-sidebar"><div className="sidebar-brand"><Brand /><span className="role-pill">{role}</span></div><p className="sidebar-label">{subtitle}</p><Suspense fallback={null}><NavLinks items={items} /></Suspense><div className="sidebar-bottom"><div className="avatar">{role.slice(0, 1)}</div><div><strong>Không gian {role}</strong><span>{subtitle}</span></div></div></aside><div className="portal-column"><header className="portal-header"><div><span className="mobile-brand"><Brand compact /></span><span className="portal-breadcrumb">{subtitle} <Icon name="chevron" size={14} /> {role}</span></div><PortalAccountControls /></header><details className="mobile-menu"><summary>Menu {role}</summary><Suspense fallback={null}><NavLinks items={items} /></Suspense></details><main id="main-content" className="portal-main">{children}</main></div></div>;
+  return <div className="portal-shell">
+    <aside className="portal-sidebar">
+      <div className="sidebar-brand"><Brand /><span className="role-pill">{role}</span></div>
+      <p className="sidebar-label">{subtitle}</p>
+      <Suspense fallback={null}><NavLinks items={items} /></Suspense>
+      <PortalAccountMenu role={role} />
+    </aside>
+    <div className="portal-column">
+      <details className="mobile-menu">
+        <summary><Brand compact /><span>Menu {role}</span><Icon name="chevronDown" size={16} /></summary>
+        <div className="mobile-menu-panel">
+          <Suspense fallback={null}><NavLinks items={items} /></Suspense>
+          <PortalAccountMenu role={role} />
+        </div>
+      </details>
+      <main id="main-content" className="portal-main">{children}</main>
+    </div>
+  </div>;
 }
 
 export function AuthShell({ children }: { children: ReactNode }) {
