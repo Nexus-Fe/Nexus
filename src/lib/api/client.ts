@@ -40,27 +40,95 @@ export type ApiRequestOptions = Omit<RequestInit, "body" | "method"> & {
 
 const SESSION_ACCESS_KEY = "nexus_access_token";
 const SESSION_REFRESH_KEY = "nexus_refresh_token";
-let refreshInFlight: Promise<string | null> | null = null;
+const SESSION_ROLES_KEY = "nexus_session_roles";
+let refreshInFlight: { token: string; promise: Promise<string | null> } | null = null;
+let accountCheckInFlight: { token: string; promise: Promise<void> } | null = null;
+export const SESSION_INVALIDATED_EVENT = "nexus:session-invalidated";
 
 function getStoredToken(key: string): string | null {
   if (typeof window === "undefined") return null;
   try {
-    return window.sessionStorage.getItem(key);
+    return window.localStorage.getItem(key);
   } catch {
     return null;
   }
 }
 
-export function saveSessionTokens(accessToken: string, refreshToken: string): void {
+export function extractRolesFromToken(token?: string | null): string[] {
+  if (!token || typeof token !== "string") return [];
+  try {
+    const parts = token.split(".");
+    if (parts.length < 2) return [];
+    let base64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+    while (base64.length % 4 !== 0) {
+      base64 += "=";
+    }
+    const binary = atob(base64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) {
+      bytes[i] = binary.charCodeAt(i);
+    }
+    const jsonPayload = new TextDecoder().decode(bytes);
+    const payload = JSON.parse(jsonPayload);
+    const claim =
+      payload.roles ??
+      payload.role ??
+      payload.Roles ??
+      payload.Role ??
+      payload["http://schemas.microsoft.com/ws/2008/06/identity/claims/role"] ??
+      payload["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/role"];
+    if (Array.isArray(claim)) return claim.map((r) => String(r).trim()).filter(Boolean);
+    if (typeof claim === "string" && claim.trim()) return [claim.trim()];
+    return [];
+  } catch {
+    return [];
+  }
+}
+
+export function saveSessionTokens(accessToken: string, refreshToken: string, roles?: string[]): void {
   if (typeof window === "undefined") return;
-  window.sessionStorage.setItem(SESSION_ACCESS_KEY, accessToken);
-  window.sessionStorage.setItem(SESSION_REFRESH_KEY, refreshToken);
+  window.localStorage.setItem(SESSION_ACCESS_KEY, accessToken);
+  window.localStorage.setItem(SESSION_REFRESH_KEY, refreshToken);
+  const resolvedRoles = roles && roles.length > 0 ? roles : extractRolesFromToken(accessToken);
+  if (resolvedRoles.length > 0) {
+    window.localStorage.setItem(SESSION_ROLES_KEY, JSON.stringify(resolvedRoles));
+  }
+}
+
+export function saveSessionRoles(roles: string[]): void {
+  if (typeof window === "undefined") return;
+  if (Array.isArray(roles) && roles.length > 0) {
+    window.localStorage.setItem(SESSION_ROLES_KEY, JSON.stringify(roles));
+  } else {
+    window.localStorage.removeItem(SESSION_ROLES_KEY);
+  }
+}
+
+export function getStoredRoles(): string[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(SESSION_ROLES_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed.map((r) => String(r));
+    }
+  } catch {
+    // Ignore malformed JSON in storage
+  }
+  const token = getStoredToken(SESSION_ACCESS_KEY);
+  return extractRolesFromToken(token);
 }
 
 export function clearSessionTokens(): void {
   if (typeof window === "undefined") return;
-  window.sessionStorage.removeItem(SESSION_ACCESS_KEY);
-  window.sessionStorage.removeItem(SESSION_REFRESH_KEY);
+  window.localStorage.removeItem(SESSION_ACCESS_KEY);
+  window.localStorage.removeItem(SESSION_REFRESH_KEY);
+  window.localStorage.removeItem(SESSION_ROLES_KEY);
+}
+
+function invalidateSession(): void {
+  clearSessionTokens();
+  if (typeof window !== "undefined") window.dispatchEvent(new Event(SESSION_INVALIDATED_EVENT));
 }
 
 export function hasRefreshToken(): boolean {
@@ -179,11 +247,12 @@ async function send<T>(path: string, method: string, options: ApiRequestOptions)
 }
 
 async function refreshAccessToken(): Promise<string | null> {
-  if (refreshInFlight) return refreshInFlight;
   const refreshToken = getStoredToken(SESSION_REFRESH_KEY);
   if (!refreshToken) return null;
+  if (refreshInFlight?.token === refreshToken) return refreshInFlight.promise;
 
-  refreshInFlight = (async () => {
+  const check = { token: refreshToken, promise: Promise.resolve<string | null>(null) };
+  check.promise = (async () => {
     try {
       const response = await fetch(makeUrl("/api/v1/auth/refresh"), {
         method: "POST",
@@ -193,7 +262,7 @@ async function refreshAccessToken(): Promise<string | null> {
       });
       const payload = await readPayload(response);
       if (!response.ok || typeof payload !== "object" || payload === null) {
-        if ([400, 401, 403].includes(response.status)) clearSessionTokens();
+        if ([400, 401, 403].includes(response.status) && getStoredToken(SESSION_REFRESH_KEY) === refreshToken) clearSessionTokens();
         return null;
       }
       const data = "data" in payload ? (payload as ApiResponse<Record<string, unknown>>).data : payload as Record<string, unknown>;
@@ -202,18 +271,52 @@ async function refreshAccessToken(): Promise<string | null> {
       if (typeof access !== "string" || typeof refresh !== "string") {
         return null;
       }
-      saveSessionTokens(access, refresh);
+      if (getStoredToken(SESSION_REFRESH_KEY) !== refreshToken) return null;
+      saveSessionTokens(access, refresh, getStoredRoles());
       return access;
     } catch {
       return null;
     } finally {
-      refreshInFlight = null;
+      if (refreshInFlight === check) refreshInFlight = null;
     }
   })();
-  return refreshInFlight;
+  refreshInFlight = check;
+  return check.promise;
+}
+
+async function ensureAccountActive(path: string): Promise<void> {
+  if (path === "/api/v1/me" || path.startsWith("/api/v1/auth/")) return;
+  const accessToken = getStoredToken(SESSION_ACCESS_KEY);
+  if (!accessToken) return;
+  if (accountCheckInFlight?.token !== accessToken) {
+    const check = { token: accessToken, promise: Promise.resolve() };
+    check.promise = (async () => {
+      try {
+        const response = await request<ApiResponse<{ status?: string }> | { status?: string }>("/api/v1/me", "GET", {});
+        if (getStoredToken(SESSION_ACCESS_KEY) !== accessToken) return;
+        const profile = response && typeof response === "object" && "data" in response ? response.data : response;
+        if (["BANNED", "DELETED"].includes(profile.status?.toUpperCase() ?? "")) {
+          throw new ApiError("Tài khoản đã bị khóa hoặc xóa. Vui lòng đăng nhập lại.", 403, response, "ACCOUNT_BANNED");
+        }
+      } catch (error) {
+        if (getStoredToken(SESSION_ACCESS_KEY) !== accessToken) return;
+        if (error instanceof ApiError && (["ACCOUNT_BANNED", "USER_BANNED"].includes(error.errorCode ?? "") || (error.status === 401 && !hasRefreshToken()))) {
+          invalidateSession();
+          throw error;
+        }
+        // A transient profile failure must not block an unrelated request.
+      }
+    })().finally(() => { if (accountCheckInFlight === check) accountCheckInFlight = null; });
+    accountCheckInFlight = check;
+  }
+  await accountCheckInFlight.promise;
+  const currentToken = getStoredToken(SESSION_ACCESS_KEY);
+  if (!currentToken) throw new ApiError("Phiên đăng nhập đã kết thúc.", 401, null, "SESSION_INVALIDATED");
+  if (currentToken !== accessToken) await ensureAccountActive(path);
 }
 
 async function request<T>(path: string, method: string, options: ApiRequestOptions = {}): Promise<T> {
+  await ensureAccountActive(path);
   try {
     return await send<T>(path, method, options);
   } catch (error) {
@@ -227,6 +330,7 @@ async function request<T>(path: string, method: string, options: ApiRequestOptio
 }
 
 async function requestWithMetadata<T>(path: string, method: string, options: ApiRequestOptions = {}): Promise<{ data: T; headers: Headers }> {
+  await ensureAccountActive(path);
   try {
     return await sendWithMetadata<T>(path, method, options);
   } catch (error) {

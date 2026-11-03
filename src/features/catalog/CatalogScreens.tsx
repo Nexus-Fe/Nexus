@@ -14,9 +14,9 @@ import { AuctionTile, auctionService } from "@/features/auction";
 
 type Product = { id: string; productId?: string; name: string; description?: string; price: number; minPrice?: number | null; primaryImageUrl?: string | null; imageUrl?: string; brand?: string; status?: string; categoryId?: string; categoryName?: string; variantCount?: number; variants?: Array<{ id: string; skuId?: string; name?: string; sku?: string; price?: number | null; status?: string; stock?: number }> };
 type ProductDetailResponse = {
-  product: { productId: string; name: string; description?: string | null; brand?: string | null; status?: string | null; categoryId?: string | null };
+  productId: string; name: string; description?: string | null; brand?: string | null; status: string;
   category?: { categoryId: string; name: string } | null;
-  variants?: Array<{ variantId: string; skuCode: string; name: string; price: number | null; status: string; attributes?: Array<{ attrName: string; attrValue: string }> }>;
+  variants?: Array<{ variantId: string; skuCode: string; name: string; price: number | null; status: string; isActive: boolean; attributes?: Array<{ attrName: string; attrValue: string }> }>;
   images?: Array<{ url: string; altText?: string | null }>;
   rating?: { avgRating: number; reviewCount: number } | null;
 };
@@ -31,7 +31,7 @@ function ProductCard({ product }: { product: Product }) {
 }
 function useProducts(search = "", categoryId = "") {
   const path = search || categoryId ? "/api/v1/products/search" : "/api/v1/products";
-  const key = `${path}?${new URLSearchParams({ page: "1", pageSize: "24", status: "ACTIVE", ...(search ? { keyword: search } : {}), ...(categoryId ? { categoryId } : {}) })}`;
+  const key = `${path}?${new URLSearchParams({ page: "1", pageSize: "24", saleType: "REGULAR", ...(search ? { keyword: search } : {}), ...(categoryId ? { categoryId } : {}) })}`;
   return useApiResource(key, async () => rows(unwrap(await api.get<ApiResponse<List<Product>>>(key))).filter((product) => !product.status || product.status.toUpperCase() === "ACTIVE").map((product) => ({ ...product, id: product.id ?? product.productId ?? "", price: product.minPrice ?? product.price ?? Number.NaN, imageUrl: product.primaryImageUrl ?? product.imageUrl })));
 }
 
@@ -111,15 +111,14 @@ export function ProductDetailScreen() {
   const params = useParams<{ id: string }>(); const id = String(params.id ?? "");
   const resource = useApiResource(id ? `/api/v1/products/${id}` : null, async () => {
     const result = unwrap(await api.get<ApiResponse<ProductDetailResponse>>(`/api/v1/products/${encodeURIComponent(id)}`));
-    const product = result.product;
     const prices = (result.variants ?? []).map((variant) => variant.price).filter((price): price is number => typeof price === "number" && Number.isFinite(price));
     return {
-      id: product.productId || id,
-      name: product.name,
-      description: product.description ?? undefined,
-      brand: product.brand ?? undefined,
-      status: product.status ?? undefined,
-      categoryId: product.categoryId ?? result.category?.categoryId ?? undefined,
+      id: result.productId || id,
+      name: result.name,
+      description: result.description ?? undefined,
+      brand: result.brand ?? undefined,
+      status: result.status ?? undefined,
+      categoryId: result.category?.categoryId ?? undefined,
       categoryName: result.category?.name ?? undefined,
       imageUrl: result.images?.[0]?.url,
       price: prices.length ? Math.min(...prices) : Number.NaN,
@@ -129,9 +128,6 @@ export function ProductDetailScreen() {
   });
   const product = resource.data;
   const [selectedSkuId, setSelectedSkuId] = useState("");
-  const [cartError, setCartError] = useState(""); const [adding, setAdding] = useState(false);
   const selectedVariant = product?.variants?.find((variant) => variant.skuId === selectedSkuId);
-  const canAdd = product?.status?.toUpperCase() === "ACTIVE" && selectedVariant?.status?.toUpperCase() === "ACTIVE" && typeof selectedVariant.price === "number" && selectedVariant.price > 0;
-  const addToCart = async () => { if (!product || !canAdd || !selectedSkuId) return; setAdding(true); setCartError(""); try { await api.post("/api/v1/carts/items", { productId: product.id, skuId: selectedSkuId, quantity: 1 }); window.location.assign(ROUTES.buyer.cart); } catch (error) { setCartError(problem(error instanceof Error ? error : new Error("Không thêm được sản phẩm vào giỏ."))); setAdding(false); } };
-  return product ? <><div className="split split-even"><div className="detail-media"><BackendImage src={resolveImageUrl(product.imageUrl ?? null)} alt={product.name} /></div><div><Badge>{product.categoryName ?? "Sản phẩm"}</Badge><h1 style={{fontSize:32,margin:"18px 0 8px"}}>{product.name}</h1><p className="page-description">{product.brand}</p><div className="detail-price">{formatMoney(selectedVariant?.price ?? product.price)}</div><Card className="info-list"><div className="info-row"><span>Trạng thái</span><strong>{product.status ?? "Chưa có dữ liệu"}</strong></div><div className="info-row"><span>Biến thể</span><strong>{product.variants?.length ?? product.variantCount ?? "Chưa có dữ liệu"}</strong></div></Card><label className="field-wrap">Chọn biến thể<select className="select-field" value={selectedSkuId} onChange={(event) => setSelectedSkuId(event.target.value)}><option value="">Chọn SKU</option>{product.variants?.filter((variant) => variant.status?.toUpperCase() === "ACTIVE" && typeof variant.price === "number" && variant.price > 0).map((variant) => <option key={variant.id} value={variant.skuId}>{variant.name ?? variant.sku} · {formatMoney(variant.price)}</option>)}</select></label><div className="action-row"><button className="button button-primary" disabled={adding || !canAdd} onClick={() => void addToCart()}>{adding ? "Đang thêm…" : "Thêm vào giỏ"}</button><Link className="button button-secondary" href={ROUTES.buyer.cart}>Giỏ hàng</Link></div>{cartError && <p role="alert" className="notice">{cartError}</p>}</div></div><SectionHeading title="Thông tin sản phẩm" /><Card className="card-pad"><p>{product.description ?? ""}</p></Card></> : <><PageHeading title="Chi tiết sản phẩm" />{resource.error ? <p role="alert" className="notice">{problem(resource.error)}</p> : <NoData title={resource.loading ? "Đang tải sản phẩm…" : "Không tìm thấy sản phẩm"} />}</>;
+  return product ? <><div className="split split-even"><div className="detail-media"><BackendImage src={resolveImageUrl(product.imageUrl ?? null)} alt={product.name} /></div><div><Badge>{product.categoryName ?? "Sản phẩm"}</Badge><h1 style={{fontSize:32,margin:"18px 0 8px"}}>{product.name}</h1><p className="page-description">{product.brand}</p><div className="detail-price">{formatMoney(selectedVariant?.price ?? product.price)}</div><Card className="info-list"><div className="info-row"><span>Trạng thái</span><strong>{product.status ?? "Chưa có dữ liệu"}</strong></div><div className="info-row"><span>Biến thể</span><strong>{product.variants?.length ?? product.variantCount ?? "Chưa có dữ liệu"}</strong></div></Card><label className="field-wrap">Chọn biến thể<select className="select-field" value={selectedSkuId} onChange={(event) => setSelectedSkuId(event.target.value)}><option value="">Chọn SKU</option>{product.variants?.filter((variant) => variant.status?.toUpperCase() === "ACTIVE" && typeof variant.price === "number" && variant.price > 0).map((variant) => <option key={variant.id} value={variant.skuId}>{variant.name ?? variant.sku} · {formatMoney(variant.price)}</option>)}</select></label><div className="action-row"><button className="button button-primary" disabled>Thêm vào giỏ</button><Link className="button button-secondary" href={ROUTES.buyer.cart}>Giỏ hàng</Link></div><p className="status-note">Commerce hiện chưa có API thêm sản phẩm vào giỏ. Tồn kho không thay đổi khi chỉ xem sản phẩm.</p></div></div><SectionHeading title="Thông tin sản phẩm" /><Card className="card-pad"><p>{product.description ?? ""}</p></Card></> : <><PageHeading title="Chi tiết sản phẩm" />{resource.error ? <p role="alert" className="notice">{problem(resource.error)}</p> : <NoData title={resource.loading ? "Đang tải sản phẩm…" : "Không tìm thấy sản phẩm"} />}</>;
 }

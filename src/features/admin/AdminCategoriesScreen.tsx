@@ -3,7 +3,6 @@
 import { useState, type FormEvent } from "react";
 import { Badge, Card, NoData, PageHeading, SectionHeading } from "@/components/ui/Primitives";
 import { useApiResource } from "@/lib/api/use-api-resource";
-import { StaffAdminDemoNotice } from "@/widgets/staff-admin-demo/DemoNotice";
 import { adminCategoriesService, type AdminCategory, type CategoryInput } from "./services/admin-categories.service";
 
 type FormState = CategoryInput & { isActive: boolean };
@@ -55,7 +54,9 @@ export function AdminCategoriesScreen() {
         sortOrder: form.sortOrder,
       };
       if (editing) {
-        await adminCategoriesService.update(editing, { ...input, isActive: form.isActive });
+        const current = records.find((category) => category.categoryId === editing);
+        if (!current) throw new Error("Danh mục cần sửa không còn trong danh sách.");
+        await adminCategoriesService.update(editing, { name: input.name, description: input.description, level: current.level ?? 1, sortOrder: input.sortOrder, isDisabled: !form.isActive });
       } else {
         await adminCategoriesService.create(input);
       }
@@ -89,7 +90,6 @@ export function AdminCategoriesScreen() {
 
   return <>
     <PageHeading overline="Không gian quản trị" title="Danh mục sản phẩm" description="Quản lý danh mục để người bán chọn khi đăng sản phẩm." />
-    <StaffAdminDemoNotice />
     {categories.error && <p className="notice" role="alert">Không tải được danh mục: {categories.error.message}</p>}
     {error && <p className="notice" role="alert">{error}</p>}
     {saved && <p className="form-success" role="status">{saved}</p>}
@@ -97,11 +97,12 @@ export function AdminCategoriesScreen() {
     <Card className="card-pad">
       <form onSubmit={(event) => void submit(event)}>
         <div className="form-grid">
-          <label className="field-wrap">Tên danh mục<input className="field" required maxLength={150} value={form.name} onChange={(event) => setForm((value) => ({ ...value, name: event.target.value }))} /></label>
-          <label className="field-wrap">Danh mục cha<select className="select-field" value={form.parentId ?? ""} onChange={(event) => setForm((value) => ({ ...value, parentId: event.target.value || null }))}><option value="">Không có</option>{records.filter((category) => category.categoryId !== editing).map((category) => <option key={category.categoryId} value={category.categoryId}>{category.name}</option>)}</select></label>
+          <label className="field-wrap">Tên danh mục<input className="field" required maxLength={100} value={form.name} onChange={(event) => setForm((value) => ({ ...value, name: event.target.value }))} /></label>
+          <label className="field-wrap">Danh mục cha<select className="select-field" value={form.parentId ?? ""} disabled={Boolean(editing)} onChange={(event) => setForm((value) => ({ ...value, parentId: event.target.value || null }))}><option value="">Không có</option>{records.filter((category) => category.categoryId !== editing).map((category) => <option key={category.categoryId} value={category.categoryId}>{category.name}</option>)}</select></label>
           <label className="field-wrap">Thứ tự hiển thị<input className="field" type="number" min="0" required value={form.sortOrder} onChange={(event) => setForm((value) => ({ ...value, sortOrder: Number(event.target.value) }))} /></label>
           {editing && <label className="field-wrap">Trạng thái<select className="select-field" value={form.isActive ? "active" : "inactive"} onChange={(event) => setForm((value) => ({ ...value, isActive: event.target.value === "active" }))}><option value="active">Đang hiển thị</option><option value="inactive">Đã ẩn</option></select></label>}
         </div>
+        {editing && <p className="status-note">API hiện không cho đổi danh mục cha khi sửa. Danh mục bị ẩn sẽ không còn trong danh sách công khai để mở lại từ màn này.</p>}
         <label className="field-wrap">Mô tả<textarea className="textarea-field" value={form.description} onChange={(event) => setForm((value) => ({ ...value, description: event.target.value }))} /></label>
         <div className="action-row"><button className="button button-primary" disabled={busy}>{busy ? "Đang lưu…" : editing ? "Lưu thay đổi" : "Tạo danh mục"}</button>{editing && <button type="button" className="button button-secondary" disabled={busy} onClick={resetForm}>Hủy sửa</button>}</div>
       </form>

@@ -14,9 +14,14 @@ import { ShopRegistrationForm, ShopRegistrationReview, emptyShopRegistrationFiel
 import { keepSellerRegistrationHandoff } from "@/features/seller/services/seller-registration-handoff";
 
 function landingPath(user: AuthUser): string {
-  const roles = (user.roles ?? (user.role ? [user.role] : [])).map((role) => role.toLocaleLowerCase("en-US"));
-  if (roles.some((role) => role === "admin" || role === "staff" || role === "seller")) return ROUTES.home;
-  if (roles.includes("buyer") || roles.includes("customer")) return ROUTES.buyer.cart;
+  const roles = (user.roles ?? (user.role ? [user.role] : [])).map((role) => {
+    const normalized = role.toLocaleLowerCase("en-US");
+    return normalized === "supportstaff" ? "staff" : normalized;
+  });
+  if (roles.includes("admin")) return ROUTES.admin.overview;
+  if (roles.includes("staff")) return ROUTES.staff.auctions;
+  if (roles.includes("seller")) return ROUTES.seller.products;
+  if (roles.includes("buyer") || roles.includes("customer")) return ROUTES.home;
   return ROUTES.home;
 }
 
@@ -35,8 +40,8 @@ export function LoginScreen() {
     setSubmitting(true);
     try {
       const response = await authService.login({ identifier, password });
-      setAuthenticatedUser(response.data.user);
-      router.replace(landingPath(response.data.user));
+      setAuthenticatedUser(response.user);
+      router.replace(landingPath(response.user));
     } catch (reason) {
       setError(reason instanceof ApiError && reason.status === 423 ? "Tài khoản tạm khóa do đăng nhập sai nhiều lần. Vui lòng thử lại sau." : reason instanceof Error ? reason.message : "Không thể đăng nhập.");
     } finally {
@@ -149,7 +154,7 @@ export function RegisterScreen() {
       setStep("signingIn");
       try {
         const session = await authService.login({ identifier: fields.email.trim(), password: fields.password });
-        setAuthenticatedUser(session.data.user);
+        setAuthenticatedUser(session.user);
         setFields((current) => ({ ...current, password: "", confirmPassword: "" }));
         router.replace(ROUTES.home);
       } catch {
@@ -171,7 +176,7 @@ export function RegisterScreen() {
     setSubmitting(true);
     try {
       const response = await authService.resendOtp(fields.email, "REGISTER");
-      setResendIn(response.data.resendCooldown || 60);
+      setResendIn(("data" in response ? response.data : response).resendCooldown || 60);
       setMessage("Đã gửi lại mã xác minh.");
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Không thể gửi lại mã xác minh.");
