@@ -14,9 +14,14 @@ import { ShopRegistrationForm, ShopRegistrationReview, emptyShopRegistrationFiel
 import { keepSellerRegistrationHandoff } from "@/features/seller/services/seller-registration-handoff";
 
 function landingPath(user: AuthUser): string {
-  const roles = (user.roles ?? (user.role ? [user.role] : [])).map((role) => role.toLocaleLowerCase("en-US"));
-  if (roles.some((role) => role === "admin" || role === "staff" || role === "seller")) return ROUTES.home;
-  if (roles.includes("buyer") || roles.includes("customer")) return ROUTES.buyer.cart;
+  const roles = (user.roles ?? (user.role ? [user.role] : [])).map((role) => {
+    const normalized = role.toLocaleLowerCase("en-US");
+    return normalized === "supportstaff" ? "staff" : normalized;
+  });
+  if (roles.includes("admin")) return ROUTES.admin.overview;
+  if (roles.includes("staff")) return ROUTES.staff.auctions;
+  if (roles.includes("seller")) return ROUTES.seller.products;
+  if (roles.includes("buyer") || roles.includes("customer")) return ROUTES.home;
   return ROUTES.home;
 }
 

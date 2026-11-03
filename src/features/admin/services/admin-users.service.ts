@@ -10,8 +10,21 @@ export type AdminUser = {
   email: string;
   phoneNumber?: string | null;
   roles?: string[];
+  identifyNumber?: string | null;
+  address?: string | null;
+  gender?: string | null;
+  reputationScore?: number;
+  trustLevel?: string;
+  banReason?: string | null;
+  bannedAt?: string | null;
+  updatedAt?: string | null;
   status?: string;
   createdAt?: string;
+};
+
+export type UpdateUserRolesPayload = {
+  roleCodes: string[];
+  reason: string;
 };
 
 export type AdminUserPage = { items: AdminUser[]; total: number; page: number; limit: number };
@@ -46,5 +59,26 @@ export const adminUsersService = {
   },
   async remove(id: string, reason: string): Promise<void> {
     await api.delete<void>(userPath(id), { body: { reason } });
+  },
+  async updateRoles(
+    id: string,
+    roleCodesOrPayload: string[] | UpdateUserRolesPayload,
+    optionalReason?: string,
+  ): Promise<void> {
+    let roleCodes: string[];
+    let reason: string;
+
+    if (Array.isArray(roleCodesOrPayload)) {
+      roleCodes = roleCodesOrPayload;
+      reason = optionalReason?.trim() || "Gán quyền quản trị viên từ giao diện Admin";
+    } else {
+      roleCodes = roleCodesOrPayload.roleCodes;
+      reason = roleCodesOrPayload.reason?.trim() || optionalReason?.trim() || "Gán quyền quản trị viên từ giao diện Admin";
+    }
+
+    await api.put(`${userPath(id)}/roles`, {
+      roleCodes,
+      reason,
+    });
   },
 };

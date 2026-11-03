@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { ApiError, api, clearSessionTokens, hasRefreshToken, SESSION_INVALIDATED_EVENT, type ApiResponse } from "@/lib/api/client";
+import { ApiError, api, clearSessionTokens, getStoredRoles, hasRefreshToken, saveSessionRoles, SESSION_INVALIDATED_EVENT, type ApiResponse } from "@/lib/api/client";
 import type { AuthUser } from "@/features/auth/types";
 
 type SessionContextValue = {
@@ -23,7 +23,21 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   const setAuthenticatedUser = useCallback((authenticatedUser: AuthUser) => {
     sessionVersion.current += 1;
-    setUser(authenticatedUser);
+    const storedRoles = getStoredRoles();
+    const userRoles = Array.isArray(authenticatedUser.roles)
+      ? authenticatedUser.roles.map((r) => String(r).trim()).filter(Boolean)
+      : [];
+    if (authenticatedUser.role && typeof authenticatedUser.role === "string" && authenticatedUser.role.trim()) {
+      userRoles.push(authenticatedUser.role.trim());
+    }
+    const mergedRolesSet = new Set<string>();
+    for (const r of storedRoles) mergedRolesSet.add(r);
+    for (const r of userRoles) mergedRolesSet.add(r);
+    const roles = Array.from(mergedRolesSet);
+    if (roles.length > 0) {
+      saveSessionRoles(roles);
+    }
+    setUser({ ...authenticatedUser, roles });
     setRestoreError(null);
   }, []);
 
@@ -52,7 +66,21 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         clearSession();
         return;
       }
-      setUser(profile);
+      const storedRoles = getStoredRoles();
+      const profileRoles = Array.isArray(profile.roles)
+        ? profile.roles.map((r) => String(r).trim()).filter(Boolean)
+        : [];
+      if (profile.role && typeof profile.role === "string" && profile.role.trim()) {
+        profileRoles.push(profile.role.trim());
+      }
+      const mergedRolesSet = new Set<string>();
+      for (const r of storedRoles) mergedRolesSet.add(r);
+      for (const r of profileRoles) mergedRolesSet.add(r);
+      const existingRoles = Array.from(mergedRolesSet);
+      if (existingRoles.length > 0) {
+        saveSessionRoles(existingRoles);
+      }
+      setUser({ ...profile, roles: existingRoles });
       setRestoreError(null);
     } catch (error) {
       if (version !== sessionVersion.current) return;

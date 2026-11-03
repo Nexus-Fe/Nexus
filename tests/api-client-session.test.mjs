@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { api, saveSessionTokens, SESSION_INVALIDATED_EVENT } from "../src/lib/api/client.ts";
+import { api, clearSessionTokens, extractRolesFromToken, getStoredRoles, saveSessionTokens, SESSION_INVALIDATED_EVENT } from "../src/lib/api/client.ts";
 
 function browserSession() {
   const values = new Map();
@@ -92,4 +92,26 @@ test("public login request does not require an existing session check", async ()
 
   await api.post("/api/v1/auth/login", { identifier: "buyer", password: "example" });
   assert.deepEqual(paths, ["/api/gateway/api/v1/auth/login"]);
+});
+
+test("roles are stored during login and cleared on sign out", () => {
+  const browser = browserSession();
+  saveSessionTokens("access-token", "refresh-token", ["ADMIN", "SELLER"]);
+  assert.equal(browser.localStorage.getItem("nexus_session_roles"), JSON.stringify(["ADMIN", "SELLER"]));
+  assert.deepEqual(getStoredRoles(), ["ADMIN", "SELLER"]);
+
+  clearSessionTokens();
+  assert.equal(browser.localStorage.getItem("nexus_session_roles"), null);
+  assert.deepEqual(getStoredRoles(), []);
+});
+
+test("roles can be extracted from unpadded JWT token claims", () => {
+  const payload = {
+    sub: "user-123",
+    "http://schemas.microsoft.com/ws/2008/06/identity/claims/role": "Admin",
+  };
+  const base64Url = Buffer.from(JSON.stringify(payload)).toString("base64url");
+  const token = `header.${base64Url}.signature`;
+
+  assert.deepEqual(extractRolesFromToken(token), ["Admin"]);
 });

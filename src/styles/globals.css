@@ -241,13 +241,13 @@ h1,h2,h3 { letter-spacing: -.025em; }
 .button-light:hover { background: #bae6fd; }
 .button-disabled { color: #94a3b8; background: #f1f5f9; border-color: var(--line); }
 .button-small { min-height: 33px; padding: 0 12px; font-size: 12px; }
-.badge { display: inline-flex; align-items: center; border-radius: 999px; padding: 5px 9px; font-size: 11px; font-weight: 700; white-space: nowrap; }
-.badge-sky { color: #0369a1; background: #e0f2fe; }
-.badge-green { color: #047857; background: #d1fae5; }
-.badge-amber { color: #a16207; background: #fef3c7; }
-.badge-slate { color: #475569; background: #f1f5f9; }
-.badge-red { color: #be123c; background: #ffe4e6; }
-.badge-indigo { color: #4338ca; background: #e0e7ff; }
+.badge { display: inline-flex; align-items: center; border-radius: 999px; padding: 4px 10px; font-size: 11px; font-weight: 700; white-space: nowrap; line-height: 1.3; }
+.badge-sky { color: #0284c7; background: #f0f9ff; border: 1px solid #bae6fd; }
+.badge-green { color: #15803d; background: #f0fdf4; border: 1px solid #bbf7d0; }
+.badge-amber { color: #b45309; background: #fffbeb; border: 1px solid #fde68a; }
+.badge-slate { color: #475569; background: #f8fafc; border: 1px solid #e2e8f0; }
+.badge-red { color: #b91c1c; background: #fef2f2; border: 1px solid #fecaca; }
+.badge-indigo { color: #4338ca; background: #eef2ff; border: 1px solid #c7d2fe; }
 .grid-2,.grid-3,.grid-4 { display: grid; gap: 18px; }
 .grid-2 { grid-template-columns: repeat(2,minmax(0,1fr)); }
 .grid-3 { grid-template-columns: repeat(3,minmax(0,1fr)); }
@@ -551,6 +551,141 @@ h1,h2,h3 { letter-spacing: -.025em; }
 .account-menu-panel button:hover { color: var(--sky); background: #f8fafc; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
 @keyframes nexus-spin { to { transform: rotate(360deg); } }
+
+/* Admin User Details Popup Modal */
+.admin-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(15, 23, 42, 0.55);
+  backdrop-filter: blur(4px);
+}
+.admin-modal-dialog {
+  width: min(100%, 640px);
+  max-height: calc(100dvh - 40px);
+  overflow-y: auto;
+  padding: 24px 28px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface);
+  box-shadow: 0 24px 64px rgba(15, 23, 42, 0.22);
+  color: var(--ink);
+}
+.admin-modal-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 14px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 14px;
+}
+.admin-modal-heading h2 {
+  margin: 0;
+  font-size: 20px;
+  line-height: 1.3;
+}
+.admin-modal-close-btn {
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  font-size: 18px;
+  color: var(--muted);
+  cursor: pointer;
+}
+.admin-modal-close-btn:hover {
+  background: var(--canvas);
+  color: var(--ink);
+}
+.user-cell-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  color: var(--sky-dark);
+  font-weight: 600;
+}
+.user-cell-btn:hover {
+  text-decoration: underline;
+  color: var(--sky);
+}
+.user-cell-btn small {
+  display: block;
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--muted);
+}
+
+.roles-grid-layout {
+  display: grid;
+  grid-template-columns: minmax(280px, 340px) minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+@media (max-width: 900px) {
+  .roles-grid-layout {
+    grid-template-columns: 1fr;
+  }
+}
+.role-card-btn {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  padding: 14px 16px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.role-card-btn:hover {
+  background: var(--canvas);
+  border-color: #cbd5e1;
+}
+.role-card-btn[aria-pressed="true"] {
+  border-color: var(--sky);
+  background: #f0f9ff;
+  box-shadow: 0 0 0 1px var(--sky);
+}
+.role-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+.role-card-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink);
+}
+.role-card-desc {
+  font-size: 12px;
+  line-height: 1.45;
+  color: #64748b;
+  margin: 0;
+}
+.role-card-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11px;
+  color: var(--muted);
+  padding-top: 6px;
+  border-top: 1px dashed var(--line);
+}
+
+
 
 
 

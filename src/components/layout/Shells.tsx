@@ -1,12 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { Suspense, useState, type ReactNode } from "react";
+import { Suspense, useEffect, useState, type ReactNode } from "react";
 import type { NavigationItem } from "@/constants/navigation";
 import { buyerNavigation } from "@/constants/navigation";
 import { ROUTES } from "@/constants/routes";
 import { Icon } from "@/components/ui/Icon";
 import { useSession } from "@/components/auth/SessionProvider";
+import { getStoredRoles } from "@/lib/api/client";
 import { authService } from "@/features/auth";
 import { NavLinks } from "./NavLinks";
 import { useRouter } from "next/navigation";
@@ -19,8 +20,10 @@ const roleDashboardLinks = [
 
 function dashboardsForRoles(roles: string[]) {
   const normalizedRoles = new Set(roles.map((role) => {
-    const normalized = role.toLocaleLowerCase("en-US");
-    return normalized === "supportstaff" ? "staff" : normalized;
+    const normalized = role.toLocaleLowerCase("en-US").replace(/^role_/, "");
+    if (normalized === "supportstaff") return "staff";
+    if (normalized === "administrator") return "admin";
+    return normalized;
   }));
   return roleDashboardLinks.filter((entry) => normalizedRoles.has(entry.role));
 }
@@ -34,8 +37,6 @@ function AccountNavigation() {
   const router = useRouter();
   const displayName = user?.displayName || user?.firstName || user?.username || user?.email || "tài khoản";
   const userRoles = user?.roles ?? (user?.role ? [user.role] : []);
-  const dashboardLinks = dashboardsForRoles(userRoles);
-  const hasPrivilegedRole = dashboardLinks.length > 0;
   const isSeller = userRoles.some((role) => role.toLocaleLowerCase("en-US") === "seller");
   const logout = async () => {
     try { await authService.logout(); } catch { /* Clear the local session even when the Gateway is unavailable. */ } finally { clearSession(); router.replace(ROUTES.auth.login); }
@@ -45,7 +46,7 @@ function AccountNavigation() {
       <details className="account-menu">
         <summary><Icon name="user" size={26} /><span>Tài khoản {displayName}</span><Icon name="chevronDown" size={18} /></summary>
         <div className="account-menu-panel">
-          {!hasPrivilegedRole && <Link href={ROUTES.buyer.orders}>Đơn mua</Link>}
+          <Link href={ROUTES.buyer.orders}>Đơn mua</Link>
           {isSeller ? (
             <>
               <Link href={ROUTES.seller.products}>Kênh người bán</Link>
@@ -75,6 +76,7 @@ function PortalAccountMenu({ role }: { role: string }) {
     || user?.username?.trim()
     || user?.email
     || "Tài khoản Nexus";
+  const isInternalRole = role === "Nhân viên" || role === "Quản trị viên";
   async function logout() {
     setBusy(true);
     try { await authService.logout(); } catch { /* Keep the local session closed if the Gateway is unavailable. */ }
@@ -87,7 +89,7 @@ function PortalAccountMenu({ role }: { role: string }) {
       <Icon name="chevronDown" size={16} />
     </summary>
     <div className="account-menu-panel portal-account-menu-panel">
-      <Link className="portal-menu-home" href={ROUTES.home}>Quay lại trang chủ</Link>
+      {!isInternalRole && <Link className="portal-menu-home" href={ROUTES.home}>Quay lại trang chủ</Link>}
       {user ? <>
         <Link href={ROUTES.auth.profile}>Hồ sơ</Link>
         <Link href={ROUTES.auth.changePassword}>Đổi mật khẩu</Link>
@@ -98,8 +100,38 @@ function PortalAccountMenu({ role }: { role: string }) {
 }
 
 export function BuyerShell({ children }: { children: ReactNode }) {
-  const { user } = useSession();
+  const { user, ready } = useSession();
+  const router = useRouter();
   const userRoles = user?.roles ?? (user?.role ? [user.role] : []);
+  const activeRoles = userRoles.length > 0 ? userRoles : (typeof window !== "undefined" ? getStoredRoles() : []);
+  const isAdmin = activeRoles.some((r) => {
+    const n = r.toLocaleLowerCase("en-US").replace(/^role_/, "");
+    return n === "admin" || n === "administrator";
+  });
+  const isStaff = activeRoles.some((r) => {
+    const n = r.toLocaleLowerCase("en-US").replace(/^role_/, "");
+    return n === "staff" || n === "supportstaff";
+  });
+
+  useEffect(() => {
+    if (!ready || !user) return;
+    if (isAdmin) {
+      router.replace(ROUTES.admin.overview);
+    } else if (isStaff) {
+      router.replace(ROUTES.staff.auctions);
+    }
+  }, [ready, user, isAdmin, isStaff, router]);
+
+  if (ready && user && (isAdmin || isStaff)) {
+    return (
+      <div className="site-shell">
+        <main className="route-loading" role="status">
+          Đang chuyển hướng tới cổng {isAdmin ? "quản trị hệ thống" : "vận hành sàn"}…
+        </main>
+      </div>
+    );
+  }
+
   const dashboardLinks = dashboardsForRoles(userRoles);
   const hasPrivilegedRole = dashboardLinks.length > 0;
 
@@ -114,14 +146,13 @@ export function BuyerShell({ children }: { children: ReactNode }) {
           <button type="submit" aria-label="Tìm kiếm"><Icon name="arrow" size={17} /></button>
         </form>
         <div className="header-actions">
-          {hasPrivilegedRole ? dashboardLinks.map(({ role, label, href, icon }) => (
+          {hasPrivilegedRole && dashboardLinks.map(({ role, label, href, icon }) => (
             <Link key={role} className="button button-secondary button-small role-dashboard-link" href={href} aria-label={label} title={label}>
               <Icon name={icon} size={18} /><span>{label}</span>
             </Link>
-          )) : <>
-            <Link href={ROUTES.buyer.orders}><Icon name="orders" size={19} /><span>Đơn mua</span></Link>
-            <Link href={ROUTES.buyer.cart}><Icon name="bag" size={19} /><span>Giỏ hàng</span></Link>
-          </>}
+          ))}
+          <Link href={ROUTES.buyer.orders}><Icon name="orders" size={19} /><span>Đơn mua</span></Link>
+          <Link href={ROUTES.buyer.cart}><Icon name="bag" size={19} /><span>Giỏ hàng</span></Link>
           <AccountNavigation />
         </div>
       </div>
@@ -154,5 +185,26 @@ export function PortalShell({ children, role, subtitle, items }: { children: Rea
 }
 
 export function AuthShell({ children }: { children: ReactNode }) {
-  return <div className="auth-shell"><header className="auth-header"><Link href={ROUTES.home} aria-label="NEXUS - Trang chủ"><Brand /></Link><Link className="auth-home" href={ROUTES.home}>Quay lại trang chủ</Link></header><main className="auth-main">{children}</main><footer className="auth-footer"><span>© NEXUS</span><span>Điều khoản dịch vụ　·　Chính sách bảo mật</span></footer></div>;
+  const { user } = useSession();
+  const userRoles = user?.roles ?? (user?.role ? [user.role] : []);
+  const normalizedRoles = userRoles.map((r) => {
+    const n = r.toLocaleLowerCase("en-US").replace(/^role_/, "");
+    if (n === "supportstaff") return "staff";
+    if (n === "administrator") return "admin";
+    return n;
+  });
+  const isAdmin = normalizedRoles.includes("admin");
+  const isStaff = normalizedRoles.includes("staff");
+
+  const homeHref = isAdmin ? ROUTES.admin.overview : isStaff ? ROUTES.staff.auctions : ROUTES.home;
+  const homeLabel = isAdmin ? "Về trang quản trị" : isStaff ? "Về trang vận hành" : "Quay lại trang chủ";
+
+  return <div className="auth-shell">
+    <header className="auth-header">
+      <Link href={homeHref} aria-label="NEXUS - Trang chủ"><Brand /></Link>
+      <Link className="auth-home" href={homeHref}>{homeLabel}</Link>
+    </header>
+    <main className="auth-main">{children}</main>
+    <footer className="auth-footer"><span>© NEXUS</span><span>Điều khoản dịch vụ　·　Chính sách bảo mật</span></footer>
+  </div>;
 }

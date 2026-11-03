@@ -22,6 +22,14 @@ function statusLabel(status: string): string {
   return status;
 }
 
+function statusTone(status: string): "sky" | "green" | "amber" | "slate" | "red" {
+  const value = status.toUpperCase();
+  if (value === "APPROVED") return "green";
+  if (value === "REJECTED") return "red";
+  if (value === "PENDING" || value === "PENDING_APPROVAL") return "amber";
+  return "slate";
+}
+
 function isPending(status: string): boolean {
   return ["PENDING", "PENDING_APPROVAL"].includes(status.toUpperCase());
 }
@@ -52,7 +60,7 @@ export function StaffSellersScreen() {
     <label className="field-wrap">Trạng thái hồ sơ<select className="select-field" value={status} onChange={(event) => { setStatus(event.target.value); setPage(1); }}>{statuses.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
     <Card>
       {registrations.error && <p role="alert" className="notice">{registrations.error.message}</p>}
-      {records.length ? <div className="table-scroll"><table className="data-table"><thead><tr><th>Mã hồ sơ</th><th>Tên shop</th><th>Email doanh nghiệp</th><th>Trạng thái</th><th>Thao tác</th></tr></thead><tbody>{records.map((registration) => <tr key={registration.registrationId}><td>{registration.registrationId}</td><td>{registration.shopName}</td><td>{registration.businessEmail ?? "—"}</td><td><Badge>{statusLabel(registration.status)}</Badge></td><td><Link className="button button-secondary button-small" href={ROUTES.staff.seller(registration.registrationId)}>Chi tiết</Link></td></tr>)}</tbody></table></div> : <NoData title={registrations.loading ? "Đang tải hồ sơ…" : registrations.error ? "Không tải được hồ sơ" : "Không có hồ sơ"} />}
+      {records.length ? <div className="table-scroll"><table className="data-table"><thead><tr><th>Mã hồ sơ</th><th>Tên shop</th><th>Email doanh nghiệp</th><th>Trạng thái</th><th>Thao tác</th></tr></thead><tbody>{records.map((registration) => <tr key={registration.registrationId}><td>{registration.registrationId}</td><td>{registration.shopName}</td><td>{registration.businessEmail ?? "—"}</td><td><Badge tone={statusTone(registration.status)}>{statusLabel(registration.status)}</Badge></td><td><Link className="button button-secondary button-small" href={ROUTES.staff.seller(registration.registrationId)}>Chi tiết</Link></td></tr>)}</tbody></table></div> : <NoData title={registrations.loading ? "Đang tải hồ sơ…" : registrations.error ? "Không tải được hồ sơ" : "Không có hồ sơ"} />}
       {registrations.data && registrations.data.total > registrations.data.limit && <div className="action-row"><button type="button" className="button button-secondary button-small" disabled={page <= 1 || registrations.loading} onClick={() => setPage((value) => value - 1)}>Trang trước</button><span>Trang {page}</span><button type="button" className="button button-secondary button-small" disabled={page * registrations.data.limit >= registrations.data.total || registrations.loading} onClick={() => setPage((value) => value + 1)}>Trang sau</button></div>}
     </Card>
   </>;
@@ -68,7 +76,7 @@ function RegistrationDetails({ registration }: { registration: SellerRegistratio
     <div className="info-row"><span>Hotline</span><strong>{registration.hotline ?? "—"}</strong></div>
     <div className="info-row"><span>CCCD</span><strong>{registration.identityCardNumber ?? "—"}</strong></div>
     <div className="info-row"><span>Địa chỉ kho</span><strong>{registration.warehouseAddress ?? registration.pickupAddress ?? "—"}</strong></div>
-    <div className="info-row"><span>Trạng thái</span><strong><Badge>{statusLabel(registration.status)}</Badge></strong></div>
+    <div className="info-row"><span>Trạng thái</span><strong><Badge tone={statusTone(registration.status)}>{statusLabel(registration.status)}</Badge></strong></div>
     {registration.rejectionReason && <div className="info-row"><span>Lý do từ chối</span><strong>{registration.rejectionReason}</strong></div>}
     <DocumentLink label="Mặt trước CCCD" url={registration.idCardFrontUrl} />
     <DocumentLink label="Mặt sau CCCD" url={registration.idCardBackUrl} />
