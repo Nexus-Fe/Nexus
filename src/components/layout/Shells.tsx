@@ -10,6 +10,7 @@ import { useSession } from "@/components/auth/SessionProvider";
 import { getStoredRoles } from "@/lib/api/client";
 import { authService } from "@/features/auth";
 import { NavLinks } from "./NavLinks";
+import { Breadcrumbs } from "./Breadcrumbs";
 import { useRouter } from "next/navigation";
 
 const roleDashboardLinks = [
@@ -158,7 +159,7 @@ export function BuyerShell({ children }: { children: ReactNode }) {
       </div>
       <div className="buyer-nav-wrap"><Suspense fallback={null}><NavLinks items={buyerNavigation} variant="top" /></Suspense></div>
     </header>
-    <main id="main-content" className="buyer-main">{children}</main>
+    <main id="main-content" className="buyer-main"><Suspense fallback={null}><Breadcrumbs /></Suspense>{children}</main>
     <footer className="site-footer"><div><Brand compact /><p>Copyright 2026</p></div><p>© NEXUS</p></footer>
   </div>;
 }
@@ -179,7 +180,7 @@ export function PortalShell({ children, role, subtitle, items }: { children: Rea
           <PortalAccountMenu role={role} />
         </div>
       </details>
-      <main id="main-content" className="portal-main">{children}</main>
+      <main id="main-content" className="portal-main"><Suspense fallback={null}><Breadcrumbs portal /></Suspense>{children}</main>
     </div>
   </div>;
 }
