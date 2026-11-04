@@ -11,29 +11,24 @@ import { Badge, ButtonLink, Card, NoData, PageHeading, SectionHeading } from "@/
 import { api, type ApiResponse } from "@/lib/api/client";
 import { useApiResource } from "@/lib/api/use-api-resource";
 import { formatMoney } from "@/lib/presentation";
-import { isSensitiveIdentityKey, loadSafeRegistrationDraft } from "./services/seller.service";
+import { fulfillmentService } from "@/features/fulfillment";
+import { loadSafeRegistrationDraft } from "./services/seller.service";
+import { sellerCatalogService } from "./services/catalog.service";
 
 export { BecomeSellerScreen } from "./BecomeSellerScreen";
 
 type Obj = Record<string, any>;
 const unwrap = <T,>(x: ApiResponse<T> | T): T =>
   x && typeof x === "object" && "data" in x ? (x as ApiResponse<T>).data : (x as T);
-const rows = (x: any): Obj[] =>
-  Array.isArray(x) ? x : (x?.items ?? x?.data ?? x?.products ?? x?.auctions ?? x?.shipments ?? []);
 const msg = (e: Error | null) => e?.message ?? "";
 
 export function SellerProductsScreen() {
   const [q, setQ] = useState("");
+  const [keyword, setKeyword] = useState("");
+  const [page, setPage] = useState(1);
   const resource = useApiResource(
-    `/api/v1/products/search?page=1&pageSize=50&keyword=${encodeURIComponent(q)}`,
-    async () =>
-      rows(
-        unwrap(
-          await api.get<ApiResponse<any>>(
-            `/api/v1/products/search?page=1&pageSize=50&keyword=${encodeURIComponent(q)}`,
-          ),
-        ),
-      ),
+    `seller-products:${page}:${keyword}`,
+    (signal) => sellerCatalogService.list(page, keyword, signal),
   );
   return (
     <>
@@ -41,19 +36,16 @@ export function SellerProductsScreen() {
         overline="Kênh người bán"
         title="Quản lý sản phẩm"
         description="Sản phẩm và trạng thái từ Catalog API."
-        action={
-          <ButtonLink href={ROUTES.seller.newProduct}>
-            <Icon name="plus" size={17} /> Tạo sản phẩm
-          </ButtonLink>
-        }
       />
-      <SectionHeading title="Danh sách sản phẩm" />
+      <SectionHeading title="Danh sách sản phẩm" action={<ButtonLink href={ROUTES.seller.newProduct}><Icon name="plus" size={17} /> Tạo sản phẩm</ButtonLink>} />
       <Card>
         <form
           className="toolbar"
           onSubmit={(e) => {
             e.preventDefault();
-            resource.reload();
+            setPage(1);
+            setKeyword(q.trim());
+            if (keyword === q.trim() && page === 1) resource.reload();
           }}
         >
           <input
@@ -69,23 +61,23 @@ export function SellerProductsScreen() {
             {msg(resource.error)}
           </p>
         )}
-        {resource.data?.length ? (
+        {resource.data?.items.length ? (
           <div className="table-scroll">
             <table className="data-table">
               <thead>
                 <tr>
                   <th>Sản phẩm</th>
                   <th>Giá</th>
-                  <th>Tồn kho</th>
+                  <th>Biến thể</th>
                   <th>Trạng thái</th>
                 </tr>
               </thead>
               <tbody>
-                {resource.data.map((p, i) => (
-                  <tr key={p.id ?? p.productId ?? i}>
-                    <td>{p.name ?? p.productName}</td>
-                    <td>{formatMoney(p.price ?? p.minPrice)}</td>
-                    <td>{p.stock ?? p.availableQuantity ?? "—"}</td>
+                {resource.data.items.map((p) => (
+                  <tr key={p.productId}>
+                    <td><Link href={ROUTES.seller.product(p.productId)}>{p.name}</Link></td>
+                    <td>{formatMoney(p.minPrice ?? null)}</td>
+                    <td>{p.variantCount}</td>
                     <td>
                       <Badge>{p.status ?? ""}</Badge>
                     </td>
@@ -105,12 +97,14 @@ export function SellerProductsScreen() {
             }
           />
         )}
+        {resource.data && resource.data.pagination.totalPages > 1 && <div className="action-row"><button type="button" className="button button-secondary" disabled={page <= 1 || resource.loading} onClick={() => setPage((value) => value - 1)}>Trang trước</button><span>Trang {page}/{resource.data.pagination.totalPages}</span><button type="button" className="button button-secondary" disabled={!resource.data.pagination.hasNextPage || resource.loading} onClick={() => setPage((value) => value + 1)}>Trang sau</button></div>}
       </Card>
     </>
   );
 }
 
 export function SellerProductEditorScreen() {
+  const { user } = useSession();
   const [f, setF] = useState({
     name: "",
     description: "",
@@ -120,36 +114,29 @@ export function SellerProductEditorScreen() {
     variantName: "Mặc định",
     price: "",
     currency: "VND",
+    color: "",
+    size: "",
   });
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const set = (k: keyof typeof f, v: string) => setF((s) => ({ ...s, [k]: v }));
-  const categories = useApiResource("/api/v1/categories", async () =>
-    rows(unwrap(await api.get<ApiResponse<any>>("/api/v1/categories"))),
-  );
+  const categories = useApiResource("seller-product-categories", sellerCatalogService.categories);
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setBusy(true);
     setError("");
     try {
-      await api.post("/api/v1/products", {
-        categoryId: f.categoryId || null,
-        name: f.name,
-        description: f.description,
-        brand: f.brand,
-        specifications: {},
-        variants: [
-          {
-            skuCode: f.skuCode,
-            name: f.variantName,
-            price: Number(f.price),
-            currency: f.currency,
-            isActive: true,
-            attributes: [],
-          },
-        ],
+      if (!user?.id) throw new Error("Bạn cần đăng nhập Seller để tạo sản phẩm.");
+      const created = await sellerCatalogService.create({
+        sellerId: user.id,
+        categoryId: f.categoryId,
+        name: f.name.trim(),
+        description: f.description.trim(),
+        brand: f.brand.trim(),
+        variants: [{ skuCode: f.skuCode.trim(), name: f.variantName.trim(), price: Number(f.price), currency: f.currency, attributes: [f.color.trim() && { attrName: "Màu sắc", attrValue: f.color.trim() }, f.size.trim() && { attrName: "Kích cỡ", attrValue: f.size.trim() }].filter((attribute): attribute is { attrName: string; attrValue: string } => Boolean(attribute)) }],
       });
-      window.location.assign(ROUTES.seller.products);
+      if (!created.id) throw new Error("Catalog chưa trả mã sản phẩm.");
+      window.location.assign(ROUTES.seller.product(created.id));
     } catch (ex) {
       setError(msg(ex as Error));
       setBusy(false);
@@ -157,11 +144,6 @@ export function SellerProductEditorScreen() {
   };
   return (
     <>
-      <div className="crumbs">
-        <Link href={ROUTES.seller.products}>Quản lý sản phẩm</Link>
-        <Icon name="chevron" size={14} />
-        <span>Tạo sản phẩm</span>
-      </div>
       <PageHeading title="Tạo sản phẩm" description="Thông tin sẽ được gửi đến Catalog API." />
       <form onSubmit={(e) => void submit(e)}>
         <Card className="card-pad">
@@ -185,7 +167,7 @@ export function SellerProductEditorScreen() {
               >
                 <option value="">Chọn danh mục</option>
                 {(categories.data ?? []).map((c) => (
-                  <option key={c.id ?? c.categoryId} value={c.id ?? c.categoryId}>
+                  <option key={c.categoryId} value={c.categoryId}>
                     {c.name}
                   </option>
                 ))}
@@ -229,6 +211,8 @@ export function SellerProductEditorScreen() {
                 onChange={(e) => set("price", e.target.value)}
               />
             </label>
+            <label className="field-wrap">Màu sắc<input className="field" value={f.color} onChange={(e) => set("color", e.target.value)} /></label>
+            <label className="field-wrap">Kích cỡ<input className="field" value={f.size} onChange={(e) => set("size", e.target.value)} /></label>
             <label className="field-wrap">
               Mô tả
               <textarea
@@ -258,192 +242,47 @@ export function SellerProductEditorScreen() {
 }
 
 export function SellerInventoryScreen() {
-  const products = useApiResource("/api/v1/products/search?page=1&pageSize=100", async () =>
-    rows(unwrap(await api.get<ApiResponse<any>>("/api/v1/products/search?page=1&pageSize=100"))),
-  );
+  const products = useApiResource("seller-inventory-products", (signal) => sellerCatalogService.list(1, "", signal));
+  const [productId, setProductId] = useState("");
+  const detail = useApiResource(productId ? `seller-inventory-product:${productId}` : null, (signal) => sellerCatalogService.detail(productId, signal));
   const [skuId, setSkuId] = useState("");
-  const [quantity, setQuantity] = useState("1");
-  const [error, setError] = useState("");
-  const [saved, setSaved] = useState("");
-  const [busy, setBusy] = useState(false);
-  const stockIn = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setBusy(true);
-    setError("");
-    setSaved("");
-    try {
-      await api.post("/api/v1/inventories/initialize", {
-        items: [{ skuId, quantity: Number(quantity) }],
-      });
-      setSaved("Kho đã được cập nhật.");
-      products.reload();
-    } catch (ex) {
-      setError(msg(ex as Error));
-    } finally {
-      setBusy(false);
-    }
-  };
+  const balance = useApiResource(skuId ? `seller-inventory:${skuId}` : null, (signal) => sellerCatalogService.inventory(skuId, signal));
   return (
     <>
-      <PageHeading
-        overline="Kênh người bán"
-        title="Quản lý kho"
-        description="Danh sách tồn kho chưa có API; nhập kho có thể gửi qua Catalog API."
-      />
+      <PageHeading title="Quản lý kho" />
       <Card className="card-pad">
-        <form className="form-grid" onSubmit={(e) => void stockIn(e)}>
-          <label className="field-wrap">
-            SKU ID
-            <input
-              className="field"
-              required
-              value={skuId}
-              onChange={(e) => setSkuId(e.target.value)}
-            />
-          </label>
-          <label className="field-wrap">
-            Số lượng nhập
-            <input
-              className="field"
-              type="number"
-              min="1"
-              required
-              value={quantity}
-              onChange={(e) => setQuantity(e.target.value)}
-            />
-          </label>
-          <button className="button button-primary" disabled={busy}>
-            Nhập kho
-          </button>
-        </form>
-        {error && (
-          <p role="alert" className="notice">
-            {error}
-          </p>
-        )}
-        {saved && (
-          <p role="status" className="form-success">
-            {saved}
-          </p>
-        )}
+        <SectionHeading title="Chọn SKU cần kiểm tra" />
+        <div className="form-grid"><label className="field-wrap">Sản phẩm<select className="select-field" value={productId} onChange={(event) => { setProductId(event.target.value); setSkuId(""); }}><option value="">Chọn sản phẩm</option>{products.data?.items.map((item) => <option key={item.productId} value={item.productId}>{item.name}</option>)}</select></label><label className="field-wrap">Biến thể<select className="select-field" value={skuId} onChange={(event) => setSkuId(event.target.value)} disabled={!detail.data}><option value="">Chọn SKU</option>{detail.data?.variants.map((variant) => <option key={variant.variantId} value={variant.variantId}>{variant.skuCode} · {variant.name}</option>)}</select></label></div>
+        {products.error && <p className="notice" role="alert">{products.error.message} Gateway cần chuyển tiếp /api/v1/seller/products.</p>}
+        {detail.error && <p className="notice" role="alert">{detail.error.message}</p>}
+        <p className="status-note">Tồn kho được tra cứu theo mã biến thể (SKU ID), không theo mã sản phẩm.</p>
       </Card>
-      <SectionHeading
-        title="Sản phẩm của shop"
-        hint="Catalog product search không trả tồn kho; số lượng sẽ hiển thị khi API cung cấp trường stock."
-      />
-      <Card>
-        {products.error && (
-          <p role="alert" className="notice">
-            {msg(products.error)}
-          </p>
-        )}
-        {products.data?.length ? (
-          <div className="table-scroll">
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>Sản phẩm</th>
-                  <th>SKU</th>
-                  <th>Tồn kho</th>
-                  <th>Trạng thái</th>
-                </tr>
-              </thead>
-              <tbody>
-                {products.data.flatMap((p, i) =>
-                  (p.variants ?? []).length ? (
-                    p.variants.map((v: Obj, j: number) => (
-                      <tr key={v.id ?? v.skuId ?? `${i}-${j}`}>
-                        <td>{p.name ?? p.productName}</td>
-                        <td>{v.skuCode ?? v.id}</td>
-                        <td>{v.stock ?? v.availableQuantity ?? "—"}</td>
-                        <td>{v.isActive ? "Đang bán" : ""}</td>
-                      </tr>
-                    ))
-                  ) : [
-                    <tr key={p.id ?? i}>
-                      <td>{p.name ?? p.productName}</td>
-                      <td>—</td>
-                      <td>{p.stock ?? "—"}</td>
-                      <td>{p.status ?? ""}</td>
-                    </tr>,
-                  ],
-                )}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <NoData
-            title={
-              products.loading
-                ? "Đang tải sản phẩm…"
-                : products.error
-                  ? "Không tải được sản phẩm"
-                  : "Chưa có sản phẩm"
-            }
-          />
-        )}
+      <Card className="card-pad">
+        <SectionHeading title="Số dư tồn kho" />
+        {balance.error && <p className="notice" role="alert">{balance.error.message} Gateway cần chuyển tiếp /api/v1/inventories.</p>}
+        {balance.data ? <div className="grid-3"><div><span>Tổng tồn</span><h2>{balance.data.totalQuantity}</h2></div><div><span>Có thể bán</span><h2>{balance.data.availableQuantity}</h2></div><div><span>Đang giữ</span><h2>{balance.data.reservedQuantity}</h2></div><div><span>Không khả dụng</span><h2>{balance.data.unavailableQuantity}</h2></div></div> : <NoData title={skuId ? balance.loading ? "Đang tải tồn kho…" : balance.error ? "Không đọc được tồn kho" : "SKU chưa có bản ghi tồn kho" : "Chọn SKU để xem tồn kho"} />}
+        <div className="action-row"><button type="button" className="button button-secondary" disabled>Nhập hoặc điều chỉnh tồn kho</button><button type="button" className="button button-secondary" disabled>Xem sổ cái tồn kho</button></div>
+        <p className="status-note">Fulfillment hiện chưa cung cấp action khai báo, điều chỉnh và đọc sổ cái theo tài liệu demo. Không gửi yêu cầu nhập kho giả.</p>
       </Card>
     </>
   );
 }
 
 export function SellerShipmentsScreen() {
-  const resource = useApiResource("/api/v1/seller/shipment?page=1&pageSize=50", async () =>
-    rows(unwrap(await api.get<ApiResponse<any>>("/api/v1/seller/shipment?page=1&pageSize=50"))),
-  );
+  const [orderId, setOrderId] = useState("");
   return (
     <>
       <PageHeading
         overline="Kênh người bán"
         title="Vận đơn & giao nhận"
-        description="Theo dõi các lô hàng đã tạo qua Fulfillment API."
+        description="Tra cứu vận đơn theo mã đơn hàng qua Fulfillment API."
       />
-      <Card>
-        {resource.error && (
-          <p role="alert" className="notice">
-            {msg(resource.error)}
-          </p>
-        )}
-        {resource.data?.length ? (
-          <div className="table-scroll">
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>Mã vận đơn</th>
-                  <th>Mã đơn</th>
-                  <th>Trạng thái</th>
-                  <th>Ngày tạo</th>
-                </tr>
-              </thead>
-              <tbody>
-                {resource.data.map((x, i) => (
-                  <tr key={x.id ?? x.shipmentId ?? i}>
-                    <td>
-                      <Link href={ROUTES.seller.shipment(String(x.id ?? x.shipmentId))}>
-                        {x.trackingNumber ?? x.shipmentId}
-                      </Link>
-                    </td>
-                    <td>{x.orderId ?? "—"}</td>
-                    <td>
-                      <Badge>{x.status ?? ""}</Badge>
-                    </td>
-                    <td>{x.createdAt ?? ""}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <NoData
-            title={
-              resource.loading
-                ? "Đang tải vận đơn…"
-                : resource.error
-                  ? "Không tải được vận đơn"
-                  : "Chưa có vận đơn"
-            }
-          />
-        )}
+      <Card className="card-pad">
+        <form className="toolbar" onSubmit={(event) => { event.preventDefault(); if (orderId.trim()) window.location.assign(ROUTES.seller.shipment(orderId.trim())); }}>
+          <label className="field-wrap">Mã đơn hàng<input className="field" required value={orderId} onChange={(event) => setOrderId(event.target.value)} placeholder="UUID đơn hàng" /></label>
+          <button className="button button-secondary">Tra cứu vận đơn</button>
+        </form>
+        <p className="status-note">Fulfillment chưa có API danh sách vận đơn theo Seller. Bạn có thể tra cứu bằng mã đơn hàng đã biết.</p>
       </Card>
       <Card className="card-pad">
         <h2>Tạo vận đơn GHN</h2>
@@ -459,80 +298,31 @@ export function SellerShipmentsScreen() {
 }
 
 export function SellerOrdersScreen() {
-  const [id, setId] = useState("");
   return (
     <>
       <PageHeading
         overline="Kênh người bán"
         title="Đơn cần xử lý"
-        description="Tìm một đơn bán theo mã. Gateway chưa cung cấp API danh sách đơn của Seller."
+        description="Đơn bán sẽ xuất hiện khi Commerce cung cấp API dành cho Seller."
       />
       <Card className="card-pad">
-        <form
-          className="toolbar"
-          onSubmit={(event) => {
-            event.preventDefault();
-            if (id.trim()) window.location.assign(ROUTES.seller.order(id.trim()));
-          }}
-        >
-          <label className="field-wrap">
-            Mã đơn hàng
-            <input
-              className="field"
-              required
-              value={id}
-              onChange={(event) => setId(event.target.value)}
-              placeholder="UUID đơn hàng"
-            />
-          </label>
-          <button className="button button-secondary">Mở đơn</button>
-        </form>
         <NoData title="Danh sách đơn bán chưa có API" />
-        <p>Đơn chỉ hiện khi Commerce cung cấp endpoint danh sách theo Seller.</p>
+        <p>Commerce hiện chỉ cho Buyer xem đơn của mình. Cần endpoint danh sách và chi tiết đơn theo Seller trước khi mở thao tác xử lý đơn.</p>
       </Card>
     </>
   );
 }
 
 export function SellerOrderDetailScreen() {
-  const params = useParams<{ id: string }>();
-  const id = String(params.id ?? "");
-  const order = useApiResource(
-    id ? `/api/v1/orders/${encodeURIComponent(id)}` : null,
-    async () => unwrap(await api.get<ApiResponse<Obj>>(`/api/v1/orders/${encodeURIComponent(id)}`)),
-  );
   return (
     <>
-      <div className="crumbs">
-        <Link href={ROUTES.seller.orders}>Đơn cần xử lý</Link>
-        <Icon name="chevron" size={14} />
-        <span>{id}</span>
-      </div>
       <PageHeading
         title="Chi tiết đơn bán"
-        description="Chấp nhận hoặc từ chối trong hạn xử lý theo quy tắc đơn hàng."
+        description="Thông tin đơn bán sẽ được hiển thị khi Commerce cấp quyền đọc cho Seller."
       />
-      {order.error && (
-        <p role="alert" className="notice">
-          {msg(order.error)}
-        </p>
-      )}
       <Card className="card-pad">
-        {order.data ? (
-          Object.entries(order.data)
-            .filter(([key, value]) => !isSensitiveIdentityKey(key) && (value === null || typeof value !== "object"))
-            .map(([key, value]) => (
-              <div className="info-row" key={key}>
-                <span>{key}</span>
-                <strong>{String(value ?? "—")}</strong>
-              </div>
-            ))
-        ) : (
-          <NoData title={order.loading ? "Đang tải đơn hàng…" : "Không có dữ liệu đơn hàng"} />
-        )}
-        <p className="status-note">
-          Thao tác chấp nhận/từ chối chưa bật: Commerce service chưa có REST endpoint thực thi trong môi trường hiện tại.
-        </p>
+        <NoData title="Chưa thể xem chi tiết đơn bán" />
+        <p className="status-note">GET /api/v1/orders/{'{id}'} hiện kiểm tra quyền sở hữu của Buyer. Commerce chưa có endpoint chi tiết đơn và chấp nhận/từ chối dành cho Seller.</p>
         <div className="action-row">
           <button className="button button-primary" disabled>
             Chấp nhận đơn
@@ -540,6 +330,7 @@ export function SellerOrderDetailScreen() {
           <button className="button button-secondary" disabled>
             Từ chối đơn
           </button>
+          <ButtonLink href={ROUTES.seller.orders} variant="secondary">Quay lại đơn hàng</ButtonLink>
         </div>
       </Card>
     </>
@@ -548,23 +339,17 @@ export function SellerOrderDetailScreen() {
 
 export function SellerShipmentDetailScreen() {
   const params = useParams<{ id: string }>();
-  const id = String(params.id ?? "");
+  const orderId = String(params.id ?? "");
   const resource = useApiResource(
-    id ? `/api/v1/seller/shipment/${encodeURIComponent(id)}` : null,
-    async () =>
-      unwrap(await api.get<ApiResponse<Obj>>(`/api/v1/seller/shipment/${encodeURIComponent(id)}`)),
+    orderId ? `seller-shipment-order:${orderId}` : null,
+    (signal) => fulfillmentService.getShipmentByOrderId(orderId, signal),
   );
   return (
     <>
-      <div className="crumbs">
-        <Link href={ROUTES.seller.shipments}>Vận chuyển</Link>
-        <Icon name="chevron" size={14} />
-        <span>{id}</span>
-      </div>
       <PageHeading
         overline="Kênh người bán"
         title="Theo dõi vận đơn"
-        description="Trạng thái giao nhận từ Fulfillment API."
+        description="Trạng thái giao nhận của đơn hàng từ Fulfillment API."
       />
       {resource.error && (
         <p className="notice" role="alert">
@@ -572,22 +357,14 @@ export function SellerShipmentDetailScreen() {
         </p>
       )}
       <Card className="card-pad">
-        {resource.data ? (
-          Object.entries(resource.data)
-            .filter(([key]) => !isSensitiveIdentityKey(key))
-            .map(([key, value]) => (
-              <div className="info-row" key={key}>
-                <span>{key}</span>
-                <strong>
-                  {value === null
-                    ? "—"
-                    : typeof value === "object"
-                      ? JSON.stringify(value)
-                      : String(value)}
-                </strong>
-              </div>
-            ))
-        ) : (
+        {resource.data ? (<>
+          <div className="info-row"><span>Mã đơn hàng</span><strong className="seller-wrap-value">{resource.data.orderId}</strong></div>
+          <div className="info-row"><span>Mã vận đơn</span><strong>{resource.data.trackingNumber ?? "Chưa cấp"}</strong></div>
+          <div className="info-row"><span>Trạng thái</span><Badge>{resource.data.status}</Badge></div>
+          <div className="info-row"><span>Người nhận</span><strong>{resource.data.receiverName}</strong></div>
+          <div className="info-row"><span>Số điện thoại</span><strong>{resource.data.receiverPhone}</strong></div>
+          <div className="info-row"><span>Địa chỉ</span><strong className="seller-wrap-value">{resource.data.receiverAddress}</strong></div>
+        </>) : (
           <NoData
             title={
               resource.loading
@@ -599,9 +376,7 @@ export function SellerShipmentDetailScreen() {
           />
         )}
       </Card>
-      <p className="status-note">
-        Tạo vận đơn chưa khả dụng cho đến khi Gateway cung cấp endpoint GHN đã xác nhận.
-      </p>
+      <p className="status-note">Fulfillment hiện chỉ cung cấp tra cứu theo mã đơn hàng hoặc mã theo dõi; chưa có API tạo vận đơn cho Seller.</p>
     </>
   );
 }
@@ -626,12 +401,10 @@ export function SellerShopScreen() {
         shopName: String(values.get("shopName") ?? ""),
         hotline: String(values.get("hotline") ?? ""),
         description: String(values.get("description") ?? ""),
-        pickupAddress: {
-          provinceId: Number(values.get("provinceId")),
-          districtId: Number(values.get("districtId")),
-          wardCode: String(values.get("wardCode") ?? ""),
-          streetAddress: String(values.get("streetAddress") ?? ""),
-        },
+        pickupAddress: String(values.get("streetAddress") ?? ""),
+        provinceId: Number(values.get("provinceId")),
+        districtId: Number(values.get("districtId")),
+        wardCode: String(values.get("wardCode") ?? ""),
       });
       setSaved("Đã cập nhật hồ sơ gian hàng.");
       shop.reload();
@@ -653,7 +426,6 @@ export function SellerShopScreen() {
 
   const resolvedShopName = String(data.shopName ?? draft?.shopName ?? "");
   const resolvedHotline = String(data.hotline ?? draft?.hotline ?? "");
-  const resolvedGhnShopId = String(data.ghnShopId ?? "Đồng bộ theo hồ sơ Seller");
   const resolvedProvinceId = String(address.provinceId ?? data.provinceId ?? draft?.warehouseAddress.provinceId ?? "");
   const resolvedDistrictId = String(address.districtId ?? data.districtId ?? draft?.warehouseAddress.districtId ?? "");
   const resolvedWardCode = String(address.wardCode ?? data.wardCode ?? draft?.warehouseAddress.wardCode ?? "");
@@ -669,7 +441,7 @@ export function SellerShopScreen() {
       <PageHeading
         overline="Kênh người bán"
         title="Hồ sơ gian hàng & Kho GHN"
-        description="Xem thông tin kho đã đồng bộ sau khi duyệt và cập nhật tên shop, hotline, địa chỉ lấy hàng."
+        description="Xem hồ sơ shop và địa chỉ lấy hàng từ UserService."
       />
       {shop.error && (
         <p role="alert" className="notice">
@@ -677,7 +449,6 @@ export function SellerShopScreen() {
         </p>
       )}
 
-      {/* Synchronized Warehouse Summary Card */}
       <Card className="card-pad" style={{ marginBottom: 22 }}>
         <div
           style={{
@@ -689,18 +460,14 @@ export function SellerShopScreen() {
             marginBottom: 14,
           }}
         >
-          <h2 style={{ margin: 0, fontSize: 18 }}>Thông tin kho lấy hàng GHN đã đồng bộ</h2>
-          <Badge tone="green">APPROVED · Đã đồng bộ kho</Badge>
+          <h2 style={{ margin: 0, fontSize: 18 }}>Thông tin lấy hàng đã khai báo</h2>
+          <Badge>{String(data.status ?? "Chưa xác nhận")}</Badge>
         </div>
         <div className="grid-2">
           <div>
             <div className="info-row">
               <span>Mã gian hàng (Shop ID)</span>
               <strong>{String(data.shopId ?? data.sellerId ?? draft?.registrationId ?? "—")}</strong>
-            </div>
-            <div className="info-row">
-              <span>Mã kho GHN (ghnShopId)</span>
-              <strong>{resolvedGhnShopId}</strong>
             </div>
             <div className="info-row">
               <span>Tên gian hàng</span>
@@ -724,6 +491,7 @@ export function SellerShopScreen() {
             </div>
           </div>
         </div>
+        <p className="status-note">Trạng thái hồ sơ UserService không chứng minh kho đã được tạo ở Fulfillment. Chỉ xác nhận đồng bộ khi backend cung cấp mã kho hoặc truy vấn kho theo Seller.</p>
       </Card>
 
       <Card className="card-pad">

@@ -71,7 +71,7 @@ export function AuctionRoomScreen() {
   function refreshAuction() { detail.reload(); bids.reload(); }
   if (!isAuctionId(id)) return <NoData title="Mã phiên đấu giá không hợp lệ" />;
   if (detail.error instanceof ApiError && detail.error.status === 404) return <AuctionUnavailableState />;
-  return <div className="auction-surface auction-room"><div className="crumbs"><Link href={ROUTES.auction.index}>Danh sách phiên</Link><Icon name="chevron" size={14}/><span>{auction?.productName ?? "Chi tiết phiên đấu giá"}</span></div>
+  return <div className="auction-surface auction-room">
     <PageHeading title={auction?.productName ?? "Phòng đấu giá"} description={auction ? `Mã phiên ${auction.auctionId}` : "Đang tải thông tin phiên đấu giá"} action={<ButtonLink href={ROUTES.auction.index} variant="secondary" small>Quay lại danh sách</ButtonLink>} />
     {detail.error && <div className="notice" role="alert"><p>{message(detail.error)}</p><button className="button button-secondary button-small" type="button" onClick={refreshAuction}>Tải lại phiên</button></div>}
     {error && <p className="notice" role="alert">{error}</p>}{success && <p className="form-success" role="status">{success}</p>}

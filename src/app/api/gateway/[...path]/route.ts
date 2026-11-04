@@ -74,8 +74,9 @@ async function proxy(request: NextRequest, context: RouteContext): Promise<Respo
   const entityTag = upstreamResponse.headers.get("ETag");
   if (entityTag) responseHeaders.set("ETag", entityTag);
 
+  const isNoBodyStatus = new Set([204, 205, 304]).has(upstreamResponse.status);
   return new Response(
-    request.method === "HEAD" ? null : await upstreamResponse.arrayBuffer(),
+    request.method === "HEAD" || isNoBodyStatus ? null : await upstreamResponse.arrayBuffer(),
     { status: upstreamResponse.status, headers: responseHeaders },
   );
 }

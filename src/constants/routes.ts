@@ -29,6 +29,7 @@ export const ROUTES = {
     recreateAuction: (id: string) => "/seller/auctions/" + encodeURIComponent(id) + "/recreate",
     auctionResult: (id: string) => "/seller/auctions/" + encodeURIComponent(id) + "/result",
     products: "/seller/products",
+    product: (id: string) => "/seller/products/" + encodeURIComponent(id),
     shop: "/seller/shop",
     newProduct: "/seller/products/new",
     inventory: "/seller/inventory",

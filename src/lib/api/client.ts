@@ -41,8 +41,9 @@ export type ApiRequestOptions = Omit<RequestInit, "body" | "method"> & {
 const SESSION_ACCESS_KEY = "nexus_access_token";
 const SESSION_REFRESH_KEY = "nexus_refresh_token";
 const SESSION_ROLES_KEY = "nexus_session_roles";
-const SESSION_USER_KEY = "nexus_user_profile";
-let refreshInFlight: Promise<string | null> | null = null;
+let refreshInFlight: { token: string; promise: Promise<string | null> } | null = null;
+let accountCheckInFlight: { token: string; promise: Promise<void> } | null = null;
+export const SESSION_INVALIDATED_EVENT = "nexus:session-invalidated";
 
 function getStoredToken(key: string): string | null {
   if (typeof window === "undefined") return null;
@@ -75,11 +76,7 @@ export function extractRolesFromToken(token?: string | null): string[] {
       payload.Roles ??
       payload.Role ??
       payload["http://schemas.microsoft.com/ws/2008/06/identity/claims/role"] ??
-      payload["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/role"] ??
-      payload.realm_access?.roles ??
-      payload.authorities ??
-      payload.scope ??
-      [];
+      payload["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/role"];
     if (Array.isArray(claim)) return claim.map((r) => String(r).trim()).filter(Boolean);
     if (typeof claim === "string" && claim.trim()) return [claim.trim()];
     return [];
@@ -107,27 +104,6 @@ export function saveSessionRoles(roles: string[]): void {
   }
 }
 
-export const saveStoredRoles = saveSessionRoles;
-
-export function saveStoredUser(user: unknown): void {
-  if (typeof window === "undefined" || !user) return;
-  try {
-    window.localStorage.setItem(SESSION_USER_KEY, JSON.stringify(user));
-  } catch {
-    // ignore
-  }
-}
-
-export function getStoredUser<T>(): T | null {
-  if (typeof window === "undefined") return null;
-  try {
-    const raw = window.localStorage.getItem(SESSION_USER_KEY);
-    return raw ? JSON.parse(raw) as T : null;
-  } catch {
-    return null;
-  }
-}
-
 export function getStoredRoles(): string[] {
   if (typeof window === "undefined") return [];
   try {
@@ -148,7 +124,11 @@ export function clearSessionTokens(): void {
   window.localStorage.removeItem(SESSION_ACCESS_KEY);
   window.localStorage.removeItem(SESSION_REFRESH_KEY);
   window.localStorage.removeItem(SESSION_ROLES_KEY);
-  window.localStorage.removeItem(SESSION_USER_KEY);
+}
+
+function invalidateSession(): void {
+  clearSessionTokens();
+  if (typeof window !== "undefined") window.dispatchEvent(new Event(SESSION_INVALIDATED_EVENT));
 }
 
 export function hasRefreshToken(): boolean {
@@ -168,7 +148,7 @@ function readField(value: unknown, key: keyof ApiProblem): string | undefined {
 async function readPayload(response: Response): Promise<unknown> {
   if (response.status === 204) return undefined;
   const contentType = response.headers.get("content-type") ?? "";
-  if (contentType.includes("application/json")) {
+  if (contentType.includes("json")) {
     try {
       return await response.json();
     } catch {
@@ -267,11 +247,12 @@ async function send<T>(path: string, method: string, options: ApiRequestOptions)
 }
 
 async function refreshAccessToken(): Promise<string | null> {
-  if (refreshInFlight) return refreshInFlight;
   const refreshToken = getStoredToken(SESSION_REFRESH_KEY);
   if (!refreshToken) return null;
+  if (refreshInFlight?.token === refreshToken) return refreshInFlight.promise;
 
-  refreshInFlight = (async () => {
+  const check = { token: refreshToken, promise: Promise.resolve<string | null>(null) };
+  check.promise = (async () => {
     try {
       const response = await fetch(makeUrl("/api/v1/auth/refresh"), {
         method: "POST",
@@ -280,32 +261,62 @@ async function refreshAccessToken(): Promise<string | null> {
         cache: "no-store",
       });
       const payload = await readPayload(response);
-      if (response.status === 401 || response.status === 403) {
-        clearSessionTokens();
-        return null;
-      }
       if (!response.ok || typeof payload !== "object" || payload === null) {
+        if ([400, 401, 403].includes(response.status) && getStoredToken(SESSION_REFRESH_KEY) === refreshToken) clearSessionTokens();
         return null;
       }
-      const data = (payload as ApiResponse<Record<string, unknown>>).data;
+      const data = "data" in payload ? (payload as ApiResponse<Record<string, unknown>>).data : payload as Record<string, unknown>;
       const access = data?.accessToken;
       const refresh = data?.refreshToken;
       if (typeof access !== "string" || typeof refresh !== "string") {
-        clearSessionTokens();
         return null;
       }
-      saveSessionTokens(access, refresh);
+      if (getStoredToken(SESSION_REFRESH_KEY) !== refreshToken) return null;
+      saveSessionTokens(access, refresh, getStoredRoles());
       return access;
     } catch {
       return null;
     } finally {
-      refreshInFlight = null;
+      if (refreshInFlight === check) refreshInFlight = null;
     }
   })();
-  return refreshInFlight;
+  refreshInFlight = check;
+  return check.promise;
+}
+
+async function ensureAccountActive(path: string): Promise<void> {
+  if (path === "/api/v1/me" || path.startsWith("/api/v1/auth/")) return;
+  const accessToken = getStoredToken(SESSION_ACCESS_KEY);
+  if (!accessToken) return;
+  if (accountCheckInFlight?.token !== accessToken) {
+    const check = { token: accessToken, promise: Promise.resolve() };
+    check.promise = (async () => {
+      try {
+        const response = await request<ApiResponse<{ status?: string }> | { status?: string }>("/api/v1/me", "GET", {});
+        if (getStoredToken(SESSION_ACCESS_KEY) !== accessToken) return;
+        const profile = response && typeof response === "object" && "data" in response ? response.data : response;
+        if (["BANNED", "DELETED"].includes(profile.status?.toUpperCase() ?? "")) {
+          throw new ApiError("Tài khoản đã bị khóa hoặc xóa. Vui lòng đăng nhập lại.", 403, response, "ACCOUNT_BANNED");
+        }
+      } catch (error) {
+        if (getStoredToken(SESSION_ACCESS_KEY) !== accessToken) return;
+        if (error instanceof ApiError && (["ACCOUNT_BANNED", "USER_BANNED"].includes(error.errorCode ?? "") || (error.status === 401 && !hasRefreshToken()))) {
+          invalidateSession();
+          throw error;
+        }
+        // A transient profile failure must not block an unrelated request.
+      }
+    })().finally(() => { if (accountCheckInFlight === check) accountCheckInFlight = null; });
+    accountCheckInFlight = check;
+  }
+  await accountCheckInFlight.promise;
+  const currentToken = getStoredToken(SESSION_ACCESS_KEY);
+  if (!currentToken) throw new ApiError("Phiên đăng nhập đã kết thúc.", 401, null, "SESSION_INVALIDATED");
+  if (currentToken !== accessToken) await ensureAccountActive(path);
 }
 
 async function request<T>(path: string, method: string, options: ApiRequestOptions = {}): Promise<T> {
+  await ensureAccountActive(path);
   try {
     return await send<T>(path, method, options);
   } catch (error) {
@@ -319,6 +330,7 @@ async function request<T>(path: string, method: string, options: ApiRequestOptio
 }
 
 async function requestWithMetadata<T>(path: string, method: string, options: ApiRequestOptions = {}): Promise<{ data: T; headers: Headers }> {
+  await ensureAccountActive(path);
   try {
     return await sendWithMetadata<T>(path, method, options);
   } catch (error) {

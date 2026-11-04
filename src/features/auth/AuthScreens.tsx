@@ -14,9 +14,8 @@ import { getRoleLandingPath, hasAnyRole, sanitizeRedirectPath } from "./roles";
 import { ShopRegistrationForm, ShopRegistrationReview, emptyShopRegistrationFields, validateShopRegistrationFields, type ShopRegistrationFields } from "@/features/seller/components/ShopRegistrationForm";
 import { keepSellerRegistrationHandoff } from "@/features/seller/services/seller-registration-handoff";
 
-
-export function landingPath(user: AuthUser): string {
-  const roles = (user.roles ?? (user.role ? [user.role] : [])).map((role: string) => {
+function landingPath(user: AuthUser): string {
+  const roles = (user.roles ?? (user.role ? [user.role] : [])).map((role) => {
     const normalized = role.toLocaleLowerCase("en-US");
     return normalized === "supportstaff" ? "staff" : normalized;
   });
@@ -29,9 +28,8 @@ export function landingPath(user: AuthUser): string {
 
 export function LoginScreen() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const redirectParam = searchParams.get("redirect");
-  const { user, ready, setAuthenticatedUser } = useSession();
+  const { setAuthenticatedUser } = useSession();
+  const passwordChanged = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("passwordChanged") === "1";
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -50,9 +48,8 @@ export function LoginScreen() {
     setSubmitting(true);
     try {
       const response = await authService.login({ identifier, password });
-      setAuthenticatedUser(response.data.user);
-      const destination = sanitizeRedirectPath(redirectParam) || landingPath(response.data.user);
-      router.replace(destination);
+      setAuthenticatedUser(response.user);
+      router.replace(landingPath(response.user));
     } catch (reason) {
       setError(reason instanceof ApiError && reason.status === 423 ? "Tài khoản tạm khóa do đăng nhập sai nhiều lần. Vui lòng thử lại sau." : reason instanceof Error ? reason.message : "Không thể đăng nhập.");
     } finally {
@@ -63,6 +60,7 @@ export function LoginScreen() {
   return <Card className="auth-card">
     <h1>Đăng nhập tài khoản</h1>
     <p>Truy cập tài khoản NEXUS để theo dõi giao dịch và hoạt động của bạn.</p>
+    {passwordChanged && <p className="form-success" role="status">Đã đổi mật khẩu. Đăng nhập lại bằng mật khẩu mới.</p>}
     <form className="auth-fields" onSubmit={submit}>
       <div className="field-wrap"><label htmlFor="login-identifier">Email hoặc tên đăng nhập</label><input id="login-identifier" className="field" type="text" autoComplete="username" required value={identifier} onChange={(event) => setIdentifier(event.target.value)} /></div>
       <div className="field-wrap"><label htmlFor="login-password">Mật khẩu</label><input id="login-password" className="field" type="password" autoComplete="current-password" required value={password} onChange={(event) => setPassword(event.target.value)} /></div>
@@ -170,7 +168,7 @@ export function RegisterScreen() {
       setStep("signingIn");
       try {
         const session = await authService.login({ identifier: fields.email.trim(), password: fields.password });
-        setAuthenticatedUser(session.data.user);
+        setAuthenticatedUser(session.user);
         setFields((current) => ({ ...current, password: "", confirmPassword: "" }));
         const destination = choice === "seller" ? ROUTES.buyer.becomeSeller : getRoleLandingPath(session.data.user);
         router.replace(destination);
@@ -193,7 +191,7 @@ export function RegisterScreen() {
     setSubmitting(true);
     try {
       const response = await authService.resendOtp(fields.email, "REGISTER");
-      setResendIn(response.data.resendCooldown || 60);
+      setResendIn(("data" in response ? response.data : response).resendCooldown || 60);
       setMessage("Đã gửi lại mã xác minh.");
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Không thể gửi lại mã xác minh.");
@@ -216,7 +214,7 @@ export function RegisterScreen() {
       <fieldset className="registration-choice">
         <legend>Bạn muốn bắt đầu với</legend>
         <label><input type="radio" name="registration-choice" checked={choice === "buyer"} onChange={() => setChoice("buyer")} /><span><strong>Mua hàng</strong><small>Tài khoản Buyer để khám phá và đặt hàng.</small></span></label>
-        <label><input type="radio" name="registration-choice" checked={choice === "seller"} onChange={() => setChoice("seller")} /><span><strong>Mở gian hàng</strong><small>Tài khoản vẫn là Buyer; quyền bán cần Staff duyệt.</small></span></label>
+        <label><input type="radio" name="registration-choice" disabled checked={false} /><span><strong>Mở gian hàng</strong><small>Đăng ký Buyer trước, sau đó chọn “Đăng ký bán hàng” trong hồ sơ.</small></span></label>
       </fieldset>
       <label className="field-wrap" htmlFor="register-username">Tên đăng nhập<input id="register-username" className="field" autoComplete="username" minLength={3} maxLength={50} required value={fields.username} onChange={(event) => updateField("username", event.target.value)} /></label>
       <div className="form-grid">
@@ -281,9 +279,61 @@ export function ResetPasswordScreen() {
 }
 
 export function ChangePasswordScreen() {
-  const [oldPassword, setOld] = useState(""); const [newPassword, setNew] = useState(""); const [confirmPassword, setConfirm] = useState(""); const [error, setError] = useState(""); const [message, setMessage] = useState(""); const [busy, setBusy] = useState(false);
-  async function submit(event: FormEvent<HTMLFormElement>) { event.preventDefault(); setError(""); setMessage(""); if (newPassword !== confirmPassword) { setError("Mật khẩu xác nhận không khớp."); return; } setBusy(true); try { const { api } = await import("@/lib/api/client"); await api.patch("/api/v1/auth/password", { oldPassword, newPassword, confirmPassword }); setMessage("Mật khẩu đã đổi. Hãy đăng nhập lại trên các thiết bị khác."); setOld(""); setNew(""); setConfirm(""); } catch (reason) { setError(reason instanceof Error ? reason.message : "Không thể đổi mật khẩu."); } finally { setBusy(false); } }
-  return <Card className="auth-card"><h1>Đổi mật khẩu</h1><p>Dùng mật khẩu mới để bảo vệ tài khoản.</p><form className="auth-fields" onSubmit={submit}><label className="field-wrap">Mật khẩu hiện tại<input className="field" type="password" autoComplete="current-password" required value={oldPassword} onChange={e=>setOld(e.target.value)} /></label><label className="field-wrap">Mật khẩu mới<input className="field" type="password" autoComplete="new-password" minLength={8} required value={newPassword} onChange={e=>setNew(e.target.value)} /></label><label className="field-wrap">Nhập lại mật khẩu mới<input className="field" type="password" autoComplete="new-password" minLength={8} required value={confirmPassword} onChange={e=>setConfirm(e.target.value)} /></label>{error&&<p className="form-error" role="alert">{error}</p>}{message&&<p className="form-success" role="status">{message}</p>}<button className="button button-primary" disabled={busy}>{busy?"Đang cập nhật…":"Đổi mật khẩu"}</button></form></Card>;
+  const router = useRouter();
+  const { clearSession } = useSession();
+  const [oldPassword, setOld] = useState("");
+  const [newPassword, setNew] = useState("");
+  const [confirmPassword, setConfirm] = useState("");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError("");
+    if (newPassword !== confirmPassword) {
+      setError("Mật khẩu xác nhận không khớp.");
+      return;
+    }
+    if (newPassword === oldPassword) {
+      setError("Mật khẩu mới phải khác mật khẩu hiện tại.");
+      return;
+    }
+    setBusy(true);
+    try {
+      const { api } = await import("@/lib/api/client");
+      await api.patch("/api/v1/auth/password", { oldPassword, newPassword, confirmPassword });
+      clearSession();
+      router.replace(`${ROUTES.auth.login}?passwordChanged=1`);
+    } catch (reason) {
+      if (reason instanceof ApiError) {
+        const messages: Record<string, string> = {
+          INVALID_CREDENTIALS: "Mật khẩu hiện tại không đúng.",
+          VAL_INVALID_PASSWORD: "Mật khẩu mới cần ít nhất 8 ký tự.",
+          VAL_PASSWORD_MISMATCH: "Mật khẩu xác nhận không khớp.",
+          VAL_SAME_PASSWORD: "Mật khẩu mới phải khác mật khẩu hiện tại.",
+          UNAUTHORIZED: "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.",
+          USER_BANNED: "Tài khoản đang bị khóa. Không thể đổi mật khẩu.",
+        };
+        setError(messages[reason.errorCode ?? ""] ?? reason.message);
+      } else {
+        setError(reason instanceof Error ? reason.message : "Không thể đổi mật khẩu.");
+      }
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return <Card className="auth-card">
+    <h1>Đổi mật khẩu</h1>
+    <p>Dùng mật khẩu mới để bảo vệ tài khoản.</p>
+    <form className="auth-fields" onSubmit={submit}>
+      <label className="field-wrap">Mật khẩu hiện tại<input className="field" type="password" autoComplete="current-password" required value={oldPassword} onChange={event => setOld(event.target.value)} /></label>
+      <label className="field-wrap">Mật khẩu mới<input className="field" type="password" autoComplete="new-password" minLength={8} required value={newPassword} onChange={event => setNew(event.target.value)} /></label>
+      <label className="field-wrap">Nhập lại mật khẩu mới<input className="field" type="password" autoComplete="new-password" minLength={8} required value={confirmPassword} onChange={event => setConfirm(event.target.value)} /></label>
+      {error && <p className="form-error" role="alert">{error}</p>}
+      <button className="button button-primary" disabled={busy}>{busy ? "Đang cập nhật…" : "Đổi mật khẩu"}</button>
+    </form>
+  </Card>;
 }
 
 export function AccountProfileScreen() {
@@ -298,7 +348,6 @@ export function AccountProfileScreen() {
   const email=String(p.email??user?.email??"");
   const isSeller = Boolean(hasAnyRole(user, ["Seller"]) || p.isSeller === true);
   return <div className="profile-page">
-    <nav className="profile-breadcrumb" aria-label="Đường dẫn"><Link href={ROUTES.home}>Tài khoản Nexus</Link><span aria-hidden="true">›</span><span>Hồ sơ cá nhân</span></nav>
     <div className="profile-layout">
       <aside className="profile-sidebar">
         <div className="profile-identity"><span className="profile-avatar" aria-hidden="true">{String(displayName).charAt(0).toLocaleUpperCase("vi-VN")}</span><strong>{displayName}</strong>{email&&<small>{email}</small>}</div>

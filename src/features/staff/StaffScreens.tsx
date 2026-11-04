@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useState } from "react";
 import { ROUTES } from "@/constants/routes";
-import { Icon } from "@/components/ui/Icon";
 import { Badge, Card, NoData, PageHeading, SectionHeading } from "@/components/ui/Primitives";
 import {
   isSensitiveIdentityKey,
@@ -217,11 +216,6 @@ export function StaffSellerDetailScreen() {
 
   return (
     <>
-      <div className="crumbs">
-        <Link href={ROUTES.staff.sellers}>Duyệt hồ sơ Seller</Link>
-        <Icon name="chevron" size={14} />
-        <span>Chi tiết</span>
-      </div>
       <PageHeading
         overline="Nghiệp vụ Staff · Handoff 4.1"
         title="Chi tiết & Phê duyệt hồ sơ Seller"
