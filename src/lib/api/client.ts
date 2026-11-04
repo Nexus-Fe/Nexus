@@ -9,6 +9,11 @@ export type ApiResponse<T> = {
   timestamp?: string;
 };
 
+/** Gỡ phong bì `{ data }` của Gateway; trả nguyên giá trị nếu response không có phong bì. */
+export function unwrap<T>(response: ApiResponse<T> | T): T {
+  return response && typeof response === "object" && "data" in response ? (response as ApiResponse<T>).data : (response as T);
+}
+
 export type ApiProblem = {
   status?: number;
   title?: string;

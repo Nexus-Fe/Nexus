@@ -35,7 +35,6 @@ export const staffNavigation: NavigationItem[] = [
 export const adminNavigation: NavigationItem[] = [
   { label: "Tổng quan", href: ROUTES.admin.overview, icon: "home" },
   { label: "Quản lý đấu giá", href: ROUTES.admin.auctions, icon: "gavel" },
-  { label: "Cấu hình đấu giá", href: ROUTES.admin.auctionConfigs, icon: "shield" },
   { label: "Quản lý tài khoản", href: ROUTES.admin.users, icon: "users" },
   { label: "Danh sách vai trò", href: ROUTES.admin.roles, icon: "shield" },
   { label: "Danh mục", href: ROUTES.admin.categories, icon: "grid" },

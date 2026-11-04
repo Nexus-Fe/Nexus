@@ -1,7 +1,5 @@
-import { api, type ApiResponse } from "@/lib/api/client";
+import { api, unwrap, type ApiResponse } from "@/lib/api/client";
 import type { Shipment } from "../types";
-
-const unwrap = <T,>(response: ApiResponse<T> | T): T => response && typeof response === "object" && "data" in response ? response.data : response;
 
 export const fulfillmentService = {
   async getShipmentByOrderId(orderId: string, signal?: AbortSignal): Promise<Shipment> {

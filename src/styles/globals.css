@@ -219,7 +219,7 @@ h1,h2,h3 { letter-spacing: -.025em; }
 .section-heading { display: flex; justify-content: space-between; align-items: flex-end; gap: 20px; margin: 32px 0 18px; }
 .section-heading h2 { font-size: 20px; margin: 0 0 4px; }
 .section-heading p { color: var(--muted); font-size: 12px; margin: 0; }
-.section-heading > a { color: var(--sky); font-weight: 700; font-size: 13px; }
+.section-heading > a:not(.button) { color: var(--sky); font-weight: 700; font-size: 13px; }
 .order-lookup-section .section-heading { align-items: center; }
 .order-lookup { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; }
 .order-lookup .field { flex: 1; min-width: 0; }

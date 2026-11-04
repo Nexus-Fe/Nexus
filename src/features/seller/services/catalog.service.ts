@@ -1,4 +1,4 @@
-import { api, type ApiResponse } from "@/lib/api/client";
+import { api, unwrap, type ApiResponse } from "@/lib/api/client";
 
 export type Pagination = { pageIndex: number; pageSize: number; totalCount: number; totalPages: number; hasNextPage: boolean };
 export type SellerProduct = {
@@ -37,16 +37,12 @@ export type InventoryBalance = {
   totalQuantity: number;
   availableQuantity: number;
   reservedQuantity: number;
-  unavailableQuantity: number;
+  updatedAt: string;
 };
 
 type Paged<T> = { items: T[]; pagination: Pagination };
-type NewVariant = { skuCode: string; name: string; price: number; currency: string; attributes: Array<{ attrName: string; attrValue: string }> };
-export type ProductCategory = { categoryId: string; name: string; level: number };
-
-function unwrap<T>(response: ApiResponse<T> | T): T {
-  return response && typeof response === "object" && "data" in response ? response.data : response;
-}
+type NewVariant = { skuCode: string; name: string; price: number; currency: string; quantity: number; attributes: Array<{ attrName: string; attrValue: string }> };
+export type ProductCategory = { categoryId: string; name: string; level: number; parentId?: string | null; isDisabled?: boolean };
 
 export const sellerCatalogService = {
   async categories(signal?: AbortSignal): Promise<ProductCategory[]> {

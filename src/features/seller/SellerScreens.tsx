@@ -2,24 +2,24 @@
 /* Catalog and fulfillment responses are ungenerated Gateway JSON contracts. */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
 import { ROUTES } from "@/constants/routes";
 import { useSession } from "@/components/auth/SessionProvider";
 import { Icon } from "@/components/ui/Icon";
 import { Badge, ButtonLink, Card, NoData, PageHeading, SectionHeading } from "@/components/ui/Primitives";
-import { api, type ApiResponse } from "@/lib/api/client";
+import { api, unwrap, type ApiResponse } from "@/lib/api/client";
 import { useApiResource } from "@/lib/api/use-api-resource";
 import { formatMoney } from "@/lib/presentation";
 import { fulfillmentService } from "@/features/fulfillment";
 import { loadSafeRegistrationDraft } from "./services/seller.service";
 import { sellerCatalogService } from "./services/catalog.service";
+import { MAX_INVENTORY_QUANTITY, parseInitialInventoryQuantity } from "./services/inventory-quantity";
+import { describeCategoryError, leafCategoryOptions } from "./services/category-options";
 
 export { BecomeSellerScreen } from "./BecomeSellerScreen";
 
 type Obj = Record<string, any>;
-const unwrap = <T,>(x: ApiResponse<T> | T): T =>
-  x && typeof x === "object" && "data" in x ? (x as ApiResponse<T>).data : (x as T);
 const msg = (e: Error | null) => e?.message ?? "";
 
 export function SellerProductsScreen() {
@@ -105,6 +105,7 @@ export function SellerProductsScreen() {
 
 export function SellerProductEditorScreen() {
   const { user } = useSession();
+  const router = useRouter();
   const [f, setF] = useState({
     name: "",
     description: "",
@@ -113,6 +114,7 @@ export function SellerProductEditorScreen() {
     skuCode: "",
     variantName: "Mặc định",
     price: "",
+    quantity: "",
     currency: "VND",
     color: "",
     size: "",
@@ -127,26 +129,29 @@ export function SellerProductEditorScreen() {
     setError("");
     try {
       if (!user?.id) throw new Error("Bạn cần đăng nhập Seller để tạo sản phẩm.");
+      const initialQuantity = parseInitialInventoryQuantity(f.quantity);
       const created = await sellerCatalogService.create({
         sellerId: user.id,
         categoryId: f.categoryId,
         name: f.name.trim(),
         description: f.description.trim(),
         brand: f.brand.trim(),
-        variants: [{ skuCode: f.skuCode.trim(), name: f.variantName.trim(), price: Number(f.price), currency: f.currency, attributes: [f.color.trim() && { attrName: "Màu sắc", attrValue: f.color.trim() }, f.size.trim() && { attrName: "Kích cỡ", attrValue: f.size.trim() }].filter((attribute): attribute is { attrName: string; attrValue: string } => Boolean(attribute)) }],
+        variants: [{ skuCode: f.skuCode.trim(), name: f.variantName.trim(), price: Number(f.price), currency: f.currency, quantity: initialQuantity, attributes: [f.color.trim() && { attrName: "Màu sắc", attrValue: f.color.trim() }, f.size.trim() && { attrName: "Kích cỡ", attrValue: f.size.trim() }].filter((attribute): attribute is { attrName: string; attrValue: string } => Boolean(attribute)) }],
       });
       if (!created.id) throw new Error("Catalog chưa trả mã sản phẩm.");
-      window.location.assign(ROUTES.seller.product(created.id));
+      router.push(ROUTES.seller.product(created.id));
     } catch (ex) {
-      setError(msg(ex as Error));
+      setError(describeCategoryError(msg(ex as Error)));
       setBusy(false);
     }
   };
+  const categoryOptions = leafCategoryOptions(categories.data ?? []);
   return (
     <>
-      <PageHeading title="Tạo sản phẩm" description="Thông tin sẽ được gửi đến Catalog API." />
+      <PageHeading title="Tạo sản phẩm" description="Tạo sản phẩm và khai báo tồn ban đầu cho biến thể đầu tiên." />
       <form onSubmit={(e) => void submit(e)}>
         <Card className="card-pad">
+          <SectionHeading title="Thông tin sản phẩm" />
           <div className="form-grid">
             <label className="field-wrap">
               Tên sản phẩm
@@ -166,13 +171,16 @@ export function SellerProductEditorScreen() {
                 onChange={(e) => set("categoryId", e.target.value)}
               >
                 <option value="">Chọn danh mục</option>
-                {(categories.data ?? []).map((c) => (
-                  <option key={c.categoryId} value={c.categoryId}>
-                    {c.name}
+                {categoryOptions.map((option) => (
+                  <option key={option.categoryId} value={option.categoryId}>
+                    {option.label}
                   </option>
                 ))}
               </select>
               {categories.error && <small role="alert">{msg(categories.error)}</small>}
+              {!categories.loading && !categories.error && categoryOptions.length === 0 && (
+                <small role="status">Chưa có danh mục nào có thể gán sản phẩm.</small>
+              )}
             </label>
             <label className="field-wrap">
               Thương hiệu
@@ -182,6 +190,17 @@ export function SellerProductEditorScreen() {
                 onChange={(e) => set("brand", e.target.value)}
               />
             </label>
+          </div>
+          <label className="field-wrap">
+            Mô tả
+            <textarea
+              className="textarea-field"
+              value={f.description}
+              onChange={(e) => set("description", e.target.value)}
+            />
+          </label>
+          <SectionHeading title="Biến thể đầu tiên" />
+          <div className="form-grid">
             <label className="field-wrap">
               Mã SKU
               <input
@@ -211,16 +230,21 @@ export function SellerProductEditorScreen() {
                 onChange={(e) => set("price", e.target.value)}
               />
             </label>
-            <label className="field-wrap">Màu sắc<input className="field" value={f.color} onChange={(e) => set("color", e.target.value)} /></label>
-            <label className="field-wrap">Kích cỡ<input className="field" value={f.size} onChange={(e) => set("size", e.target.value)} /></label>
             <label className="field-wrap">
-              Mô tả
-              <textarea
-                className="textarea-field"
-                value={f.description}
-                onChange={(e) => set("description", e.target.value)}
+              Tồn ban đầu
+              <input
+                type="number"
+                min="0"
+                max={MAX_INVENTORY_QUANTITY}
+                step="1"
+                required
+                className="field"
+                value={f.quantity}
+                onChange={(e) => set("quantity", e.target.value)}
               />
             </label>
+            <label className="field-wrap">Màu sắc<input className="field" value={f.color} onChange={(e) => set("color", e.target.value)} /></label>
+            <label className="field-wrap">Kích cỡ<input className="field" value={f.size} onChange={(e) => set("size", e.target.value)} /></label>
           </div>
           {error && (
             <p role="alert" className="notice">
@@ -259,10 +283,9 @@ export function SellerInventoryScreen() {
       </Card>
       <Card className="card-pad">
         <SectionHeading title="Số dư tồn kho" />
-        {balance.error && <p className="notice" role="alert">{balance.error.message} Gateway cần chuyển tiếp /api/v1/inventories.</p>}
-        {balance.data ? <div className="grid-3"><div><span>Tổng tồn</span><h2>{balance.data.totalQuantity}</h2></div><div><span>Có thể bán</span><h2>{balance.data.availableQuantity}</h2></div><div><span>Đang giữ</span><h2>{balance.data.reservedQuantity}</h2></div><div><span>Không khả dụng</span><h2>{balance.data.unavailableQuantity}</h2></div></div> : <NoData title={skuId ? balance.loading ? "Đang tải tồn kho…" : balance.error ? "Không đọc được tồn kho" : "SKU chưa có bản ghi tồn kho" : "Chọn SKU để xem tồn kho"} />}
-        <div className="action-row"><button type="button" className="button button-secondary" disabled>Nhập hoặc điều chỉnh tồn kho</button><button type="button" className="button button-secondary" disabled>Xem sổ cái tồn kho</button></div>
-        <p className="status-note">Fulfillment hiện chưa cung cấp action khai báo, điều chỉnh và đọc sổ cái theo tài liệu demo. Không gửi yêu cầu nhập kho giả.</p>
+        {balance.error && <p className="notice" role="alert">Không đọc được tồn kho: {balance.error.message}</p>}
+        {balance.data ? <div className="grid-3"><div><span>Tổng tồn</span><h2>{balance.data.totalQuantity}</h2></div><div><span>Có thể bán</span><h2>{balance.data.availableQuantity}</h2></div><div><span>Đang giữ</span><h2>{balance.data.reservedQuantity}</h2></div></div> : <NoData title={skuId ? balance.loading ? "Đang tải tồn kho…" : balance.error ? "Không đọc được tồn kho" : "SKU chưa có bản ghi tồn kho" : "Chọn SKU để xem tồn kho"} />}
+        <p className="status-note">Bạn có thể nhập tồn ban đầu khi tạo SKU. Chưa thể nhập thêm hoặc điều chỉnh SKU đã tạo tại đây.</p>
       </Card>
     </>
   );
@@ -287,7 +310,7 @@ export function SellerShipmentsScreen() {
       <Card className="card-pad">
         <h2>Tạo vận đơn GHN</h2>
         <p>
-          Đơn hàng có thể tạo vận đơn sau khi Seller chấp nhận. Gateway hiện chưa có endpoint tạo vận đơn hoạt động.
+          Đơn hàng có thể tạo vận đơn sau khi Seller chấp nhận. Tạo vận đơn tạm chưa mở trong bản demo này.
         </p>
         <button className="button button-disabled" disabled>
           Tạo vận đơn
@@ -307,7 +330,7 @@ export function SellerOrdersScreen() {
       />
       <Card className="card-pad">
         <NoData title="Danh sách đơn bán chưa có API" />
-        <p>Commerce hiện chỉ cho Buyer xem đơn của mình. Cần endpoint danh sách và chi tiết đơn theo Seller trước khi mở thao tác xử lý đơn.</p>
+        <p>Danh sách đơn theo Seller chưa có nên thao tác xử lý đơn tạm chưa mở.</p>
       </Card>
     </>
   );
@@ -322,7 +345,7 @@ export function SellerOrderDetailScreen() {
       />
       <Card className="card-pad">
         <NoData title="Chưa thể xem chi tiết đơn bán" />
-        <p className="status-note">GET /api/v1/orders/{'{id}'} hiện kiểm tra quyền sở hữu của Buyer. Commerce chưa có endpoint chi tiết đơn và chấp nhận/từ chối dành cho Seller.</p>
+        <p className="status-note">Chấp nhận và từ chối đơn tạm chưa mở vì chưa có danh sách đơn theo Seller để chọn đơn cần xử lý.</p>
         <div className="action-row">
           <button className="button button-primary" disabled>
             Chấp nhận đơn

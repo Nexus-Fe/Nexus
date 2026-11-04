@@ -14,13 +14,14 @@ import { formatMoney, resolveImageUrl } from "@/lib/presentation";
 import { AuctionOrderPayment } from "@/widgets/payment/AuctionOrderPayment";
 import { AuctionUnavailableState } from "./AuctionUnavailableState";
 import { auctionService } from "./services/auction.service";
+import { normalizeAuctionStatus, statusLabel } from "./contract";
 import type { AuctionStatus, AuctionSummary, Pagination } from "./types";
 import { isAuctionId } from "./validation";
 
+export { normalizeAuctionStatus, statusLabel } from "./contract";
+
 export const auctionStatuses: (AuctionStatus | "ALL")[] = ["ALL", "RUNNING", "SCHEDULED", "DRAFT", "ENDED", "SETTLED", "FAILED", "CANCELLED"];
 const publicAuctionStatuses: (AuctionStatus | "ALL")[] = ["ALL", "RUNNING", "SCHEDULED", "ENDED"];
-export const normalizeAuctionStatus = (status: string) => status.toUpperCase();
-export const statusLabel = (status: string) => ({ ALL: "Tất cả", DRAFT: "Nháp", SCHEDULED: "Sắp diễn ra", RUNNING: "Đang diễn ra", ENDED: "Đã kết thúc", SETTLED: "Đã hoàn tất", FAILED: "Không thành công", CANCELLED: "Đã hủy" } as Record<string, string>)[normalizeAuctionStatus(status)] ?? status;
 export const dateText = (value: string | null | undefined) => value ? new Intl.DateTimeFormat("vi-VN", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value)) : "Chưa có dữ liệu";
 export const message = (error: Error | null) => error instanceof ApiError && error.status === 503 ? "Dịch vụ đấu giá hiện không khả dụng. Vui lòng thử lại sau." : error?.message ?? "";
 
@@ -34,7 +35,7 @@ export function StatusFilter({ status, setStatus, options = auctionStatuses }: {
 }
 
 export function AuctionTile({ auction, href }: { auction: AuctionSummary; href: string }) {
-  return <Link href={href} className="auction-tile"><div className="auction-tile-image"><BackendImage src={resolveImageUrl(auction.primaryImageUrl)} alt={auction.productName} compact /><Badge tone={normalizeAuctionStatus(auction.status) === "RUNNING" ? "green" : "slate"}>{statusLabel(auction.status)}</Badge></div><div className="auction-tile-body"><h3>{auction.productName}</h3><p>{normalizeAuctionStatus(auction.status) === "RUNNING" ? <>Còn lại: <Countdown end={auction.scheduledEndAt} /></> : `Kết thúc ${dateText(auction.scheduledEndAt)}`}</p><div><span>Giá hiện tại<strong>{formatMoney(auction.currentPriceAmount ?? auction.startPriceAmount)}</strong></span><span>{auction.bidCount} lượt đặt giá</span></div></div></Link>;
+  return <Link href={href} className="auction-tile"><div className="auction-tile-image"><BackendImage src={resolveImageUrl(auction.primaryImageUrl)} alt={auction.productName ?? "Sản phẩm đấu giá"} compact /><Badge tone={normalizeAuctionStatus(auction.status) === "RUNNING" ? "green" : "slate"}>{statusLabel(auction.status)}</Badge></div><div className="auction-tile-body"><h3>{auction.productName ?? "Sản phẩm chưa có tên"}</h3><p>{normalizeAuctionStatus(auction.status) === "RUNNING" ? <>Còn lại: <Countdown end={auction.scheduledEndAt} /></> : `Kết thúc ${dateText(auction.scheduledEndAt)}`}</p><div><span>Giá hiện tại<strong>{formatMoney(auction.currentPriceAmount ?? auction.startPriceAmount)}</strong></span><span>{auction.bidCount} lượt đặt giá</span></div></div></Link>;
 }
 
 export function AuctionListScreen() {
@@ -42,7 +43,7 @@ export function AuctionListScreen() {
   const [page, setPage] = useState(1);
   const resource = useApiResource(`auctions:${page}:${status}`, (signal) => auctionService.list(page, 12, status, signal).then((response) => response.data));
   const visibleAuctions = resource.data?.items.filter((auction) => status === "ALL" || normalizeAuctionStatus(auction.status) === status) ?? [];
-  return <div className="auction-surface"><section className="hero auction-hero"><div className="hero-copy"><p className="overline">Nexus Auction</p><h1>Khám phá phiên đang diễn ra</h1><p>Theo dõi giá và thời hạn của từng phiên. Chọn một phiên để xem chi tiết và tham gia.</p><div className="action-row"><ButtonLink href={ROUTES.buyer.auctions}>Đấu giá của tôi</ButtonLink></div></div><div className="hero-visual" aria-hidden="true"><span className="hero-orbit hero-orbit-one"/><span className="hero-orbit hero-orbit-two"/><span className="hero-icon"><Icon name="gavel" size={58}/></span></div></section><SectionHeading title="Danh sách phiên" hint="Dữ liệu được tải trực tiếp từ Auction Service." /><StatusFilter status={status} options={publicAuctionStatuses} setStatus={(next) => { setStatus(next); setPage(1); }} />{resource.error && <p role="alert" className="notice">{message(resource.error)}</p>}{resource.loading ? <NoData title="Đang tải phiên đấu giá…" /> : visibleAuctions.length ? <div className="auction-list-grid">{visibleAuctions.map((auction) => <AuctionTile key={auction.auctionId} auction={auction} href={ROUTES.auction.room(auction.auctionId)} />)}</div> : <NoData title={resource.error ? "Không tải được danh sách phiên" : "Chưa có phiên ở trạng thái này"} />}<PaginationBar pagination={resource.data?.pagination} page={page} setPage={setPage} /></div>;
+  return <div className="auction-surface"><section className="hero auction-hero"><div className="hero-copy"><p className="overline">Nexus Auction</p><h1>Khám phá phiên đang diễn ra</h1><p>Theo dõi giá và thời hạn của từng phiên. Chọn một phiên để xem chi tiết và tham gia.</p><div className="action-row"><ButtonLink href={ROUTES.buyer.auctions}>Đấu giá của tôi</ButtonLink></div></div><div className="hero-visual" aria-hidden="true"><span className="hero-orbit hero-orbit-one"/><span className="hero-orbit hero-orbit-two"/><span className="hero-icon"><Icon name="gavel" size={58}/></span></div></section><SectionHeading title="Danh sách phiên" hint="Dữ liệu được tải trực tiếp từ Auction Service." /><StatusFilter status={status} options={publicAuctionStatuses} setStatus={(next) => { setStatus(next); setPage(1); }} />{resource.error && <div role="alert" className="notice"><p>{message(resource.error)}</p><button className="button button-secondary button-small" type="button" onClick={resource.reload}>Tải lại danh sách</button></div>}{resource.loading ? <NoData title="Đang tải phiên đấu giá…" /> : visibleAuctions.length ? <div className="auction-list-grid">{visibleAuctions.map((auction) => <AuctionTile key={auction.auctionId} auction={auction} href={ROUTES.auction.room(auction.auctionId)} />)}</div> : <NoData title={resource.error ? "Không tải được danh sách phiên" : "Chưa có phiên ở trạng thái này"} />}<PaginationBar pagination={resource.data?.pagination} page={page} setPage={setPage} /></div>;
 }
 
 function useAuctionId() { return String(useParams<{ id: string }>().id ?? ""); }
@@ -78,9 +79,9 @@ export function AuctionRoomScreen() {
       <div className="auction-room-grid">
         <div className="auction-room-main">
           <Card className="card-pad">
-            <div className="auction-detail-image"><BackendImage src={resolveImageUrl(images[selectedImage] ?? auction.primaryImageUrl)} alt={auction.productName} /></div>
+            <div className="auction-detail-image"><BackendImage src={resolveImageUrl(images[selectedImage] ?? auction.primaryImageUrl)} alt={auction.productName ?? "Sản phẩm đấu giá"} /></div>
             {images.length > 1 && <div className="auction-gallery" aria-label="Ảnh sản phẩm">{images.map((image, index) => <button type="button" key={`${image}-${index}`} className={selectedImage === index ? "auction-gallery-item active" : "auction-gallery-item"} aria-pressed={selectedImage === index} aria-label={`Xem ảnh ${index + 1}`} onClick={() => setSelectedImage(index)}><BackendImage src={resolveImageUrl(image)} alt="" compact /></button>)}</div>}
-            <div className="auction-product-heading"><div><h2>{auction.productName}</h2><p>Mã sản phẩm: {auction.productId}</p></div><Badge tone={auctionTone(auction.status)}>{statusLabel(auction.status)}</Badge></div>
+            <div className="auction-product-heading"><div><h2>{auction.productName ?? "Sản phẩm chưa có tên"}</h2><p>Mã sản phẩm: {auction.productId}</p></div><Badge tone={auctionTone(auction.status)}>{statusLabel(auction.status)}</Badge></div>
             {auction.description && <p className="auction-description">{auction.description}</p>}
             {auction.specifications && Object.entries(auction.specifications).some(([, value]) => specificationText(value)) && <><SectionHeading title="Thông tin sản phẩm" /><dl className="auction-specifications">{Object.entries(auction.specifications).filter(([, value]) => specificationText(value)).slice(0, 8).map(([key, value]) => <div key={key}><dt>{key}</dt><dd>{specificationText(value)}</dd></div>)}</dl></>}
             {auction.sellerId && <p className="auction-seller-reference">Mã người bán: {auction.sellerId}</p>}
