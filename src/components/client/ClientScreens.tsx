@@ -52,19 +52,19 @@ export const SellerAuctionRecreateScreenClient = dynamic(() => import("@/feature
 export const AdminAuctionConfigsScreenClient = dynamic(() => import("@/features/auction").then((module) => module.AdminAuctionConfigsScreen), { ssr: false, loading: ScreenLoading });
 
 export const CartScreenClient = dynamic(
-  () => import("@/features/commerce/CommerceScreens").then((module) => module.CartScreen),
+  () => import("@/features/commerce/BuyerCommerceScreens").then((module) => module.CartScreen),
   { ssr: false, loading: ScreenLoading },
 );
 export const CheckoutScreenClient = dynamic(
-  () => import("@/features/commerce/CommerceScreens").then((module) => module.CheckoutScreen),
+  () => import("@/features/commerce/BuyerCommerceScreens").then((module) => module.CheckoutScreen),
   { ssr: false, loading: ScreenLoading },
 );
 export const OrdersScreenClient = dynamic(
-  () => import("@/features/commerce/CommerceScreens").then((module) => module.OrdersScreen),
+  () => import("@/features/commerce/BuyerCommerceScreens").then((module) => module.OrdersScreen),
   { ssr: false, loading: ScreenLoading },
 );
 export const OrderDetailScreenClient = dynamic(
-  () => import("@/features/commerce/CommerceScreens").then((module) => module.OrderDetailScreen),
+  () => import("@/features/commerce/BuyerCommerceScreens").then((module) => module.OrderDetailScreen),
   { ssr: false, loading: ScreenLoading },
 );
 export const BuyerReportsScreenClient = dynamic(() => import("@/features/commerce/CommerceScreens").then((module) => module.BuyerReportsScreen), { ssr: false, loading: ScreenLoading });
@@ -88,6 +88,10 @@ export const SellerProductsScreenClient = dynamic(
 );
 export const SellerProductEditorScreenClient = dynamic(
   () => import("@/features/seller/SellerScreens").then((module) => module.SellerProductEditorScreen),
+  { ssr: false, loading: ScreenLoading },
+);
+export const SellerProductDetailScreenClient = dynamic(
+  () => import("@/features/seller/SellerProductDetailScreen").then((module) => module.SellerProductDetailScreen),
   { ssr: false, loading: ScreenLoading },
 );
 export const SellerInventoryScreenClient = dynamic(

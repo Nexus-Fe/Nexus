@@ -16,6 +16,22 @@ type StoredState<T> = {
   error: Error | null;
 };
 
+export function startResourceLoad<T>(
+  loader: (signal: AbortSignal) => Promise<T>,
+  signal: AbortSignal,
+  onSuccess: (data: T) => void,
+  onError: (error: unknown) => void,
+): void {
+  if (signal.aborted) return;
+  const deliverSuccess = (data: T) => { if (!signal.aborted) onSuccess(data); };
+  const deliverError = (error: unknown) => { if (!signal.aborted) onError(error); };
+  try {
+    loader(signal).then(deliverSuccess, deliverError);
+  } catch (error) {
+    deliverError(error);
+  }
+}
+
 export function useApiResource<T>(
   key: string | null,
   loader: (signal: AbortSignal) => Promise<T>,
@@ -37,23 +53,18 @@ export function useApiResource<T>(
     if (!key) return;
     const controller = new AbortController();
     const currentRevision = revision;
-    loaderRef.current(controller.signal).then(
-      (data) => {
-        if (!controller.signal.aborted) {
-          setState({ key, revision: currentRevision, data, error: null });
-        }
-      },
-      (error: unknown) => {
-        if (!controller.signal.aborted) {
-          setState({
-            key,
-            revision: currentRevision,
-            data: null,
-            error: error instanceof Error ? error : new Error("Không tải được dữ liệu."),
-          });
-        }
-      },
-    );
+    const onSuccess = (data: T) => {
+      setState({ key, revision: currentRevision, data, error: null });
+    };
+    const onError = (error: unknown) => {
+      setState({
+        key,
+        revision: currentRevision,
+        data: null,
+        error: error instanceof Error ? error : new Error("Không tải được dữ liệu."),
+      });
+    };
+    startResourceLoad(loaderRef.current, controller.signal, onSuccess, onError);
     return () => controller.abort();
   }, [key, revision]);
 

@@ -2,9 +2,14 @@ import { api, type ApiResponse } from "@/lib/api/client";
 import type { DepositRequest, WalletBalance, WalletTransaction, WalletTransactionPage } from "../types";
 
 export const walletService = {
-  getBalance: (signal?: AbortSignal) => api.get<ApiResponse<WalletBalance>>("/api/v1/wallets/me", { signal }),
-  getTransactions: (signal?: AbortSignal) =>
-    api.get<ApiResponse<WalletTransactionPage>>("/api/v1/wallets/transactions?page=1&limit=10", { signal }),
+  async getBalance(signal?: AbortSignal): Promise<WalletBalance> {
+    const response = await api.get<ApiResponse<WalletBalance> | WalletBalance>("/api/v1/wallets/me", { signal });
+    return "data" in response ? response.data : response;
+  },
+  async getTransactions(signal?: AbortSignal): Promise<WalletTransactionPage> {
+    const response = await api.get<ApiResponse<WalletTransactionPage> | WalletTransactionPage>("/api/v1/wallets/transactions?page=1&pageSize=10", { signal });
+    return "data" in response ? response.data : response;
+  },
   deposit: (input: DepositRequest) =>
     api.post<ApiResponse<WalletTransaction>>("/api/v1/wallets/topups/vnpay", input),
   createDirectCheckout: (input: { orderId: string; amount: number; gateway: "VNPAY"; bankCode?: string; returnUrl: string }) =>

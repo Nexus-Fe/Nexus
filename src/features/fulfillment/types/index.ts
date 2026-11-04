@@ -4,15 +4,14 @@ export type ShippingAddress = {
   address: string;
 };
 
-export type TrackingStep = {
-  status: string;
-  description: string;
-  occurredAt: string;
-};
-
 export type Shipment = {
   id: string;
   orderId: string;
+  warehouseId: string;
+  carrierId: string;
+  trackingNumber: string | null;
   status: string;
-  trackingSteps: TrackingStep[];
+  receiverName: string;
+  receiverPhone: string;
+  receiverAddress: string;
 };
