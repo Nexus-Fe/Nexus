@@ -25,12 +25,12 @@ const msg = (e: Error | null) => e?.message ?? "";
 export function SellerProductsScreen() {
   const [q, setQ] = useState("");
   const resource = useApiResource(
-    `/api/v1/product/search?page=1&pageSize=50&keyword=${encodeURIComponent(q)}`,
+    `/api/v1/products/search?page=1&pageSize=50&keyword=${encodeURIComponent(q)}`,
     async () =>
       rows(
         unwrap(
           await api.get<ApiResponse<any>>(
-            `/api/v1/product/search?page=1&pageSize=50&keyword=${encodeURIComponent(q)}`,
+            `/api/v1/products/search?page=1&pageSize=50&keyword=${encodeURIComponent(q)}`,
           ),
         ),
       ),
@@ -258,8 +258,8 @@ export function SellerProductEditorScreen() {
 }
 
 export function SellerInventoryScreen() {
-  const products = useApiResource("/api/v1/product/search?page=1&pageSize=100", async () =>
-    rows(unwrap(await api.get<ApiResponse<any>>("/api/v1/product/search?page=1&pageSize=100"))),
+  const products = useApiResource("/api/v1/products/search?page=1&pageSize=100", async () =>
+    rows(unwrap(await api.get<ApiResponse<any>>("/api/v1/products/search?page=1&pageSize=100"))),
   );
   const [skuId, setSkuId] = useState("");
   const [quantity, setQuantity] = useState("1");
@@ -272,7 +272,7 @@ export function SellerInventoryScreen() {
     setError("");
     setSaved("");
     try {
-      await api.post("/api/v1/inventory/stock-in", {
+      await api.post("/api/v1/inventories/initialize", {
         items: [{ skuId, quantity: Number(quantity) }],
       });
       setSaved("Kho đã được cập nhật.");
@@ -498,8 +498,8 @@ export function SellerOrderDetailScreen() {
   const params = useParams<{ id: string }>();
   const id = String(params.id ?? "");
   const order = useApiResource(
-    id ? `/api/v1/order/${encodeURIComponent(id)}` : null,
-    async () => unwrap(await api.get<ApiResponse<Obj>>(`/api/v1/order/${encodeURIComponent(id)}`)),
+    id ? `/api/v1/orders/${encodeURIComponent(id)}` : null,
+    async () => unwrap(await api.get<ApiResponse<Obj>>(`/api/v1/orders/${encodeURIComponent(id)}`)),
   );
   return (
     <>
@@ -608,8 +608,8 @@ export function SellerShipmentDetailScreen() {
 
 export function SellerShopScreen() {
   const { user } = useSession();
-  const shop = useApiResource("/api/v1/seller/profile", async () =>
-    unwrap(await api.get<ApiResponse<Obj>>("/api/v1/seller/profile")),
+  const shop = useApiResource("/api/v1/sellers/profile", async () =>
+    unwrap(await api.get<ApiResponse<Obj>>("/api/v1/sellers/profile")),
   );
   const [error, setError] = useState("");
   const [saved, setSaved] = useState("");
@@ -622,7 +622,7 @@ export function SellerShopScreen() {
     setSaved("");
     setBusy(true);
     try {
-      await api.patch("/api/v1/seller/profile", {
+      await api.patch("/api/v1/sellers/profile", {
         shopName: String(values.get("shopName") ?? ""),
         hotline: String(values.get("hotline") ?? ""),
         description: String(values.get("description") ?? ""),

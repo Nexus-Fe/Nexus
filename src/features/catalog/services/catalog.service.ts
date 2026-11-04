@@ -22,9 +22,9 @@ export const catalogService = {
       `/api/v1/products${toQueryString(query)}`,
     ),
   getProductById: (id: string) =>
-    api.get<ApiResponse<Product>>(`/api/v1/product/${encodeURIComponent(id)}`),
+    api.get<ApiResponse<Product>>(`/api/v1/products/${encodeURIComponent(id)}`),
   searchAuctionProducts: (keyword = "", signal?: AbortSignal) =>
-    api.get<ApiResponse<{ items: AuctionCatalogProduct[] }>>(`/api/v1/product/search?page=1&pageSize=100&saleType=AUCTION&status=ACTIVE&keyword=${encodeURIComponent(keyword)}`, { signal }),
+    api.get<ApiResponse<{ items: AuctionCatalogProduct[] }>>(`/api/v1/products/search?page=1&pageSize=100&saleType=AUCTION&status=ACTIVE&keyword=${encodeURIComponent(keyword)}`, { signal }),
   getAuctionProduct: (id: string, signal?: AbortSignal) =>
-    api.get<ApiResponse<AuctionCatalogDetail>>(`/api/v1/product/${encodeURIComponent(id)}`, { signal }),
+    api.get<ApiResponse<AuctionCatalogDetail>>(`/api/v1/products/${encodeURIComponent(id)}`, { signal }),
 };

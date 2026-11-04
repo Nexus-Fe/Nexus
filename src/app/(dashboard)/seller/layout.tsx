@@ -1,3 +1,4 @@
+export const instant = false;
 import type { ReactNode } from "react";
 import { SellerShellClient } from "@/components/client/ClientShells";
 import { RoleGate } from "@/components/auth/RoleGate";

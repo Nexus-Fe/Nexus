@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
 import { ROUTES } from "@/constants/routes";
 import { useSession } from "@/components/auth/SessionProvider";
@@ -10,23 +10,39 @@ import { useApiResource } from "@/lib/api/use-api-resource";
 import { authService } from "./services/auth.service";
 import { ApiError } from "@/lib/api/client";
 import type { AuthUser } from "./types";
+import { getRoleLandingPath, hasAnyRole, sanitizeRedirectPath } from "./roles";
 import { ShopRegistrationForm, ShopRegistrationReview, emptyShopRegistrationFields, validateShopRegistrationFields, type ShopRegistrationFields } from "@/features/seller/components/ShopRegistrationForm";
 import { keepSellerRegistrationHandoff } from "@/features/seller/services/seller-registration-handoff";
 
-function landingPath(user: AuthUser): string {
-  const roles = (user.roles ?? (user.role ? [user.role] : [])).map((role) => role.toLocaleLowerCase("en-US"));
-  if (roles.some((role) => role === "admin" || role === "staff" || role === "seller")) return ROUTES.home;
-  if (roles.includes("buyer") || roles.includes("customer")) return ROUTES.buyer.cart;
+
+export function landingPath(user: AuthUser): string {
+  const roles = (user.roles ?? (user.role ? [user.role] : [])).map((role: string) => {
+    const normalized = role.toLocaleLowerCase("en-US");
+    return normalized === "supportstaff" ? "staff" : normalized;
+  });
+  if (roles.includes("admin")) return ROUTES.admin.overview;
+  if (roles.includes("staff")) return ROUTES.staff.auctions;
+  if (roles.includes("seller")) return ROUTES.seller.products;
+  if (roles.includes("buyer") || roles.includes("customer")) return ROUTES.home;
   return ROUTES.home;
 }
 
 export function LoginScreen() {
   const router = useRouter();
-  const { setAuthenticatedUser } = useSession();
+  const searchParams = useSearchParams();
+  const redirectParam = searchParams.get("redirect");
+  const { user, ready, setAuthenticatedUser } = useSession();
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (ready && user) {
+      const destination = sanitizeRedirectPath(redirectParam) || landingPath(user);
+      router.replace(destination);
+    }
+  }, [ready, user, redirectParam, router]);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -35,7 +51,8 @@ export function LoginScreen() {
     try {
       const response = await authService.login({ identifier, password });
       setAuthenticatedUser(response.data.user);
-      router.replace(landingPath(response.data.user));
+      const destination = sanitizeRedirectPath(redirectParam) || landingPath(response.data.user);
+      router.replace(destination);
     } catch (reason) {
       setError(reason instanceof ApiError && reason.status === 423 ? "Tài khoản tạm khóa do đăng nhập sai nhiều lần. Vui lòng thử lại sau." : reason instanceof Error ? reason.message : "Không thể đăng nhập.");
     } finally {
@@ -63,7 +80,13 @@ type RegistrationStep = "account" | "shop" | "review" | "verify" | "signingIn" |
 
 export function RegisterScreen() {
   const router = useRouter();
-  const { setAuthenticatedUser } = useSession();
+  const { user, ready, setAuthenticatedUser } = useSession();
+
+  useEffect(() => {
+    if (ready && user) {
+      router.replace(getRoleLandingPath(user));
+    }
+  }, [ready, user, router]);
   const [choice, setChoice] = useState<RegistrationChoice>("buyer");
   const [fields, setFields] = useState<RegisterFields>({ username: "", firstName: "", lastName: "", email: "", phoneNumber: "", password: "", confirmPassword: "" });
   const [shop, setShop] = useState<ShopRegistrationFields>(emptyShopRegistrationFields);
@@ -149,7 +172,8 @@ export function RegisterScreen() {
         const session = await authService.login({ identifier: fields.email.trim(), password: fields.password });
         setAuthenticatedUser(session.data.user);
         setFields((current) => ({ ...current, password: "", confirmPassword: "" }));
-        router.replace(ROUTES.home);
+        const destination = choice === "seller" ? ROUTES.buyer.becomeSeller : getRoleLandingPath(session.data.user);
+        router.replace(destination);
       } catch {
         setFields((current) => ({ ...current, password: "", confirmPassword: "" }));
         setStep("complete");
@@ -272,7 +296,7 @@ export function AccountProfileScreen() {
   const p=profile.data??{};const r=reputation.data??{};const address=typeof p.address==="object"&&p.address!==null?p.address as Record<string,unknown>:{};
   const displayName=[p.firstName,p.lastName].filter(Boolean).join(" ") || user?.displayName || user?.username || "Tài khoản Nexus";
   const email=String(p.email??user?.email??"");
-  const isSeller=Boolean(user?.roles?.some(role=>role.toLowerCase()==="seller")||user?.role?.toLowerCase()==="seller"||p.isSeller===true);
+  const isSeller = Boolean(hasAnyRole(user, ["Seller"]) || p.isSeller === true);
   return <div className="profile-page">
     <nav className="profile-breadcrumb" aria-label="Đường dẫn"><Link href={ROUTES.home}>Tài khoản Nexus</Link><span aria-hidden="true">›</span><span>Hồ sơ cá nhân</span></nav>
     <div className="profile-layout">

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { ROUTES } from "@/constants/routes";
+import { hasAnyRole } from "@/features/auth";
 import { useSession } from "@/components/auth/SessionProvider";
 import { Icon } from "@/components/ui/Icon";
 import { Badge, ButtonLink, Card, PageHeading, SectionHeading } from "@/components/ui/Primitives";
@@ -136,10 +137,7 @@ export function BecomeSellerScreen() {
   const [statusNotice, setStatusNotice] = useState<string | null>(null);
   const [blockers, setBlockers] = useState<SellerBlockerInfo[]>([]);
 
-  const isSellerRole = Boolean(
-    user?.roles?.some((role) => role.toLowerCase() === "seller") ||
-    user?.role?.toLowerCase() === "seller",
-  );
+  const isSellerRole = hasAnyRole(user, ["Seller"]);
 
   const appendBlocker = useCallback((blocker: SellerBlockerInfo) => {
     setBlockers((prev) => {
@@ -167,7 +165,7 @@ export function BecomeSellerScreen() {
         if (err instanceof ApiError && (err.status === 404 || err.status === 502 || err.status === 503 || err.status === 504)) {
           appendBlocker({
             service: "UserService (users)",
-            endpoint: "/api/v1/seller/profile",
+            endpoint: "/api/v1/sellers/profile",
             method: "GET",
             role: "Seller",
             httpStatus: err.status,
@@ -196,10 +194,7 @@ export function BecomeSellerScreen() {
           const meResponse = await api.get<ApiResponse<Record<string, unknown>>>("/api/v1/me");
           const me = unwrap(meResponse);
           currentUserId = String(me.id ?? me.userId ?? user?.id ?? "");
-          const roles = Array.isArray(me.roles)
-            ? me.roles.map((r) => String(r).toLowerCase())
-            : [];
-          meHasSellerRole = roles.includes("seller") || Boolean(me.isSeller);
+          meHasSellerRole = hasAnyRole(me as { roles?: string[]; role?: string }, ["Seller"]) || Boolean(me.isSeller);
           meShopName = typeof me.shopName === "string" ? me.shopName.trim() : "";
 
           setPersonal({
@@ -332,7 +327,7 @@ export function BecomeSellerScreen() {
             if (isMissingEndpoint && (savedDraft || meShopName || isManualRefresh || err.status >= 500)) {
               appendBlocker({
                 service: "UserService (users)",
-                endpoint: "/api/v1/seller/registration",
+                endpoint: "/api/v1/sellers/status",
                 method: "GET",
                 role: "Buyer (Authenticated)",
                 httpStatus: err.status,

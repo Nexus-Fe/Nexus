@@ -1,4 +1,4 @@
-import { api, clearSessionTokens, getRefreshToken, saveSessionTokens, type ApiResponse } from "@/lib/api/client";
+import { api, clearSessionTokens, extractRolesFromToken, getRefreshToken, getStoredRoles, saveSessionTokens, type ApiResponse } from "@/lib/api/client";
 import type { AuthResponse, AuthUser, LoginRequest, RegisterRequest } from "../types";
 
 export type RegistrationResponse = { userId?: string; email?: string; otpExpiresIn?: number };
@@ -12,13 +12,17 @@ type GatewayLoginData = {
   user?: AuthUser & { userId?: string };
 };
 
-function profileFromGateway(value: AuthUser & { userId?: string }, login: GatewayLoginData): AuthUser {
+function profileFromGateway(value: AuthUser & { userId?: string }, login: GatewayLoginData, fallbackRoles?: string[]): AuthUser {
   const id = value.id || value.userId || login.userId;
   if (!id || !value.email) {
     throw new Error("Phản hồi hồ sơ người dùng thiếu ID hoặc email.");
   }
 
-  const roles = value.roles?.length ? value.roles : login.roles;
+  const storedRoles = getStoredRoles();
+  const tokenRoles = extractRolesFromToken(login.accessToken);
+  const roles = value.roles?.length
+    ? value.roles
+    : (login.roles?.length ? login.roles : (fallbackRoles?.length ? fallbackRoles : (storedRoles.length ? storedRoles : tokenRoles)));
   return { ...value, id, roles };
 }
 
@@ -34,12 +38,14 @@ export const authService = {
     }
     const accessToken = login.accessToken;
     const refreshToken = login.refreshToken;
-    saveSessionTokens(accessToken, refreshToken);
+    const initialRoles = login.roles ?? login.user?.roles ?? (login.user?.role ? [login.user.role] : []);
+    saveSessionTokens(accessToken, refreshToken, initialRoles);
     try {
       const profile = login.user ?? (await this.getCurrentUser()).data;
+      const user = profileFromGateway(profile, login, initialRoles);
       return {
         ...response,
-        data: { ...login, accessToken, refreshToken, user: profileFromGateway(profile, login) },
+        data: { ...login, accessToken, refreshToken, user },
       } satisfies ApiResponse<AuthResponse>;
     } catch (error) {
       clearSessionTokens();

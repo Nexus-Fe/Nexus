@@ -20,7 +20,7 @@ export type AdminUserPage = { items: AdminUser[]; total: number; page: number; l
 type UserListPayload = { items?: AdminUser[]; users?: AdminUser[]; total?: number; page?: number; limit?: number };
 type UserDetailPayload = AdminUser | { user: AdminUser };
 
-const basePath = "/api/v1/admin/user";
+const basePath = "/api/v1/admin/users";
 const userPath = (id: string) => `${basePath}/${encodeURIComponent(id)}`;
 
 export const adminUsersService = {

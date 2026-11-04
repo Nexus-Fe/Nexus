@@ -8,6 +8,7 @@ import { BackendImage } from "@/components/ui/BackendImage";
 import { Icon } from "@/components/ui/Icon";
 import { Badge, ButtonLink, Card, NoData, PageHeading, SectionHeading } from "@/components/ui/Primitives";
 import { ROUTES } from "@/constants/routes";
+import { hasAnyRole } from "@/features/auth";
 import { ApiError } from "@/lib/api/client";
 import { useApiResource } from "@/lib/api/use-api-resource";
 import { formatMoney, resolveImageUrl } from "@/lib/presentation";
@@ -53,7 +54,7 @@ const auctionTone = (status: string) => ({ DRAFT: "slate", SCHEDULED: "amber", R
 const specificationText = (value: unknown) => typeof value === "string" || typeof value === "number" || typeof value === "boolean" ? String(value) : Array.isArray(value) ? value.map(String).join(", ") : value && typeof value === "object" ? JSON.stringify(value) : "";
 
 export function AuctionRoomScreen() {
-  const id = useAuctionId(); const { user } = useSession(); const now = useClock(); const canBid = Boolean(user?.roles?.some((role) => /^(buyer|customer)$/i.test(role)) || /^(buyer|customer)$/i.test(user?.role ?? ""));
+  const id = useAuctionId(); const { user } = useSession(); const now = useClock(); const canBid = hasAnyRole(user, ["Buyer", "Seller"]);
   const detail = useApiResource(isAuctionId(id) ? `auction:${id}` : null, (signal) => auctionService.detail(id, signal).then(({ data, headers }) => ({ auction: data.data, version: headers.get("etag") })));
   const [bidPage, setBidPage] = useState(1);
   const bids = useApiResource(isAuctionId(id) ? `bids:${id}:${bidPage}` : null, (signal) => auctionService.bids(id, bidPage, signal).then((response) => response.data));

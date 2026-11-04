@@ -1,3 +1,4 @@
+export const instant = false;
 import { Suspense, type ReactNode } from "react";
 import { StaffShellClient } from "@/components/client/ClientShells";
 import { StaffAdminDemoGate } from "@/components/auth/RoleGate";

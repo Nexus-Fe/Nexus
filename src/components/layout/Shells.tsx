@@ -7,7 +7,7 @@ import { buyerNavigation } from "@/constants/navigation";
 import { ROUTES } from "@/constants/routes";
 import { Icon } from "@/components/ui/Icon";
 import { useSession } from "@/components/auth/SessionProvider";
-import { authService } from "@/features/auth";
+import { authService, hasAnyRole, normalizeRole } from "@/features/auth";
 import { NavLinks } from "./NavLinks";
 import { useRouter } from "next/navigation";
 
@@ -18,10 +18,7 @@ const roleDashboardLinks = [
 ] as const;
 
 function dashboardsForRoles(roles: string[]) {
-  const normalizedRoles = new Set(roles.map((role) => {
-    const normalized = role.toLocaleLowerCase("en-US");
-    return normalized === "supportstaff" ? "staff" : normalized;
-  }));
+  const normalizedRoles = new Set(roles.map((role) => normalizeRole(role)));
   return roleDashboardLinks.filter((entry) => normalizedRoles.has(entry.role));
 }
 
@@ -36,7 +33,7 @@ function AccountNavigation() {
   const userRoles = user?.roles ?? (user?.role ? [user.role] : []);
   const dashboardLinks = dashboardsForRoles(userRoles);
   const hasPrivilegedRole = dashboardLinks.length > 0;
-  const isSeller = userRoles.some((role) => role.toLocaleLowerCase("en-US") === "seller");
+  const isSeller = hasAnyRole(user, ["Seller"]);
   const logout = async () => {
     try { await authService.logout(); } catch { /* Clear the local session even when the Gateway is unavailable. */ } finally { clearSession(); router.replace(ROUTES.auth.login); }
   };

@@ -40,27 +40,115 @@ export type ApiRequestOptions = Omit<RequestInit, "body" | "method"> & {
 
 const SESSION_ACCESS_KEY = "nexus_access_token";
 const SESSION_REFRESH_KEY = "nexus_refresh_token";
+const SESSION_ROLES_KEY = "nexus_session_roles";
+const SESSION_USER_KEY = "nexus_user_profile";
 let refreshInFlight: Promise<string | null> | null = null;
 
 function getStoredToken(key: string): string | null {
   if (typeof window === "undefined") return null;
   try {
-    return window.sessionStorage.getItem(key);
+    return window.localStorage.getItem(key);
   } catch {
     return null;
   }
 }
 
-export function saveSessionTokens(accessToken: string, refreshToken: string): void {
+export function extractRolesFromToken(token?: string | null): string[] {
+  if (!token || typeof token !== "string") return [];
+  try {
+    const parts = token.split(".");
+    if (parts.length < 2) return [];
+    let base64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+    while (base64.length % 4 !== 0) {
+      base64 += "=";
+    }
+    const binary = atob(base64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) {
+      bytes[i] = binary.charCodeAt(i);
+    }
+    const jsonPayload = new TextDecoder().decode(bytes);
+    const payload = JSON.parse(jsonPayload);
+    const claim =
+      payload.roles ??
+      payload.role ??
+      payload.Roles ??
+      payload.Role ??
+      payload["http://schemas.microsoft.com/ws/2008/06/identity/claims/role"] ??
+      payload["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/role"] ??
+      payload.realm_access?.roles ??
+      payload.authorities ??
+      payload.scope ??
+      [];
+    if (Array.isArray(claim)) return claim.map((r) => String(r).trim()).filter(Boolean);
+    if (typeof claim === "string" && claim.trim()) return [claim.trim()];
+    return [];
+  } catch {
+    return [];
+  }
+}
+
+export function saveSessionTokens(accessToken: string, refreshToken: string, roles?: string[]): void {
   if (typeof window === "undefined") return;
-  window.sessionStorage.setItem(SESSION_ACCESS_KEY, accessToken);
-  window.sessionStorage.setItem(SESSION_REFRESH_KEY, refreshToken);
+  window.localStorage.setItem(SESSION_ACCESS_KEY, accessToken);
+  window.localStorage.setItem(SESSION_REFRESH_KEY, refreshToken);
+  const resolvedRoles = roles && roles.length > 0 ? roles : extractRolesFromToken(accessToken);
+  if (resolvedRoles.length > 0) {
+    window.localStorage.setItem(SESSION_ROLES_KEY, JSON.stringify(resolvedRoles));
+  }
+}
+
+export function saveSessionRoles(roles: string[]): void {
+  if (typeof window === "undefined") return;
+  if (Array.isArray(roles) && roles.length > 0) {
+    window.localStorage.setItem(SESSION_ROLES_KEY, JSON.stringify(roles));
+  } else {
+    window.localStorage.removeItem(SESSION_ROLES_KEY);
+  }
+}
+
+export const saveStoredRoles = saveSessionRoles;
+
+export function saveStoredUser(user: unknown): void {
+  if (typeof window === "undefined" || !user) return;
+  try {
+    window.localStorage.setItem(SESSION_USER_KEY, JSON.stringify(user));
+  } catch {
+    // ignore
+  }
+}
+
+export function getStoredUser<T>(): T | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(SESSION_USER_KEY);
+    return raw ? JSON.parse(raw) as T : null;
+  } catch {
+    return null;
+  }
+}
+
+export function getStoredRoles(): string[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(SESSION_ROLES_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed.map((r) => String(r));
+    }
+  } catch {
+    // Ignore malformed JSON in storage
+  }
+  const token = getStoredToken(SESSION_ACCESS_KEY);
+  return extractRolesFromToken(token);
 }
 
 export function clearSessionTokens(): void {
   if (typeof window === "undefined") return;
-  window.sessionStorage.removeItem(SESSION_ACCESS_KEY);
-  window.sessionStorage.removeItem(SESSION_REFRESH_KEY);
+  window.localStorage.removeItem(SESSION_ACCESS_KEY);
+  window.localStorage.removeItem(SESSION_REFRESH_KEY);
+  window.localStorage.removeItem(SESSION_ROLES_KEY);
+  window.localStorage.removeItem(SESSION_USER_KEY);
 }
 
 export function hasRefreshToken(): boolean {
@@ -192,8 +280,11 @@ async function refreshAccessToken(): Promise<string | null> {
         cache: "no-store",
       });
       const payload = await readPayload(response);
-      if (!response.ok || typeof payload !== "object" || payload === null) {
+      if (response.status === 401 || response.status === 403) {
         clearSessionTokens();
+        return null;
+      }
+      if (!response.ok || typeof payload !== "object" || payload === null) {
         return null;
       }
       const data = (payload as ApiResponse<Record<string, unknown>>).data;

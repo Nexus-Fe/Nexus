@@ -3,8 +3,8 @@ import type { NextRequest } from "next/server";
 type RouteContext = { params: Promise<{ path: string[] }> };
 
 async function proxy(request: NextRequest, context: RouteContext): Promise<Response> {
-  const gatewayAddress = process.env.API_GATEWAY_URL?.trim();
-  if (!gatewayAddress) {
+  const gatewayAddress = process.env.API_GATEWAY_URL?.trim() || process.env.NEXT_PUBLIC_API_URL?.trim();
+   if (!gatewayAddress) {
     return Response.json(
       { title: "API Gateway chưa được cấu hình.", status: 503, errorCode: "GATEWAY_NOT_CONFIGURED" },
       { status: 503, headers: { "Cache-Control": "no-store" } },

@@ -371,11 +371,11 @@ export function loadSafeRegistrationDraft(userId?: string | null): SafeRegistrat
 
 export const sellerService = {
   getProfile: (signal?: AbortSignal) =>
-    api.get<ApiResponse<SellerProfile>>("/api/v1/seller/profile", { signal }),
+    api.get<ApiResponse<SellerProfile>>("/api/v1/sellers/profile", { signal }),
 
   updateProfile: (payload: Record<string, unknown>) =>
-    api.patch<ApiResponse<Record<string, unknown>>>("/api/v1/seller/profile", payload),
+    api.patch<ApiResponse<Record<string, unknown>>>("/api/v1/sellers/profile", payload),
 
   getRegistrationStatus: (signal?: AbortSignal) =>
-    api.get<ApiResponse<SellerRegistrationStatusRecord>>("/api/v1/seller/registration", { signal }),
+    api.get<ApiResponse<SellerRegistrationStatusRecord>>("/api/v1/sellers/status", { signal }),
 };
