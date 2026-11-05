@@ -38,8 +38,7 @@ export const authService = {
     }
     const accessToken = login.accessToken;
     const refreshToken = login.refreshToken;
-    const initialRoles = login.roles ?? login.user?.roles ?? (login.user?.role ? [login.user.role] : []);
-    saveSessionTokens(accessToken, refreshToken, initialRoles);
+    saveSessionTokens(accessToken, refreshToken);
     try {
       const profile = login.user ?? await this.getCurrentUser();
       const user = profileFromGateway(profile, login);

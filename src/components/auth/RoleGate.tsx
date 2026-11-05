@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, type ReactNode } from "react";
-import { getStoredRoles } from "@/lib/api/client";
 import { ROUTES } from "@/constants/routes";
 import { useSession } from "./SessionProvider";
 
@@ -19,7 +18,7 @@ export function RoleGate({ allowedRoles, children }: { allowedRoles: string[]; c
   const router = useRouter();
 
   const userRoles = user?.roles?.length ? user.roles : (user?.role ? [user.role] : []);
-  const roles = userRoles.length > 0 ? userRoles : (typeof window !== "undefined" ? getStoredRoles() : []);
+  const roles = userRoles;
   const hasAccess = roles.some((role) => allowedRoles.some((allowed) => normalizeRole(role) === normalizeRole(allowed)));
   const isAdmin = roles.some((r) => normalizeRole(r) === "admin");
   const isStaff = roles.some((r) => normalizeRole(r) === "supportstaff");

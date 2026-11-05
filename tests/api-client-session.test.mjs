@@ -94,11 +94,13 @@ test("public login request does not require an existing session check", async ()
   assert.deepEqual(paths, ["/api/gateway/api/v1/auth/login"]);
 });
 
-test("roles are stored during login and cleared on sign out", () => {
+test("browser role edits cannot grant UI access", () => {
   const browser = browserSession();
+  browser.localStorage.setItem("nexus_session_roles", JSON.stringify(["ADMIN"]));
   saveSessionTokens("access-token", "refresh-token", ["ADMIN", "SELLER"]);
-  assert.equal(browser.localStorage.getItem("nexus_session_roles"), JSON.stringify(["ADMIN", "SELLER"]));
-  assert.deepEqual(getStoredRoles(), ["ADMIN", "SELLER"]);
+  assert.equal(browser.localStorage.getItem("nexus_session_roles"), null);
+  browser.localStorage.setItem("nexus_session_roles", JSON.stringify(["ADMIN"]));
+  assert.deepEqual(getStoredRoles(), []);
 
   clearSessionTokens();
   assert.equal(browser.localStorage.getItem("nexus_session_roles"), null);

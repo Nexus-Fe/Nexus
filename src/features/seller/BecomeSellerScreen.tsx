@@ -609,10 +609,6 @@ export function BecomeSellerScreen() {
                   <strong>{(user?.roles ?? ["buyer", "seller"]).join(", ").toUpperCase()}</strong>
                 </div>
                 <div className="info-row">
-                  <span>Mã hồ sơ đăng ký</span>
-                  <strong>{registrationId || sellerProfile?.shopId || sellerProfile?.sellerId || "Đã đồng bộ"}</strong>
-                </div>
-                <div className="info-row">
                   <span>Trạng thái thẩm định</span>
                   <strong>
                     <Badge tone="green">APPROVED</Badge>
@@ -639,10 +635,6 @@ export function BecomeSellerScreen() {
                 <div className="info-row">
                   <span>Tên gian hàng</span>
                   <strong>{sellerProfile?.shopName || shopForm.shopName || "—"}</strong>
-                </div>
-                <div className="info-row">
-                  <span>Mã gian hàng (Shop ID)</span>
-                  <strong>{sellerProfile?.shopId || sellerProfile?.sellerId || registrationId || "—"}</strong>
                 </div>
                 <div className="info-row">
                   <span>Mã kho GHN (ghnShopId)</span>

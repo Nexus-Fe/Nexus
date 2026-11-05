@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { ApiError, api, clearSessionTokens, getStoredRoles, hasRefreshToken, saveSessionRoles, SESSION_INVALIDATED_EVENT, type ApiResponse } from "@/lib/api/client";
+import { ApiError, api, clearSessionTokens, hasRefreshToken, saveSessionRoles, SESSION_INVALIDATED_EVENT, type ApiResponse } from "@/lib/api/client";
 import type { AuthUser } from "@/features/auth/types";
 
 type SessionContextValue = {
@@ -15,6 +15,12 @@ type SessionContextValue = {
 
 const SessionContext = createContext<SessionContextValue | null>(null);
 
+function rolesFromProfile(profile: AuthUser): string[] {
+  const roles = Array.isArray(profile.roles) ? profile.roles.map((role) => String(role).trim()).filter(Boolean) : [];
+  if (profile.role?.trim()) roles.push(profile.role.trim());
+  return [...new Set(roles)];
+}
+
 export function SessionProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [ready, setReady] = useState(false);
@@ -23,21 +29,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   const setAuthenticatedUser = useCallback((authenticatedUser: AuthUser) => {
     sessionVersion.current += 1;
-    const storedRoles = getStoredRoles();
-    const userRoles = Array.isArray(authenticatedUser.roles)
-      ? authenticatedUser.roles.map((r) => String(r).trim()).filter(Boolean)
-      : [];
-    if (authenticatedUser.role && typeof authenticatedUser.role === "string" && authenticatedUser.role.trim()) {
-      userRoles.push(authenticatedUser.role.trim());
-    }
-    const mergedRolesSet = new Set<string>();
-    for (const r of storedRoles) mergedRolesSet.add(r);
-    for (const r of userRoles) mergedRolesSet.add(r);
-    const roles = Array.from(mergedRolesSet);
-    if (roles.length > 0) {
-      saveSessionRoles(roles);
-    }
-    setUser({ ...authenticatedUser, roles });
+    setUser({ ...authenticatedUser, roles: rolesFromProfile(authenticatedUser) });
     setRestoreError(null);
   }, []);
 
@@ -66,21 +58,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         clearSession();
         return;
       }
-      const storedRoles = getStoredRoles();
-      const profileRoles = Array.isArray(profile.roles)
-        ? profile.roles.map((r) => String(r).trim()).filter(Boolean)
-        : [];
-      if (profile.role && typeof profile.role === "string" && profile.role.trim()) {
-        profileRoles.push(profile.role.trim());
-      }
-      const mergedRolesSet = new Set<string>();
-      for (const r of storedRoles) mergedRolesSet.add(r);
-      for (const r of profileRoles) mergedRolesSet.add(r);
-      const existingRoles = Array.from(mergedRolesSet);
-      if (existingRoles.length > 0) {
-        saveSessionRoles(existingRoles);
-      }
-      setUser({ ...profile, roles: existingRoles });
+      setUser({ ...profile, roles: rolesFromProfile(profile) });
       setRestoreError(null);
     } catch (error) {
       if (version !== sessionVersion.current) return;
@@ -101,6 +79,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, [clearSession]);
 
   useEffect(() => {
+    saveSessionRoles([]);
     const timer = window.setTimeout(() => { void refreshUser(); }, 0);
     const refreshWhenVisible = () => { if (document.visibilityState === "visible") void refreshUser(); };
     const handleInvalidation = () => clearSession();
