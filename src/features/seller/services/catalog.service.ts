@@ -57,10 +57,20 @@ export const sellerCatalogService = {
     }
     return categories;
   },
-  async list(page: number, keyword: string, signal?: AbortSignal) {
-    const query = new URLSearchParams({ page: String(page), pageSize: "20", saleType: "REGULAR" });
+  async list(page: number, keyword: string, pageSize: number, signal?: AbortSignal) {
+    const query = new URLSearchParams({ page: String(page), pageSize: String(pageSize), saleType: "REGULAR" });
     if (keyword) query.set("keyword", keyword);
     return unwrap(await api.get<ApiResponse<Paged<SellerProduct>> | Paged<SellerProduct>>(`/api/v1/seller/products?${query}`, { signal }));
+  },
+  async listAll(signal?: AbortSignal): Promise<SellerProduct[]> {
+    const products: SellerProduct[] = [];
+    let page = 1;
+    while (true) {
+      const response = await sellerCatalogService.list(page, "", 100, signal);
+      products.push(...response.items);
+      if (!response.pagination.hasNextPage) return products;
+      page += 1;
+    }
   },
   async detail(id: string, signal?: AbortSignal) {
     return unwrap(await api.get<ApiResponse<SellerProductDetail> | SellerProductDetail>(`/api/v1/seller/products/${encodeURIComponent(id)}`, { signal }));
