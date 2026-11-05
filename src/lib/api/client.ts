@@ -90,38 +90,22 @@ export function extractRolesFromToken(token?: string | null): string[] {
   }
 }
 
-export function saveSessionTokens(accessToken: string, refreshToken: string, roles?: string[]): void {
+export function saveSessionTokens(accessToken: string, refreshToken: string, _roles?: string[]): void {
   if (typeof window === "undefined") return;
   window.localStorage.setItem(SESSION_ACCESS_KEY, accessToken);
   window.localStorage.setItem(SESSION_REFRESH_KEY, refreshToken);
-  const resolvedRoles = roles && roles.length > 0 ? roles : extractRolesFromToken(accessToken);
-  if (resolvedRoles.length > 0) {
-    window.localStorage.setItem(SESSION_ROLES_KEY, JSON.stringify(resolvedRoles));
-  }
+  // Remove legacy role data. UI permissions come from the authenticated /me response.
+  window.localStorage.removeItem(SESSION_ROLES_KEY);
 }
 
-export function saveSessionRoles(roles: string[]): void {
+export function saveSessionRoles(_roles: string[]): void {
   if (typeof window === "undefined") return;
-  if (Array.isArray(roles) && roles.length > 0) {
-    window.localStorage.setItem(SESSION_ROLES_KEY, JSON.stringify(roles));
-  } else {
-    window.localStorage.removeItem(SESSION_ROLES_KEY);
-  }
+  window.localStorage.removeItem(SESSION_ROLES_KEY);
 }
 
 export function getStoredRoles(): string[] {
-  if (typeof window === "undefined") return [];
-  try {
-    const raw = window.localStorage.getItem(SESSION_ROLES_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed.map((r) => String(r));
-    }
-  } catch {
-    // Ignore malformed JSON in storage
-  }
-  const token = getStoredToken(SESSION_ACCESS_KEY);
-  return extractRolesFromToken(token);
+  // Kept for existing callers; a browser-stored role must never grant UI access.
+  return [];
 }
 
 export function clearSessionTokens(): void {
@@ -277,7 +261,7 @@ async function refreshAccessToken(): Promise<string | null> {
         return null;
       }
       if (getStoredToken(SESSION_REFRESH_KEY) !== refreshToken) return null;
-      saveSessionTokens(access, refresh, getStoredRoles());
+      saveSessionTokens(access, refresh);
       return access;
     } catch {
       return null;
