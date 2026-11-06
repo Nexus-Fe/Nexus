@@ -1,8 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { Card, NoData, PageHeading, SectionHeading } from "@/components/ui/Primitives";
+import { Badge, Card, NoData, PageHeading, SectionHeading } from "@/components/ui/Primitives";
 import { ROUTES } from "@/constants/routes";
+import { useApiResource } from "@/lib/api/use-api-resource";
+import { formatMoney } from "@/lib/presentation";
+import { walletService } from "./services/wallet.service";
+import { transactionDate, transactionStatus, transactionType } from "./WalletScreen";
 
 export function BuyerTopUpScreen() {
   return <>
@@ -12,11 +16,120 @@ export function BuyerTopUpScreen() {
   </>;
 }
 
+function SellerTransactionAmount({ type, status, amount }: { type: string; status: string; amount: number }) {
+  const normalizedType = type.replace(/[^a-z]/gi, "").toUpperCase();
+  const successful = ["SUCCESS", "COMPLETED"].includes(status.toUpperCase());
+  const credit = successful && ["ESCROWRELEASE", "REFUNDCREDIT", "REFUND", "DEPOSIT", "TOPUPVNPAY"].includes(normalizedType);
+  const debit = successful && ["PURCHASEDEBIT", "PAYMENT", "WITHDRAWALDEBIT"].includes(normalizedType);
+
+  return <strong style={{ color: credit ? "#166534" : debit ? "#b91c1c" : undefined }}>
+    {credit ? "+" : debit ? "−" : ""}{formatMoney(amount)}
+  </strong>;
+}
 export function SellerWalletScreen() {
-  return <><PageHeading overline="Kênh người bán" title="Doanh thu & ví" description="Theo dõi số dư khả dụng, tiền đang giữ và lịch sử nhận tiền sau khi đơn hoàn tất." />
-    <div className="grid-3"><Card className="card-pad"><h2>Có thể rút</h2><NoData title="Chưa có dữ liệu" /></Card><Card className="card-pad"><h2>Đang giữ</h2><NoData title="Chưa có dữ liệu" /></Card><Card className="card-pad"><h2>Phí nền tảng</h2><NoData title="Chưa có dữ liệu" /></Card></div>
-    <SectionHeading title="Lịch sử doanh thu" /><Card><NoData title="Chưa nối dữ liệu doanh thu Seller" /></Card><p className="status-note">Phần ví doanh thu Seller thuộc đợt tiếp theo. <Link href={ROUTES.seller.withdrawals}>Xem yêu cầu rút tiền</Link></p>
-  </>;
+  const balance = useApiResource("seller-wallet-balance", (signal) => walletService.getBalance(signal));
+  const transactions = useApiResource("seller-wallet-transactions", (signal) =>
+    walletService.getTransactions(signal).then((response) => response.items),
+  );
+  const isReady = balance.data?.status?.toUpperCase() === "ACTIVE";
+
+  return (
+    <>
+      <PageHeading
+        overline="Kênh người bán"
+        title="Doanh thu & ví"
+        description="Theo dõi số dư khả dụng, tiền đang giữ và lịch sử nhận tiền sau khi người mua xác nhận nhận hàng."
+      />
+      {balance.error && <p className="notice" role="alert">Không tải được ví người bán: {balance.error.message}</p>}
+      <div className="grid-3">
+        <Card className="card-pad">
+          <h2>Số dư khả dụng</h2>
+          {balance.loading ? (
+            <NoData title="Đang tải số dư…" />
+          ) : balance.data ? (
+            <>
+              <strong style={{ fontSize: 24, color: "var(--sky-dark)" }}>
+                {formatMoney(balance.data.availableBalance ?? balance.data.balance)}
+              </strong>
+              <p className="status-note">
+                Tiền đơn hàng được cộng tự động khi người mua xác nhận đã nhận hàng.
+              </p>
+            </>
+          ) : (
+            <NoData title="Chưa có dữ liệu" />
+          )}
+        </Card>
+        <Card className="card-pad">
+          <h2>Đang giữ</h2>
+          {balance.loading ? (
+            <NoData title="Đang tải…" />
+          ) : balance.data ? (
+            <>
+              <strong style={{ fontSize: 20 }}>{formatMoney(balance.data.lockedBalance ?? 0)}</strong>
+              <p className="status-note">Số tiền đang được ví tạm giữ.</p>
+            </>
+          ) : (
+            <NoData title="Chưa có dữ liệu" />
+          )}
+        </Card>
+        <Card className="card-pad">
+          <h2>Trạng thái ví</h2>
+          {balance.loading ? (
+            <NoData title="Đang tải…" />
+          ) : balance.data ? (
+            <>
+              <Badge>{isReady ? "Đang hoạt động" : balance.data.status}</Badge>
+              <p className="status-note">Mã ví: {balance.data.walletId}</p>
+            </>
+          ) : (
+            <NoData title="Chưa có dữ liệu" />
+          )}
+        </Card>
+      </div>
+      <SectionHeading title="Lịch sử doanh thu & giao dịch ví" />
+      {transactions.error && <p className="notice" role="alert">Không tải được lịch sử: {transactions.error.message}</p>}
+      <Card>
+        {transactions.loading ? (
+          <NoData title="Đang tải lịch sử doanh thu…" />
+        ) : transactions.data?.length ? (
+          <div className="table-scroll">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Thời gian</th>
+                  <th>Loại giao dịch</th>
+                  <th>Nội dung</th>
+                  <th>Số tiền</th>
+                  <th>Trạng thái</th>
+                </tr>
+              </thead>
+              <tbody>
+                {transactions.data.map((tx) => (
+                  <tr key={tx.id}>
+                    <td>{transactionDate(tx.createdAt)}</td>
+                    <td>{transactionType(tx.type)}</td>
+                    <td>{tx.note || "—"}</td>
+                    <td>
+                      <SellerTransactionAmount type={tx.type} status={tx.status} amount={tx.amount} />
+                    </td>
+                    <td>
+                      <Badge>{transactionStatus(tx.status)}</Badge>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <NoData title="Chưa có giao dịch doanh thu" />
+        )}
+      </Card>
+      <p className="status-note">
+        Khi người mua bấm &ldquo;Đã nhận được hàng&rdquo;, toàn bộ tiền của đơn hàng được giải ngân trực tiếp vào ví Seller.{" "}
+        <Link href={ROUTES.seller.withdrawals}>Xem yêu cầu rút tiền</Link>
+      </p>
+    </>
+  );
 }
 
 export function SellerWithdrawalsScreen() {
