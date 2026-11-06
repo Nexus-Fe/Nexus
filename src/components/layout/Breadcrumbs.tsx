@@ -6,7 +6,7 @@ import { ROUTES } from "@/constants/routes";
 
 const labels: Record<string, string> = {
   "/catalog": "Sản phẩm", "/auctions": "Đấu giá trực tiếp",
-  "/buyer": "Tài khoản mua", "/buyer/cart": "Giỏ hàng", "/buyer/checkout": "Thông tin giao hàng",
+  "/buyer/cart": "Giỏ hàng", "/buyer/checkout": "Thông tin giao hàng",
   "/buyer/orders": "Đơn mua", "/buyer/auctions": "Đấu giá của tôi", "/buyer/wallet": "Ví của tôi",
   "/buyer/wallet/top-up": "Nạp tiền", "/buyer/reports": "Báo cáo", "/buyer/become-seller": "Đăng ký bán hàng",
   "/buyer/payment": "Thanh toán", "/buyer/payment/result": "Kết quả thanh toán",
@@ -30,7 +30,7 @@ const terminalLabels: Record<string, string> = {
 
 export function Breadcrumbs({ portal = false }: { portal?: boolean }) {
   const pathname = usePathname();
-  if (!pathname || pathname === "/" || pathname.startsWith("/catalog/") || pathname === ROUTES.buyer.checkout) return null;
+  if (!pathname || pathname === "/" || pathname.startsWith("/catalog/") || pathname === ROUTES.buyer.cart || pathname === ROUTES.buyer.checkout) return null;
 
   const pieces = pathname.split("/").filter(Boolean);
   const root = portal ? `/${pieces[0]}` : ROUTES.home;
@@ -47,7 +47,7 @@ export function Breadcrumbs({ portal = false }: { portal?: boolean }) {
   if (crumbs.length < 2) return null;
 
   return <nav className="site-breadcrumb" aria-label="Đường dẫn">
-    <ol>{crumbs.map((crumb, index) => <li key={crumb.href}>
+    <ol>{crumbs.map((crumb, index) => <li key={`${index}-${crumb.href}`}>
       {index > 0 && <span className="site-breadcrumb-separator" aria-hidden="true">›</span>}
       {index === crumbs.length - 1 ? <span aria-current="page">{crumb.label}</span> : <Link href={crumb.href}>{crumb.label}</Link>}
     </li>)}</ol>
