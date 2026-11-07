@@ -1,4 +1,5 @@
 import { api, unwrap, type ApiResponse } from "@/lib/api/client";
+import type { ProductSpecification } from "@/features/catalog/types/product-specification";
 
 export type Pagination = {
   pageIndex: number;
@@ -35,6 +36,7 @@ export type ProductVariant = {
 
 export type ProductImage = {
   id: string;
+  variantId?: string | null;
   url: string;
   altText?: string | null;
   isActive: boolean;
@@ -43,7 +45,7 @@ export type ProductImage = {
 
 export type SellerProductDetail = SellerProduct & {
   description?: string | null;
-  specifications?: string | null;
+  specifications?: ProductSpecification[] | null;
   images: ProductImage[];
   variants: ProductVariant[];
 };
@@ -58,6 +60,14 @@ export type InventoryBalance = {
   updatedAt: string;
 };
 
+export type InventoryAdjustmentResponse = {
+  skuId: string;
+  totalQuantity: number;
+  reservedQuantity: number;
+  availableQuantity: number;
+  adjustmentLedgerId: string;
+};
+
 export type WarehouseInfo = {
   id: string;
   code: string;
@@ -67,6 +77,15 @@ export type WarehouseInfo = {
   isDisabled?: boolean;
   sellerId?: string | null;
 };
+
+export function isPlatformWarehouse(warehouse: WarehouseInfo): boolean {
+  const type = String(warehouse.type ?? "").toLowerCase();
+  return type === "platformwarehouse" || type === "1" || warehouse.code?.toUpperCase() === "WH-CENTRAL-01";
+}
+
+export function isSellerWarehouse(warehouse: WarehouseInfo, sellerId?: string): boolean {
+  return Boolean(sellerId && warehouse.sellerId?.toLowerCase() === sellerId.toLowerCase() && !isPlatformWarehouse(warehouse));
+}
 
 export type CreatedProductResponse = {
   id: string;
@@ -125,6 +144,35 @@ export const sellerCatalogService = {
     );
   },
 
+  async listProductsInWarehouse(warehouseId: string, signal?: AbortSignal): Promise<SellerProduct[]> {
+    const products: SellerProduct[] = [];
+    for (let page = 1; ; page += 1) {
+      const result = await this.list(page, "", signal, 100);
+      products.push(...result.items);
+      if (!result.pagination.hasNextPage) break;
+    }
+
+    const details: SellerProductDetail[] = [];
+    for (let index = 0; index < products.length; index += 5) {
+      details.push(...await Promise.all(products.slice(index, index + 5).map((product) =>
+        this.detail(product.productId, signal),
+      )));
+    }
+    const variants = details.flatMap((detail) => detail.variants.map((variant) => ({
+      productId: detail.productId,
+      skuId: variant.variantId,
+    })));
+    const stockedSkuIds = new Set<string>();
+    for (let index = 0; index < variants.length; index += 100) {
+      const balances = await this.inventoryBatch(variants.slice(index, index + 100).map((variant) => variant.skuId), signal);
+      for (const balance of balances) {
+        if (balance.warehouseId === warehouseId) stockedSkuIds.add(balance.skuId);
+      }
+    }
+    const stockedProductIds = new Set(variants.filter((variant) => stockedSkuIds.has(variant.skuId)).map((variant) => variant.productId));
+    return products.filter((product) => stockedProductIds.has(product.productId));
+  },
+
   async detail(id: string, signal?: AbortSignal) {
     return unwrap(
       await api.get<ApiResponse<SellerProductDetail> | SellerProductDetail>(
@@ -140,7 +188,7 @@ export const sellerCatalogService = {
     name: string;
     description?: string;
     brand?: string;
-    specifications?: Record<string, string> | string | null;
+    specifications?: ProductSpecification[] | null;
     variants: NewVariant[];
   }): Promise<CreatedProductResponse> {
     return unwrap(
@@ -159,7 +207,7 @@ export const sellerCatalogService = {
       description: string;
       brand: string;
       categoryId: string;
-      specifications?: Record<string, string> | string | null;
+      specifications?: ProductSpecification[] | null;
     },
   ) {
     return unwrap(
@@ -209,11 +257,12 @@ export const sellerCatalogService = {
     );
   },
 
-  async uploadImage(id: string, file: File, altText: string, sortOrder = 0) {
+  async uploadImage(id: string, file: File, altText: string, sortOrder = 0, variantId?: string) {
     const form = new FormData();
     form.append("file", file);
     if (altText.trim()) form.append("altText", altText.trim());
     form.append("sortOrder", String(sortOrder));
+    if (variantId) form.append("variantId", variantId);
     return unwrap(
       await api.post<ApiResponse<ProductImage> | ProductImage>(
         `/api/v1/products/${encodeURIComponent(id)}/images`,
@@ -268,6 +317,20 @@ export const sellerCatalogService = {
     );
   },
 
+  async adjustInventory(input: {
+    skuId: string;
+    type: "Intake" | "Adjust";
+    quantity: number;
+    note: string;
+  }) {
+    return unwrap(
+      await api.post<ApiResponse<InventoryAdjustmentResponse> | InventoryAdjustmentResponse>(
+        "/api/v1/inventories/adjust",
+        input,
+      ),
+    );
+  },
+
   async listWarehouses(sellerId?: string, signal?: AbortSignal): Promise<WarehouseInfo[]> {
     const result: WarehouseInfo[] = [];
     const seen = new Set<string>();
@@ -284,7 +347,7 @@ export const sellerCatalogService = {
         for (const item of list) {
           if (item?.id && !seen.has(item.id)) {
             seen.add(item.id);
-            result.push(item);
+            result.push({ ...item, type: "SellerWarehouse" });
           }
         }
       } catch {
@@ -292,22 +355,22 @@ export const sellerCatalogService = {
       }
     }
 
-    try {
+    let page = 1;
+    while (true) {
       const activePaged = unwrap(
-        await api.get<ApiResponse<Paged<WarehouseInfo> | WarehouseInfo[]> | Paged<WarehouseInfo> | WarehouseInfo[]>(
-          "/api/v1/warehouses?page=1&pageSize=50",
+        await api.get<ApiResponse<Paged<WarehouseInfo>> | Paged<WarehouseInfo>>(
+          `/api/v1/warehouses?page=${page}&pageSize=50`,
           { signal },
         ),
       );
-      const list = Array.isArray(activePaged) ? activePaged : activePaged?.items ?? [];
-      for (const item of list) {
-        if (item?.id && !seen.has(item.id)) {
+      for (const item of activePaged.items) {
+        if (item?.id && (isPlatformWarehouse(item) || isSellerWarehouse(item, sellerId)) && !seen.has(item.id)) {
           seen.add(item.id);
-          result.push(item);
+          result.push({ ...item, type: isPlatformWarehouse(item) ? "PlatformWarehouse" : "SellerWarehouse" });
         }
       }
-    } catch {
-      // Ignore if warehouse list endpoint is temporarily unreachable
+      if (!activePaged.pagination.hasNextPage) break;
+      page += 1;
     }
 
     return result;
