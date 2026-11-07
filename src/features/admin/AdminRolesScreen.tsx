@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { Badge, Card, NoData, PageHeading, SectionHeading } from "@/components/ui/Primitives";
+import { AdminPagination, Badge, Card, NoData, PageHeading, SectionHeading } from "@/components/ui/Primitives";
 import { Icon } from "@/components/ui/Icon";
 import { api, type ApiResponse } from "@/lib/api/client";
 import { useApiResource } from "@/lib/api/use-api-resource";
@@ -24,7 +24,8 @@ const DEFAULT_SYSTEM_ROLES: SystemRoleItem[] = [
     id: "Admin",
     code: "Admin",
     name: "Admin (Quản trị viên)",
-    description: "Toàn quyền quản trị hệ thống: kiểm soát tài khoản người dùng, giám sát các phiên đấu giá trực tiếp, tra cứu nhật ký kiểm toán và cấu hình toàn sàn.",
+    description:
+      "Toàn quyền quản trị hệ thống: kiểm soát tài khoản người dùng, giám sát các phiên đấu giá trực tiếp, tra cứu nhật ký kiểm toán và cấu hình toàn sàn.",
     tone: "indigo",
     status: "Đang hoạt động",
   },
@@ -32,15 +33,17 @@ const DEFAULT_SYSTEM_ROLES: SystemRoleItem[] = [
     id: "SupportStaff",
     code: "SupportStaff",
     name: "Staff (Nhân viên vận hành)",
-    description: "Vận hành và hỗ trợ sàn: kiểm duyệt sản phẩm đấu giá, xét duyệt hồ sơ người bán (Seller), xử lý khiếu nại báo cáo và duyệt yêu cầu rút tiền.",
+    description:
+      "Vận hành và hỗ trợ sàn: kiểm duyệt sản phẩm đấu giá, xét duyệt hồ sơ người bán (Seller KYC), xử lý khiếu nại báo cáo và duyệt yêu cầu rút tiền.",
     tone: "sky",
     status: "Đang hoạt động",
   },
   {
     id: "Seller",
     code: "Seller",
-    name: "Seller (Người bán)",
-    description: "Tài khoản người bán hàng: đăng tải sản phẩm, quản lý kho hàng, tạo và quản lý phiên đấu giá trực tiếp, theo dõi đơn bán và số dư ví.",
+    name: "Seller (Người bán - Cấp qua duyệt KYC)",
+    description:
+      "Tài khoản người bán hàng: chỉ được cấp tự động sau khi hoàn tất quy trình đăng ký và thẩm định KYC gian hàng.",
     tone: "amber",
     status: "Đang hoạt động",
   },
@@ -48,19 +51,20 @@ const DEFAULT_SYSTEM_ROLES: SystemRoleItem[] = [
     id: "Buyer",
     code: "Buyer",
     name: "Buyer (Người mua / Khách hàng)",
-    description: "Khách hàng mua sắm: tham gia phòng đấu giá trực tiếp, đặt giá thầu (bids), thanh toán đơn trúng đấu giá và quản lý ví tiền.",
+    description:
+      "Khách hàng mua sắm: tham gia phòng đấu giá trực tiếp, đặt giá thầu (bids), thanh toán đơn trúng đấu giá và quản lý ví tiền.",
     tone: "slate",
     status: "Đang hoạt động",
   },
 ];
 
 function normalizeRoleCode(role: string): string {
-  return role.toLowerCase().replace(/^role_/, "");
+  return role.toLowerCase().replace(/^role_/, "").replace(/[\s_-]+/g, "");
 }
 
 function canonicalRoleCode(role: string): string {
   const norm = normalizeRoleCode(role);
-  if (norm === "admin") return "Admin";
+  if (norm === "admin" || norm === "administrator") return "Admin";
   if (norm === "supportstaff" || norm === "staff") return "SupportStaff";
   if (norm === "seller") return "Seller";
   if (norm === "buyer" || norm === "customer") return "Buyer";
@@ -75,28 +79,28 @@ function roleTone(role: string): BadgeTone {
   return "slate";
 }
 
-function userMatchesRole(user: AdminUser, targetRoleCode: string): boolean {
-  const target = normalizeRoleCode(targetRoleCode);
-  const match = (r: string) => {
-    const nr = normalizeRoleCode(r);
-    if (target === "supportstaff" || target === "staff") {
-      return nr === "supportstaff" || nr === "staff";
-    }
-    if (target === "buyer" || target === "customer") {
-      return nr === "buyer" || nr === "customer";
-    }
-    return nr === target;
-  };
+function getUserRoles(user: AdminUser): string[] {
+  const raw: string[] = [];
+  if (Array.isArray(user.roles) && user.roles.length > 0) {
+    raw.push(...user.roles.map((r) => String(r)));
+  } else if ((user as { role?: unknown }).role) {
+    raw.push(String((user as { role?: unknown }).role));
+  }
+  if (raw.length === 0) return ["Buyer"];
+  return Array.from(new Set(raw.map(canonicalRoleCode)));
+}
 
-  if (Array.isArray(user.roles)) {
-    return user.roles.some((r) => match(String(r)));
+function getPrimaryRole(user: AdminUser): string {
+  const canonical = getUserRoles(user);
+  const precedence = ["Admin", "SupportStaff", "Seller", "Buyer"];
+  for (const role of precedence) {
+    if (canonical.includes(role)) return role;
   }
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  if ((user as any).role) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return match(String((user as any).role));
-  }
-  return true;
+  return canonical[0] ?? "Buyer";
+}
+
+function userMatchesRole(user: AdminUser, targetRoleCode: string): boolean {
+  return canonicalRoleCode(getPrimaryRole(user)) === canonicalRoleCode(targetRoleCode);
 }
 
 function userId(user: AdminUser): string {
@@ -104,7 +108,12 @@ function userId(user: AdminUser): string {
 }
 
 function userName(user: AdminUser): string {
-  return user.displayName || [user.firstName, user.lastName].filter(Boolean).join(" ") || user.username || user.email;
+  return (
+    user.displayName ||
+    [user.firstName, user.lastName].filter(Boolean).join(" ") ||
+    user.username ||
+    user.email
+  );
 }
 
 function userStatusLabel(status?: string): string {
@@ -128,18 +137,6 @@ function userStatusTone(status?: string): BadgeTone {
   return "sky";
 }
 
-function getUserRoles(user: AdminUser): string[] {
-  if (Array.isArray(user.roles) && user.roles.length > 0) {
-    return user.roles;
-  }
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  if ((user as any).role) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return [String((user as any).role)];
-  }
-  return ["Buyer"];
-}
-
 function parseRolesFromApi(data: unknown): SystemRoleItem[] {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let rawList: any[] = [];
@@ -151,10 +148,10 @@ function parseRolesFromApi(data: unknown): SystemRoleItem[] {
     rawList = Array.isArray(obj.items)
       ? obj.items
       : Array.isArray(obj.data)
-      ? obj.data
-      : Array.isArray(obj.roles)
-      ? obj.roles
-      : [];
+        ? obj.data
+        : Array.isArray(obj.roles)
+          ? obj.roles
+          : [];
   }
 
   if (!rawList.length) {
@@ -163,19 +160,23 @@ function parseRolesFromApi(data: unknown): SystemRoleItem[] {
 
   return rawList.map((item, index) => {
     const rawName = String(item.name ?? item.roleName ?? item.code ?? `Vai trò ${index + 1}`);
-    const code = String(item.code ?? item.name ?? item.roleName ?? rawName);
+    const code = String(item.roleCode ?? item.code ?? item.name ?? item.roleName ?? rawName);
     const id = String(item.id ?? item.roleId ?? code);
     const defaultItem = DEFAULT_SYSTEM_ROLES.find(
-      (r) => normalizeRoleCode(r.code) === normalizeRoleCode(code)
+      (r) => normalizeRoleCode(r.code) === normalizeRoleCode(code),
     );
     return {
       id,
-      code,
+      code: defaultItem?.code ?? code,
       name: item.displayName ?? defaultItem?.name ?? rawName,
-      description: item.description || defaultItem?.description || "Vai trò trực tiếp gán cho tài khoản người dùng.",
+      description:
+        item.description ||
+        defaultItem?.description ||
+        "Vai trò chính gán cho tài khoản người dùng (1-User 1-Primary-Role).",
       tone: defaultItem?.tone ?? roleTone(code),
-      status: item.status ?? "Đang hoạt động",
-      userCount: item.userCount ?? item.usersCount ?? (Array.isArray(item.users) ? item.users.length : undefined),
+      status: item.isActive === false ? "Đã tắt" : (item.status ?? "Đang hoạt động"),
+      userCount:
+        item.userCount ?? item.usersCount ?? (Array.isArray(item.users) ? item.users.length : undefined),
     };
   });
 }
@@ -187,10 +188,10 @@ export function AdminRolesScreen() {
   const [status, setStatus] = useState("");
   const [page, setPage] = useState(1);
 
-  // Role Assignment States
+  // Single-Select Primary Role Assignment State (1-User 1-Primary-Role)
   const [editingUser, setEditingUser] = useState<AdminUser | null>(null);
-  const [selectedRolesToAssign, setSelectedRolesToAssign] = useState<string[]>([]);
-  const [editReason, setEditReason] = useState("Gán quyền quản trị viên từ giao diện Admin");
+  const [selectedRoleToAssign, setSelectedRoleToAssign] = useState<string>("Buyer");
+  const [editReason, setEditReason] = useState("Cập nhật vai trò chính từ giao diện Admin");
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState("");
   const [actionSuccess, setActionSuccess] = useState("");
@@ -202,13 +203,15 @@ export function AdminRolesScreen() {
   const [candidateList, setCandidateList] = useState<AdminUser[]>([]);
   const [candidateLoading, setCandidateLoading] = useState(false);
 
-  // Load roles from backend or fallback to default system roles
   const rolesResource = useApiResource("/api/v1/admin/roles", async () => {
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const response = await api.get<ApiResponse<any> | any>("/api/v1/admin/roles");
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const unwrapped = response && typeof response === "object" && "data" in response ? (response as any).data : response;
+      const unwrapped =
+        response && typeof response === "object" && "data" in response
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          ? (response as any).data
+          : response;
       return parseRolesFromApi(unwrapped);
     } catch {
       return DEFAULT_SYSTEM_ROLES;
@@ -216,9 +219,12 @@ export function AdminRolesScreen() {
   });
 
   const roles = rolesResource.data ?? DEFAULT_SYSTEM_ROLES;
-  const currentRole = roles.find((r) => r.code === selectedRoleCode || r.id === selectedRoleCode) ?? roles[0] ?? DEFAULT_SYSTEM_ROLES[0];
+  const currentRole =
+    roles.find((r) => r.code === selectedRoleCode || r.id === selectedRoleCode) ??
+    roles[0] ??
+    DEFAULT_SYSTEM_ROLES[0];
+  const isCurrentRoleSeller = normalizeRoleCode(currentRole?.code ?? "") === "seller";
 
-  // Query accounts directly assigned to the selected role
   const usersQuery = {
     page,
     limit: 20,
@@ -229,7 +235,7 @@ export function AdminRolesScreen() {
 
   const usersResource = useApiResource(
     `admin-role-users:${currentRole?.code}:${page}:${search}:${status}`,
-    async (signal) => adminUsersService.list(usersQuery, signal)
+    async (signal) => adminUsersService.list(usersQuery, signal),
   );
 
   const rawUsers = usersResource.data?.items ?? [];
@@ -252,11 +258,11 @@ export function AdminRolesScreen() {
     setSearch(keyword.trim());
   }
 
-  // Open Edit Roles Dialog for a specific user
   function openEditRoles(user: AdminUser) {
     setEditingUser(user);
-    setSelectedRolesToAssign(getUserRoles(user).map(canonicalRoleCode));
-    setEditReason("Gán quyền quản trị viên từ giao diện Admin");
+    const primaryRole = getPrimaryRole(user);
+    setSelectedRoleToAssign(primaryRole);
+    setEditReason("Cập nhật vai trò chính từ giao diện Admin");
     setActionError("");
     setActionSuccess("");
   }
@@ -268,20 +274,6 @@ export function AdminRolesScreen() {
     setActionSuccess("");
   }
 
-  function toggleRoleCheckbox(roleCode: string) {
-    setSelectedRolesToAssign((current) => {
-      const canonical = canonicalRoleCode(roleCode);
-      const exists = current.some((r) => normalizeRoleCode(r) === normalizeRoleCode(canonical));
-      if (exists) {
-        const next = current.filter((r) => normalizeRoleCode(r) !== normalizeRoleCode(canonical));
-        return next.length > 0 ? next : ["Buyer"]; // Luôn giữ tối thiểu role Buyer
-      } else {
-        return [...current, canonical];
-      }
-    });
-  }
-
-  // Submit role update for user
   async function submitUpdateRoles(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!editingUser) return;
@@ -290,14 +282,23 @@ export function AdminRolesScreen() {
       setActionError("Không xác định được mã tài khoản.");
       return;
     }
-    if (selectedRolesToAssign.length === 0) {
-      setActionError("Tài khoản phải có ít nhất 1 vai trò.");
+    if (!selectedRoleToAssign) {
+      setActionError("Vui lòng chọn 1 vai trò chính cho tài khoản.");
+      return;
+    }
+
+    const canonicalTarget = canonicalRoleCode(selectedRoleToAssign);
+    const currentPrimary = getPrimaryRole(editingUser);
+    if (canonicalTarget === "Seller" && currentPrimary !== "Seller") {
+      setActionError(
+        "Không thể gán trực tiếp vai trò Seller. Người dùng phải đăng ký và được duyệt hồ sơ người bán.",
+      );
       return;
     }
 
     const trimmedReason = editReason.trim();
     if (!trimmedReason) {
-      setActionError("Vui lòng nhập lý do cập nhật vai trò (bắt buộc theo API contract).");
+      setActionError("Vui lòng nhập lý do phân quyền.");
       return;
     }
 
@@ -305,51 +306,25 @@ export function AdminRolesScreen() {
     setActionError("");
     setActionSuccess("");
     try {
-      const canonicalRoles = Array.from(new Set(selectedRolesToAssign.map(canonicalRoleCode)));
-      await adminUsersService.updateRoles(uid, canonicalRoles, trimmedReason);
-      setActionSuccess(`Đã cập nhật vai trò cho tài khoản ${userName(editingUser)}.`);
+      await adminUsersService.updateRoles(uid, [canonicalTarget], trimmedReason);
+      setActionSuccess(
+        `Đã chuyển vai trò chính của tài khoản ${userName(editingUser)} sang ${canonicalTarget}.`,
+      );
       setTimeout(() => {
         closeEditRoles();
         usersResource.reload();
-      }, 1000);
+      }, 900);
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : "Không thể cập nhật vai trò cho tài khoản.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  // Quick Revoke current role from user
-  async function revokeCurrentRole(user: AdminUser) {
-    const uid = userId(user);
-    if (!uid || !currentRole) return;
-    const currentRoles = getUserRoles(user);
-    const updated = currentRoles.filter((r) => normalizeRoleCode(r) !== normalizeRoleCode(currentRole.code));
-    const nextRoles = updated.length > 0 ? updated : ["Buyer"];
-    const canonicalRoles = Array.from(new Set(nextRoles.map(canonicalRoleCode)));
-
-    const confirmed = window.confirm(
-      `Bạn có chắc chắn muốn gỡ vai trò ${currentRole.name} khỏi tài khoản ${userName(user)}?`
-    );
-    if (!confirmed) return;
-
-    setBusy(true);
-    try {
-      await adminUsersService.updateRoles(
-        uid,
-        canonicalRoles,
-        `Gỡ vai trò ${currentRole.name} khỏi tài khoản từ giao diện Admin`
+      setActionError(
+        err instanceof Error ? err.message : "Không thể cập nhật vai trò cho tài khoản.",
       );
-      usersResource.reload();
-    } catch (err) {
-      alert(err instanceof Error ? err.message : "Không thể gỡ vai trò.");
     } finally {
       setBusy(false);
     }
   }
 
-  // Open "Add User into Role" modal
   function openAddUserModal() {
+    if (isCurrentRoleSeller) return;
     setIsAddUserModalOpen(true);
     setCandidateKeyword("");
     setCandidateSearch("");
@@ -387,33 +362,38 @@ export function AdminRolesScreen() {
     }
   }
 
-  // Assign current role to a candidate
   async function assignCurrentRoleToCandidate(candidate: AdminUser) {
     const uid = userId(candidate);
     if (!uid || !currentRole) return;
-    const existingRoles = getUserRoles(candidate);
-    const exists = existingRoles.some((r) => normalizeRoleCode(r) === normalizeRoleCode(currentRole.code));
-    if (exists) {
-      setActionError(`Tài khoản ${userName(candidate)} đã có vai trò ${currentRole.name}.`);
+    if (isCurrentRoleSeller) {
+      setActionError("Vai trò Seller chỉ được cấp qua quy trình xét duyệt KYC.");
       return;
     }
 
-    const newRoles = [...existingRoles, currentRole.code];
-    const canonicalRoles = Array.from(new Set(newRoles.map(canonicalRoleCode)));
+    const alreadyHasRole =
+      normalizeRoleCode(getPrimaryRole(candidate)) === normalizeRoleCode(currentRole.code);
+    if (alreadyHasRole) {
+      setActionError(`Tài khoản ${userName(candidate)} đã ở vai trò ${currentRole.name}.`);
+      return;
+    }
+
+    const targetCanonical = canonicalRoleCode(currentRole.code);
     setBusy(true);
     setActionError("");
     setActionSuccess("");
     try {
       await adminUsersService.updateRoles(
         uid,
-        canonicalRoles,
-        `Gán vai trò ${currentRole.name} từ giao diện Admin`
+        [targetCanonical],
+        `Chuyển vai trò chính sang ${currentRole.name} từ giao diện Admin`,
       );
-      setActionSuccess(`Đã gán vai trò ${currentRole.name} cho tài khoản ${userName(candidate)} thành công!`);
+      setActionSuccess(
+        `Đã gán vai trò chính ${currentRole.name} cho tài khoản ${userName(candidate)} thành công!`,
+      );
       usersResource.reload();
       setTimeout(() => {
         closeAddUserModal();
-      }, 1200);
+      }, 1000);
     } catch (err) {
       setActionError(err instanceof Error ? err.message : "Không thể gán vai trò.");
     } finally {
@@ -424,22 +404,25 @@ export function AdminRolesScreen() {
   return (
     <>
       <PageHeading
-        overline="Bảng điều khiển Admin"
-        title="Danh sách vai trò & Gán vai trò"
-        description="Xem danh sách các vai trò hệ thống, danh sách tài khoản được gán và trực tiếp phân vai trò cho người dùng."
+        overline="Quản lý vai trò"
+        title="Danh sách vai trò & Phân quyền"
+        description="Quản lý vai trò người dùng và phân quyền vận hành hệ thống."
       />
 
-      <Card className="card-pad" style={{ marginBottom: "20px", background: "#f8fafc", borderLeft: "4px solid var(--sky)" }}>
+      <Card
+        className="card-pad"
+        style={{ marginBottom: "20px", background: "#f8fafc", borderLeft: "4px solid var(--sky)" }}
+      >
         <div style={{ display: "flex", alignItems: "flex-start", gap: "12px" }}>
           <span style={{ color: "var(--sky-dark)", marginTop: "2px" }}>
             <Icon name="shield" size={20} />
           </span>
           <div style={{ fontSize: "13px", lineHeight: "1.5" }}>
             <strong style={{ color: "var(--ink)", display: "block", marginBottom: "2px" }}>
-              Cơ chế phân quyền theo vai trò trực tiếp
+              Quy tắc phân quyền tài khoản
             </strong>
             <p style={{ margin: 0, color: "#64748b" }}>
-              Hệ thống đã tinh giản cơ chế ma trận quyền phức tạp. Bạn có thể xem nhanh các tài khoản của từng vai trò và trực tiếp gán hoặc thu hồi vai trò cho tài khoản ngay tại màn hình này.
+              Mỗi tài khoản chỉ nắm giữ duy nhất <strong>1 vai trò chính</strong> trong hệ thống nhằm đảm bảo an toàn phân quyền. Vai trò <strong>Seller</strong> được kích hoạt tự động sau khi duyệt hồ sơ người bán.
             </p>
           </div>
         </div>
@@ -450,11 +433,11 @@ export function AdminRolesScreen() {
         <div>
           <SectionHeading
             title="Vai trò hệ thống"
-            hint="Chọn vai trò để quản lý danh sách tài khoản được gán"
+            hint="Chọn vai trò để xem danh sách tài khoản"
           />
           <div style={{ display: "grid", gap: "12px" }}>
             {roles.map((r) => {
-              const isSelected = (currentRole?.code === r.code) || (currentRole?.id === r.id);
+              const isSelected = currentRole?.code === r.code || currentRole?.id === r.id;
               return (
                 <button
                   type="button"
@@ -469,7 +452,9 @@ export function AdminRolesScreen() {
                   </div>
                   <p className="role-card-desc">{r.description}</p>
                   <div className="role-card-footer">
-                    <span>Trạng thái: <strong style={{ color: "var(--ink)" }}>{r.status}</strong></span>
+                    <span>
+                      Trạng thái: <strong style={{ color: "var(--ink)" }}>{r.status}</strong>
+                    </span>
                     {isSelected && (
                       <span style={{ color: "var(--sky-dark)", fontWeight: 700 }}>
                         ● Đang quản lý
@@ -485,17 +470,25 @@ export function AdminRolesScreen() {
         {/* Right Column: Directly assigned accounts */}
         <div>
           <SectionHeading
-            title={`Tài khoản gán vai trò: ${currentRole?.name ?? ""}`}
-            hint={`Quản lý và gán quyền trực tiếp cho người dùng thuộc vai trò ${currentRole?.code ?? ""}`}
+            title={`Tài khoản thuộc vai trò: ${currentRole?.name ?? ""}`}
+            hint={
+              isCurrentRoleSeller
+                ? "Vai trò Seller chỉ được cấp tự động qua luồng xét duyệt hồ sơ KYC (/staff/sellers)"
+                : `Quản lý và chuyển vai trò chính cho người dùng thuộc vai trò ${currentRole?.code ?? ""}`
+            }
             action={
-              <button
-                type="button"
-                className="button button-primary button-small"
-                onClick={openAddUserModal}
-                style={{ display: "flex", alignItems: "center", gap: "6px" }}
-              >
-                <span>+</span> Gán tài khoản vào vai trò này
-              </button>
+              isCurrentRoleSeller ? (
+                <Badge tone="amber">Cấp tự động qua duyệt KYC</Badge>
+              ) : (
+                <button
+                  type="button"
+                  className="button button-primary button-small"
+                  onClick={openAddUserModal}
+                  style={{ display: "flex", alignItems: "center", gap: "6px" }}
+                >
+                  <span>+</span> Gán tài khoản vào vai trò này
+                </button>
+              )
             }
           />
 
@@ -530,7 +523,11 @@ export function AdminRolesScreen() {
                 </select>
               </label>
 
-              <button className="button button-secondary" type="submit" style={{ alignSelf: "flex-end" }}>
+              <button
+                className="button button-secondary"
+                type="submit"
+                style={{ alignSelf: "flex-end" }}
+              >
                 Tìm kiếm
               </button>
             </form>
@@ -548,20 +545,25 @@ export function AdminRolesScreen() {
                     <tr>
                       <th>Người dùng</th>
                       <th>Email & SĐT</th>
-                      <th>Vai trò hiện tại</th>
+                      <th>Vai trò chính</th>
                       <th>Trạng thái</th>
-                      <th style={{ textAlign: "right" }}>Thao tác gán role</th>
+                      <th className="text-right sticky-col-right" style={{ textAlign: "right", whiteSpace: "nowrap" }}>
+                        Thao tác phân quyền
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
                     {users.map((user) => {
-                      const userRolesList = getUserRoles(user);
-                      const hasMultipleRoles = userRolesList.length > 1;
+                      const primaryRole = getPrimaryRole(user);
                       return (
                         <tr key={userId(user)}>
                           <td>
                             <strong>{userName(user)}</strong>
-                            {user.username && <small style={{ display: "block", color: "var(--muted)" }}>@{user.username}</small>}
+                            {user.username && (
+                              <small style={{ display: "block", color: "var(--muted)" }}>
+                                @{user.username}
+                              </small>
+                            )}
                           </td>
                           <td>
                             <div>{user.email}</div>
@@ -571,11 +573,9 @@ export function AdminRolesScreen() {
                           </td>
                           <td>
                             <div style={{ display: "flex", gap: "4px", flexWrap: "wrap" }}>
-                              {userRolesList.map((r) => (
-                                <Badge key={r} tone={roleTone(r)}>
-                                  {r}
-                                </Badge>
-                              ))}
+                              <Badge tone={roleTone(primaryRole)}>
+                                {primaryRole}
+                              </Badge>
                             </div>
                           </td>
                           <td>
@@ -583,27 +583,16 @@ export function AdminRolesScreen() {
                               {userStatusLabel(user.status)}
                             </Badge>
                           </td>
-                          <td style={{ textAlign: "right" }}>
+                          <td className="text-right sticky-col-right" style={{ textAlign: "right" }}>
                             <div style={{ display: "flex", justifyContent: "flex-end", gap: "6px" }}>
                               <button
                                 type="button"
                                 className="button button-secondary button-small"
                                 onClick={() => openEditRoles(user)}
-                                title="Chỉnh sửa toàn bộ các vai trò của tài khoản này"
+                                title="Đổi vai trò chính của tài khoản này (Single-select)"
                               >
-                                Đổi vai trò
+                                Đổi vai trò chính
                               </button>
-                              {hasMultipleRoles && currentRole?.code !== "Buyer" && (
-                                <button
-                                  type="button"
-                                  className="button button-secondary button-small"
-                                  style={{ color: "#9f2f2c" }}
-                                  onClick={() => revokeCurrentRole(user)}
-                                  title={`Gỡ vai trò ${currentRole?.name} khỏi tài khoản`}
-                                >
-                                  Gỡ vai trò
-                                </button>
-                              )}
                             </div>
                           </td>
                         </tr>
@@ -618,42 +607,29 @@ export function AdminRolesScreen() {
                   usersResource.loading
                     ? "Đang tải danh sách tài khoản…"
                     : usersResource.error
-                    ? "Không tải được danh sách tài khoản từ API"
-                    : search || status
-                    ? "Không tìm thấy tài khoản phù hợp với điều kiện lọc"
-                    : `Chưa có tài khoản nào được gán vai trò ${currentRole?.name ?? ""}`
+                      ? "Không tải được danh sách tài khoản từ API"
+                      : search || status
+                        ? "Không tìm thấy tài khoản phù hợp với điều kiện lọc"
+                        : `Chưa có tài khoản nào thuộc vai trò ${currentRole?.name ?? ""}`
                 }
               />
             )}
 
-            {usersResource.data && usersResource.data.total > usersResource.data.limit && (
-              <div className="action-row" style={{ padding: "14px 20px" }}>
-                <button
-                  type="button"
-                  className="button button-secondary button-small"
-                  disabled={page <= 1 || usersResource.loading}
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                >
-                  Trang trước
-                </button>
-                <span style={{ fontSize: "13px", color: "var(--muted)" }}>
-                  Trang {page} / {Math.ceil(totalUsers / usersResource.data.limit)} ({totalUsers} tài khoản)
-                </span>
-                <button
-                  type="button"
-                  className="button button-secondary button-small"
-                  disabled={page * usersResource.data.limit >= totalUsers || usersResource.loading}
-                  onClick={() => setPage((p) => p + 1)}
-                >
-                  Trang sau
-                </button>
-              </div>
+            {usersResource.data && (
+              <AdminPagination
+                page={page}
+                pageSize={usersResource.data.limit}
+                totalItems={totalUsers}
+                loading={usersResource.loading}
+                onPageChange={(nextPage) => setPage(nextPage)}
+                itemLabel="tài khoản"
+              />
             )}
           </Card>
         </div>
       </div>
 
-      {/* Modal 1: Edit Roles for a User */}
+      {/* Modal 1: Single-Select Radio Button Role Editor (1-User 1-Primary-Role) */}
       {editingUser && (
         <div
           className="admin-modal-backdrop"
@@ -672,7 +648,7 @@ export function AdminRolesScreen() {
           >
             <div className="admin-modal-heading">
               <div>
-                <h2 id="edit-role-modal-title">Cập nhật vai trò tài khoản</h2>
+                <h2 id="edit-role-modal-title">Đổi vai trò chính (1-User 1-Primary-Role)</h2>
                 <p style={{ margin: "4px 0 0", fontSize: 13, color: "var(--muted)" }}>
                   Tài khoản: <strong>{userName(editingUser)}</strong> ({editingUser.email})
                 </p>
@@ -689,19 +665,36 @@ export function AdminRolesScreen() {
               </button>
             </div>
 
-            {actionError && <p role="alert" className="notice">{actionError}</p>}
-            {actionSuccess && <p role="status" className="form-success">{actionSuccess}</p>}
+            {actionError && (
+              <p role="alert" className="notice">
+                {actionError}
+              </p>
+            )}
+            {actionSuccess && (
+              <p role="status" className="form-success">
+                {actionSuccess}
+              </p>
+            )}
 
-            <form onSubmit={submitUpdateRoles}>
+            <form onSubmit={(e) => void submitUpdateRoles(e)}>
               <p style={{ fontSize: "13px", color: "#64748b", marginBottom: "14px" }}>
-                Chọn các vai trò được cấp trực tiếp cho tài khoản này (có thể chọn nhiều vai trò cùng lúc):
+                Chọn <strong>duy nhất 1 vai trò chính</strong> cho tài khoản này (tự động thu hồi toàn bộ Refresh Token cũ sau khi đổi):
               </p>
 
-              <div style={{ display: "grid", gap: "10px", marginBottom: "20px" }}>
+              <div
+                role="radiogroup"
+                aria-label="Vai trò chính"
+                style={{ display: "grid", gap: "10px", marginBottom: "20px" }}
+              >
                 {DEFAULT_SYSTEM_ROLES.map((r) => {
-                  const isChecked = selectedRolesToAssign.some(
-                    (code) => normalizeRoleCode(code) === normalizeRoleCode(r.code)
+                  const isSellerOption = normalizeRoleCode(r.code) === "seller";
+                  const userAlreadySeller = getUserRoles(editingUser).some(
+                    (ur) => normalizeRoleCode(ur) === "seller",
                   );
+                  const isDisabledOption = busy || (isSellerOption && !userAlreadySeller);
+                  const isChecked =
+                    normalizeRoleCode(selectedRoleToAssign) === normalizeRoleCode(r.code);
+
                   return (
                     <label
                       key={r.code}
@@ -712,24 +705,60 @@ export function AdminRolesScreen() {
                         padding: "12px 14px",
                         borderRadius: "10px",
                         border: `1px solid ${isChecked ? "var(--sky)" : "var(--line)"}`,
-                        background: isChecked ? "#f0f9ff" : "var(--surface)",
-                        cursor: "pointer",
+                        background: isDisabledOption
+                          ? "#f8fafc"
+                          : isChecked
+                            ? "#f0f9ff"
+                            : "var(--surface)",
+                        opacity: isDisabledOption ? 0.65 : 1,
+                        cursor: isDisabledOption ? "not-allowed" : "pointer",
                         transition: "all 0.15s ease",
                       }}
                     >
                       <input
-                        type="checkbox"
+                        type="radio"
+                        name="primary-user-role"
                         checked={isChecked}
-                        onChange={() => toggleRoleCheckbox(r.code)}
-                        disabled={busy}
-                        style={{ marginTop: "3px", width: "16px", height: "16px", cursor: "pointer" }}
+                        onChange={() => {
+                          if (!isDisabledOption) {
+                            setSelectedRoleToAssign(canonicalRoleCode(r.code));
+                          }
+                        }}
+                        disabled={isDisabledOption}
+                        style={{
+                          marginTop: "3px",
+                          width: "16px",
+                          height: "16px",
+                          cursor: isDisabledOption ? "not-allowed" : "pointer",
+                        }}
                       />
                       <div style={{ flex: 1 }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                          <strong style={{ fontSize: "14px", color: "var(--ink)" }}>{r.name}</strong>
-                          <Badge tone={r.tone}>{r.code}</Badge>
+                        <div
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "center",
+                            gap: "8px",
+                          }}
+                        >
+                          <strong style={{ fontSize: "14px", color: "var(--ink)" }}>
+                            {r.name}
+                          </strong>
+                          <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+                            {isSellerOption && !userAlreadySeller && (
+                              <Badge tone="amber">Chỉ cấp qua KYC</Badge>
+                            )}
+                            <Badge tone={r.tone}>{r.code}</Badge>
+                          </div>
                         </div>
-                        <p style={{ margin: "4px 0 0", fontSize: "12px", color: "#64748b", lineHeight: 1.4 }}>
+                        <p
+                          style={{
+                            margin: "4px 0 0",
+                            fontSize: "12px",
+                            color: "#64748b",
+                            lineHeight: 1.4,
+                          }}
+                        >
                           {r.description}
                         </p>
                       </div>
@@ -750,14 +779,11 @@ export function AdminRolesScreen() {
                   type="text"
                   className="field"
                   style={{ width: "100%" }}
-                  placeholder="Nhập lý do cập nhật vai trò (ví dụ: Gán quyền quản trị viên từ giao diện Admin)..."
+                  placeholder="Nhập lý do cập nhật vai trò..."
                   value={editReason}
                   onChange={(e) => setEditReason(e.target.value)}
                   required
                 />
-                <p style={{ margin: "4px 0 0", fontSize: "11px", color: "var(--muted)" }}>
-                  Backend bắt buộc phải có trường &quot;reason&quot; (tránh lỗi 400 VAL_INVALID_INPUT).
-                </p>
               </div>
 
               <div
@@ -780,9 +806,9 @@ export function AdminRolesScreen() {
                 <button
                   type="submit"
                   className="button button-primary"
-                  disabled={busy || selectedRolesToAssign.length === 0}
+                  disabled={busy || !selectedRoleToAssign}
                 >
-                  {busy ? "Đang lưu…" : "Lưu vai trò"}
+                  {busy ? "Đang lưu…" : "Lưu vai trò chính"}
                 </button>
               </div>
             </form>
@@ -790,8 +816,8 @@ export function AdminRolesScreen() {
         </div>
       )}
 
-      {/* Modal 2: Add User into Current Role */}
-      {isAddUserModalOpen && (
+      {/* Modal 2: Assign User into Current Role (Single-Role replacement) */}
+      {isAddUserModalOpen && !isCurrentRoleSeller && (
         <div
           className="admin-modal-backdrop"
           onClick={(e) => {
@@ -811,7 +837,7 @@ export function AdminRolesScreen() {
               <div>
                 <h2 id="add-user-modal-title">Gán tài khoản vào vai trò: {currentRole?.name}</h2>
                 <p style={{ margin: "4px 0 0", fontSize: 13, color: "var(--muted)" }}>
-                  Tìm kiếm tài khoản người dùng trong hệ thống để gán thêm vai trò <code>{currentRole?.code}</code>
+                  Tìm kiếm tài khoản để chuyển vai trò chính sang <code>{currentRole?.code}</code>
                 </p>
               </div>
               <button
@@ -826,10 +852,21 @@ export function AdminRolesScreen() {
               </button>
             </div>
 
-            {actionError && <p role="alert" className="notice">{actionError}</p>}
-            {actionSuccess && <p role="status" className="form-success">{actionSuccess}</p>}
+            {actionError && (
+              <p role="alert" className="notice">
+                {actionError}
+              </p>
+            )}
+            {actionSuccess && (
+              <p role="status" className="form-success">
+                {actionSuccess}
+              </p>
+            )}
 
-            <form onSubmit={searchCandidates} style={{ display: "flex", gap: "8px", marginBottom: "16px" }}>
+            <form
+              onSubmit={(e) => void searchCandidates(e)}
+              style={{ display: "flex", gap: "8px", marginBottom: "16px" }}
+            >
               <input
                 className="field"
                 type="search"
@@ -839,20 +876,33 @@ export function AdminRolesScreen() {
                 style={{ flex: 1 }}
                 required
               />
-              <button type="submit" className="button button-secondary" disabled={candidateLoading || busy}>
+              <button
+                type="submit"
+                className="button button-secondary"
+                disabled={candidateLoading || busy}
+              >
                 {candidateLoading ? "Đang tìm…" : "Tìm kiếm"}
               </button>
             </form>
 
-            {candidateLoading && <p style={{ fontSize: "13px", color: "var(--muted)" }}>Đang tìm kiếm tài khoản…</p>}
+            {candidateLoading && (
+              <p style={{ fontSize: "13px", color: "var(--muted)" }}>Đang tìm kiếm tài khoản…</p>
+            )}
 
             {candidateList.length > 0 && (
-              <div style={{ display: "grid", gap: "10px", maxHeight: "300px", overflowY: "auto", marginBottom: "16px" }}>
+              <div
+                style={{
+                  display: "grid",
+                  gap: "10px",
+                  maxHeight: "300px",
+                  overflowY: "auto",
+                  marginBottom: "16px",
+                }}
+              >
                 {candidateList.map((c) => {
-                  const cRoles = getUserRoles(c);
-                  const alreadyHasRole = cRoles.some(
-                    (r) => normalizeRoleCode(r) === normalizeRoleCode(currentRole?.code ?? "")
-                  );
+                  const cPrimary = getPrimaryRole(c);
+                  const alreadyHasRole =
+                    normalizeRoleCode(cPrimary) === normalizeRoleCode(currentRole?.code ?? "");
                   return (
                     <div
                       key={userId(c)}
@@ -869,27 +919,38 @@ export function AdminRolesScreen() {
                       <div>
                         <strong>{userName(c)}</strong>
                         <div style={{ fontSize: "12px", color: "var(--muted)" }}>{c.email}</div>
-                        <div style={{ display: "flex", gap: "4px", marginTop: "4px", flexWrap: "wrap" }}>
-                          {cRoles.map((r) => (
-                            <Badge key={r} tone={roleTone(r)}>
-                              {r}
-                            </Badge>
-                          ))}
+                        <div
+                          style={{
+                            display: "flex",
+                            gap: "4px",
+                            marginTop: "4px",
+                            flexWrap: "wrap",
+                          }}
+                        >
+                          <Badge tone={roleTone(cPrimary)}>
+                            {cPrimary}
+                          </Badge>
                         </div>
                       </div>
 
                       {alreadyHasRole ? (
-                        <span style={{ fontSize: "12px", color: "var(--green-dark)", fontWeight: 600 }}>
-                          ✓ Đã có vai trò này
+                        <span
+                          style={{
+                            fontSize: "12px",
+                            color: "var(--green-dark)",
+                            fontWeight: 600,
+                          }}
+                        >
+                          ✓ Đã ở vai trò này
                         </span>
                       ) : (
                         <button
                           type="button"
                           className="button button-primary button-small"
                           disabled={busy}
-                          onClick={() => assignCurrentRoleToCandidate(c)}
+                          onClick={() => void assignCurrentRoleToCandidate(c)}
                         >
-                          + Gán vai trò
+                          Chuyển sang {currentRole?.code}
                         </button>
                       )}
                     </div>

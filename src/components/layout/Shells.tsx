@@ -7,7 +7,6 @@ import { buyerNavigation } from "@/constants/navigation";
 import { ROUTES } from "@/constants/routes";
 import { Icon } from "@/components/ui/Icon";
 import { useSession } from "@/components/auth/SessionProvider";
-import { getStoredRoles } from "@/lib/api/client";
 import { authService } from "@/features/auth";
 import { NavLinks } from "./NavLinks";
 import { Breadcrumbs } from "./Breadcrumbs";
@@ -104,12 +103,11 @@ export function BuyerShell({ children }: { children: ReactNode }) {
   const { user, ready } = useSession();
   const router = useRouter();
   const userRoles = user?.roles ?? (user?.role ? [user.role] : []);
-  const activeRoles = userRoles.length > 0 ? userRoles : (typeof window !== "undefined" ? getStoredRoles() : []);
-  const isAdmin = activeRoles.some((r) => {
+  const isAdmin = userRoles.some((r) => {
     const n = r.toLocaleLowerCase("en-US").replace(/^role_/, "");
     return n === "admin" || n === "administrator";
   });
-  const isStaff = activeRoles.some((r) => {
+  const isStaff = userRoles.some((r) => {
     const n = r.toLocaleLowerCase("en-US").replace(/^role_/, "");
     return n === "staff" || n === "supportstaff";
   });

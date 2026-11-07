@@ -1,5 +1,14 @@
 import { api, type ApiResponse } from "@/lib/api/client";
 
+export type AdminUserReputationLog = {
+  id: string;
+  changeAmount: number;
+  reason: string;
+  referenceType?: string | null;
+  referenceId?: string | null;
+  createdAt: string;
+};
+
 export type AdminUser = {
   id?: string;
   userId?: string;
@@ -20,6 +29,31 @@ export type AdminUser = {
   updatedAt?: string | null;
   status?: string;
   createdAt?: string;
+  reputationLogs?: AdminUserReputationLog[];
+};
+
+export type CreateAdminUserPayload = {
+  email: string;
+  password: string;
+  firstName: string;
+  lastName: string;
+  phoneNumber?: string;
+  username?: string;
+  roleCodes: string[];
+};
+
+export type UpdateAdminUserPayload = {
+  firstName: string;
+  lastName: string;
+  phoneNumber?: string;
+  status?: string;
+  reason: string;
+};
+
+export type AdjustReputationPayload = {
+  targetRole: "Buyer" | "Seller";
+  scoreDelta: number;
+  reason: string;
 };
 
 export type UpdateUserRolesPayload = {
@@ -34,32 +68,83 @@ type UserDetailPayload = AdminUser | { user: AdminUser };
 
 const basePath = "/api/v1/admin/users";
 const userPath = (id: string) => `${basePath}/${encodeURIComponent(id)}`;
-const unwrap = <T,>(response: ApiResponse<T> | T): T => response && typeof response === "object" && "data" in response ? response.data : response;
+const unwrap = <T,>(response: ApiResponse<T> | T): T =>
+  response && typeof response === "object" && "data" in response ? response.data : response;
 
 export const adminUsersService = {
-  async list(query: { page: number; limit: number; keyword: string; role: string; status: string }, signal?: AbortSignal): Promise<AdminUserPage> {
+  async list(
+    query: { page: number; limit: number; keyword: string; role: string; status: string },
+    signal?: AbortSignal,
+  ): Promise<AdminUserPage> {
     const params = new URLSearchParams({ page: String(query.page), pageSize: String(query.limit) });
     if (query.keyword) params.set("keyword", query.keyword);
     if (query.role) params.set("role", query.role);
     if (query.status) params.set("status", query.status);
-    const response = await api.get<ApiResponse<UserListPayload> | UserListPayload>(`${basePath}?${params}`, { signal });
+    const response = await api.get<ApiResponse<UserListPayload> | UserListPayload>(
+      `${basePath}?${params}`,
+      { signal },
+    );
     const payload = unwrap(response);
-    return { items: payload.items ?? [], total: payload.pagination?.totalCount ?? 0, page: payload.pagination?.pageIndex ?? query.page, limit: payload.pagination?.pageSize ?? query.limit };
+    return {
+      items: payload.items ?? [],
+      total: payload.pagination?.totalCount ?? 0,
+      page: payload.pagination?.pageIndex ?? query.page,
+      limit: payload.pagination?.pageSize ?? query.limit,
+    };
   },
+
   async detail(id: string, signal?: AbortSignal): Promise<AdminUser> {
-    const response = await api.get<ApiResponse<UserDetailPayload> | UserDetailPayload>(userPath(id), { signal });
+    const response = await api.get<ApiResponse<UserDetailPayload> | UserDetailPayload>(
+      userPath(id),
+      { signal },
+    );
     const payload = unwrap(response);
     return "user" in payload ? payload.user : payload;
   },
+
+  async create(payload: CreateAdminUserPayload): Promise<void> {
+    await api.post(basePath, {
+      email: payload.email.trim(),
+      password: payload.password,
+      firstName: payload.firstName.trim(),
+      lastName: payload.lastName.trim(),
+      phoneNumber: payload.phoneNumber?.trim() || undefined,
+      username: payload.username?.trim() || undefined,
+      roleCodes: payload.roleCodes.slice(0, 1),
+    });
+  },
+
+  async updateProfile(id: string, payload: UpdateAdminUserPayload): Promise<void> {
+    await api.put(userPath(id), {
+      firstName: payload.firstName.trim(),
+      lastName: payload.lastName.trim(),
+      phoneNumber: payload.phoneNumber?.trim() || undefined,
+      status: payload.status || undefined,
+      reason: payload.reason.trim(),
+    });
+  },
+
+  async adjustReputation(id: string, payload: AdjustReputationPayload): Promise<void> {
+    await api.patch(`${userPath(id)}/reputation`, {
+      targetRole: payload.targetRole,
+      scoreDelta: payload.scoreDelta,
+      delta: payload.scoreDelta,
+      reason: payload.reason.trim(),
+    });
+  },
+
   async ban(id: string, reason: string): Promise<void> {
     await api.patch(`${userPath(id)}/ban`, { reason });
   },
+
   async unban(id: string, reason: string): Promise<void> {
     await api.patch(`${userPath(id)}/unban`, { reason });
   },
+
   async remove(id: string, reason: string): Promise<void> {
     await api.delete<void>(userPath(id), { body: { reason } });
   },
+
   async updateRoles(
     id: string,
     roleCodesOrPayload: string[] | UpdateUserRolesPayload,
@@ -73,11 +158,14 @@ export const adminUsersService = {
       reason = optionalReason?.trim() || "Gán quyền quản trị viên từ giao diện Admin";
     } else {
       roleCodes = roleCodesOrPayload.roleCodes;
-      reason = roleCodesOrPayload.reason?.trim() || optionalReason?.trim() || "Gán quyền quản trị viên từ giao diện Admin";
+      reason =
+        roleCodesOrPayload.reason?.trim() ||
+        optionalReason?.trim() ||
+        "Gán quyền quản trị viên từ giao diện Admin";
     }
 
     await api.put(`${userPath(id)}/roles`, {
-      roleCodes,
+      roleCodes: roleCodes.slice(0, 1),
       reason,
     });
   },

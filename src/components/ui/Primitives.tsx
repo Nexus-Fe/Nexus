@@ -33,3 +33,6 @@ export function NoData({ className = "", title = "Chưa có dữ liệu" }: { cl
 export function EmptyTable({ columns }: { columns: string[] }) {
   return <div className="table-scroll"><table className="data-table"><thead><tr>{columns.map((column) => <th key={column}>{column}</th>)}</tr></thead><tbody><tr className="table-empty"><td colSpan={columns.length}><NoData /></td></tr></tbody></table></div>;
 }
+
+export { AdminPagination } from "./AdminPagination";
+export type { AdminPaginationProps } from "./AdminPagination";

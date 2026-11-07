@@ -115,3 +115,77 @@ test("roles can be extracted from unpadded JWT token claims", () => {
 
   assert.deepEqual(extractRolesFromToken(token), ["Admin"]);
 });
+
+test("consecutive authenticated requests reuse the 30s /api/v1/me verification cache until session rotates", async () => {
+  browserSession();
+  saveSessionTokens("cached-access", "cached-refresh");
+  const paths = [];
+  globalThis.fetch = async (url) => {
+    paths.push(url);
+    return json(url.endsWith("/me") ? { id: "admin", status: "Active" } : { ok: true });
+  };
+
+  await api.get("/api/v1/admin/users");
+  await api.get("/api/v1/admin/configs");
+  assert.deepEqual(paths, [
+    "/api/gateway/api/v1/me",
+    "/api/gateway/api/v1/admin/users",
+    "/api/gateway/api/v1/admin/configs",
+  ]);
+
+  saveSessionTokens("rotated-access", "rotated-refresh");
+  await api.get("/api/v1/admin/roles");
+  assert.deepEqual(paths, [
+    "/api/gateway/api/v1/me",
+    "/api/gateway/api/v1/admin/users",
+    "/api/gateway/api/v1/admin/configs",
+    "/api/gateway/api/v1/me",
+    "/api/gateway/api/v1/admin/roles",
+  ]);
+});
+
+test("direct /api/v1/me call from SessionProvider warms the 30s TTL cache and deduplicates concurrent checks", async () => {
+  browserSession();
+  saveSessionTokens("session-access", "session-refresh");
+  const paths = [];
+  globalThis.fetch = async (url) => {
+    paths.push(url);
+    return json(url.endsWith("/me") ? { id: "admin", status: "Active" } : { ok: true });
+  };
+
+  await Promise.all([api.get("/api/v1/me"), api.get("/api/v1/admin/users")]);
+  await api.get("/api/v1/admin/configs");
+
+  assert.deepEqual(paths, [
+    "/api/gateway/api/v1/me",
+    "/api/gateway/api/v1/admin/users",
+    "/api/gateway/api/v1/admin/configs",
+  ]);
+});
+
+test("token refresh overwrites tampered nexus_session_roles in localStorage with new JWT claims", async () => {
+  const browser = browserSession();
+  saveSessionTokens("expired-access", "valid-refresh", ["Buyer"]);
+  browser.localStorage.setItem("nexus_session_roles", JSON.stringify(["Admin"]));
+
+  const buyerPayload = Buffer.from(JSON.stringify({ sub: "u1", roles: ["Buyer"] })).toString("base64url");
+  const newAccessJwt = `header.${buyerPayload}.sig`;
+
+  let orderAttempt = 0;
+  globalThis.fetch = async (url) => {
+    if (url.endsWith("/me")) return json({ id: "u1", status: "Active" });
+    if (url.endsWith("/auth/refresh")) {
+      return json({ accessToken: newAccessJwt, refreshToken: "rotated-refresh" });
+    }
+    orderAttempt += 1;
+    if (orderAttempt === 1) return json({ title: "Expired" }, 401);
+    return json({ id: "order-ok" });
+  };
+
+  const result = await api.get("/api/v1/orders/1");
+  assert.equal(result.id, "order-ok");
+  assert.deepEqual(getStoredRoles(), ["Buyer"]);
+  assert.equal(browser.localStorage.getItem("nexus_session_roles"), JSON.stringify(["Buyer"]));
+});
+
+

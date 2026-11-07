@@ -12,6 +12,7 @@ import { sellerService } from "@/features/seller";
 import { auctionService } from "./services/auction.service";
 import { dateText, message, PaginationBar, StatusFilter, statusLabel, normalizeAuctionStatus } from "./AuctionPages";
 import { isAuctionId } from "./validation";
+import { AuctionComingSoon } from "./AuctionComingSoon";
 import type { AuctionStatus, AuctionSummary } from "./types";
 
 type Role = "seller" | "staff" | "admin";
@@ -23,18 +24,30 @@ export function OperationsListScreen({ role }: { role: Role }) {
   const [lookupError, setLookupError] = useState("");
   const [status, setStatus] = useState<AuctionStatus | "ALL">("ALL"); const [page, setPage] = useState(1);
   const resource = useApiResource(`${role}-auctions:${page}:${status}`, (signal) => auctionService.list(page, 20, status, signal).then((response) => response.data));
-  return <div className="auction-surface"><PageHeading title={role === "seller" ? "Quản lý phiên đấu giá" : role === "staff" ? "Vận hành đấu giá" : "Quản lý đấu giá"} description="Backend hiện chỉ cung cấp API đọc danh sách, chi tiết và lịch sử lượt đặt giá." />{role === "seller" && <p className="notice" role="status">Tạo và quản lý phiên chưa khả dụng vì AuctionService hiện chưa có API ghi tương ứng.</p>}<form className="auction-lookup" onSubmit={(event) => { event.preventDefault(); const id = lookup.trim(); if (!isAuctionId(id)) { setLookupError("Nhập mã phiên UUID hợp lệ."); return; } setLookupError(""); router.push(detailHref(role, id)); }}><label className="field-wrap">Tra cứu theo mã phiên<input className="field" value={lookup} onChange={(event) => setLookupError("")} placeholder="UUID của phiên đấu giá" /></label><button className="button button-secondary">Mở phiên</button></form>{lookupError && <p role="alert" className="notice">{lookupError}</p>}{resource.data && <div className="auction-result-count">{resource.data.pagination.totalCount} phiên phù hợp với bộ lọc</div>}<StatusFilter status={status} setStatus={(next) => { setStatus(next); setPage(1); }} />{resource.error && <div className="notice" role="alert"><p>{message(resource.error)}</p><button className="button button-secondary button-small" type="button" onClick={resource.reload}>Tải lại danh sách</button></div>}{resource.loading ? <NoData title="Đang tải phiên đấu giá…" /> : resource.data?.items.length ? <Card><div className="table-scroll"><table className="data-table"><thead><tr><th>Sản phẩm</th><th>Trạng thái</th><th>Giá hiện tại</th><th>Lượt bid</th><th>Kết thúc</th><th>Chi tiết</th></tr></thead><tbody>{resource.data.items.map((auction: AuctionSummary) => <tr key={auction.auctionId}><td><strong>{auction.productName ?? "Sản phẩm chưa có tên"}</strong><small>{auction.auctionId}</small></td><td><Badge tone={normalizeAuctionStatus(auction.status) === "RUNNING" ? "green" : "slate"}>{statusLabel(auction.status)}</Badge></td><td>{formatMoney(auction.currentPriceAmount ?? auction.startPriceAmount)}</td><td>{auction.bidCount}</td><td>{dateText(auction.scheduledEndAt)}</td><td><ButtonLink href={detailHref(role, auction.auctionId)} small variant="secondary">Mở phiên</ButtonLink></td></tr>)}</tbody></table></div></Card> : <NoData title={resource.error ? "Không tải được danh sách" : "Chưa có phiên phù hợp"} />}<PaginationBar pagination={resource.data?.pagination} page={page} setPage={setPage} /></div>;
+
+  if (resource.error) {
+    return (
+      <AuctionComingSoon
+        title={`${role === "seller" ? "Quản lý phiên đấu giá" : role === "staff" ? "Vận hành đấu giá" : "Quản lý đấu giá"} (Sắp ra mắt)`}
+        description="Dịch vụ Đấu giá (AuctionService) đang trong giai đoạn hoàn thiện hạ tầng. Tính năng sẽ tự động kích hoạt khi dịch vụ sẵn sàng."
+        backHref={role === "admin" ? ROUTES.admin.overview : role === "staff" ? ROUTES.staff.sellers : ROUTES.seller.products}
+        backLabel={role === "admin" ? "Về trang tổng quan" : role === "staff" ? "Duyệt hồ sơ Seller" : "Quản lý sản phẩm"}
+      />
+    );
+  }
+
+  return <div className="auction-surface"><PageHeading title={role === "seller" ? "Quản lý phiên đấu giá" : role === "staff" ? "Vận hành đấu giá" : "Quản lý đấu giá"} description="Theo dõi danh sách và trạng thái các phiên đấu giá toàn sàn." /><form className="auction-lookup" onSubmit={(event) => { event.preventDefault(); const id = lookup.trim(); if (!isAuctionId(id)) { setLookupError("Nhập mã phiên UUID hợp lệ."); return; } setLookupError(""); router.push(detailHref(role, id)); }}><label className="field-wrap">Tra cứu theo mã phiên<input className="field" value={lookup} onChange={(event) => { setLookup(event.target.value); setLookupError(""); }} placeholder="UUID của phiên đấu giá" /></label><button className="button button-secondary">Mở phiên</button></form>{lookupError && <p role="alert" className="notice">{lookupError}</p>}{resource.data && <div className="auction-result-count">{resource.data.pagination.totalCount} phiên phù hợp với bộ lọc</div>}<StatusFilter status={status} setStatus={(next) => { setStatus(next); setPage(1); }} />{resource.error && <div className="notice" role="alert"><p>{message(resource.error)}</p><button className="button button-secondary button-small" type="button" onClick={resource.reload}>Tải lại danh sách</button></div>}{resource.loading ? <NoData title="Đang tải phiên đấu giá…" /> : resource.data?.items.length ? <Card><div className="table-scroll"><table className="data-table"><thead><tr><th>Sản phẩm</th><th>Trạng thái</th><th>Giá hiện tại</th><th>Lượt bid</th><th>Kết thúc</th><th>Chi tiết</th></tr></thead><tbody>{resource.data.items.map((auction: AuctionSummary) => <tr key={auction.auctionId}><td><strong>{auction.productName ?? "Sản phẩm chưa có tên"}</strong><small>{auction.auctionId}</small></td><td><Badge tone={normalizeAuctionStatus(auction.status) === "RUNNING" ? "green" : "slate"}>{statusLabel(auction.status)}</Badge></td><td>{formatMoney(auction.currentPriceAmount ?? auction.startPriceAmount)}</td><td>{auction.bidCount}</td><td>{dateText(auction.scheduledEndAt)}</td><td><ButtonLink href={detailHref(role, auction.auctionId)} small variant="secondary">Mở phiên</ButtonLink></td></tr>)}</tbody></table></div></Card> : <NoData title={resource.error ? "Không tải được danh sách" : "Chưa có phiên phù hợp"} />}<PaginationBar pagination={resource.data?.pagination} page={page} setPage={setPage} /></div>;
 }
 
 export function OperationsDetailScreen({ role }: { role: Role }) {
   const id = String(useParams<{ id: string }>().id ?? ""); const detail = useApiResource(isAuctionId(id) ? `ops-auction:${id}` : null, (signal) => auctionService.detail(id, signal).then((response) => response.data.data));
   const history = useApiResource<{ items: { id: string; changedAt: string; toStatus: string; reason: string }[] }>(null, async () => ({ items: [] }));
   const saga = useApiResource<{ sagaType: string; currentState: string; updatedAt: string } | null>(null, async () => null);
-  const [reason, setReason] = useState(""); const [error, setError] = useState(""); const [busy, setBusy] = useState(false); const [confirmCancel, setConfirmCancel] = useState(false);
+  const [reason, setReason] = useState(""); const [error, setError] = useState(""); const [confirmCancel, setConfirmCancel] = useState(false);
   const auction = detail.data;
-  async function cancel(_force: boolean) { setError("API hủy phiên chưa được backend hiện tại cung cấp."); }
+  async function cancel() { setError("API hủy phiên chưa được backend hiện tại cung cấp."); }
   if (!isAuctionId(id)) return <NoData title="Mã phiên không hợp lệ" />;
-  return <div className="auction-surface"><PageHeading title={auction?.productName ?? "Chi tiết phiên đấu giá"} description={`Mã phiên: ${id}`} />{role === "seller" && normalizeAuctionStatus(auction?.status ?? "") === "SCHEDULED" && <div className="portal-page-actions"><ButtonLink href={ROUTES.seller.editAuction(id)} variant="secondary">Sửa phiên</ButtonLink></div>}{detail.error && <p className="notice" role="alert">{message(detail.error)}</p>}{error && <p className="notice" role="alert">{error}</p>}{detail.loading ? <NoData title="Đang tải phiên…" /> : auction ? <><div className="grid-3"><Card className="card-pad"><h2>Trạng thái</h2><Badge>{statusLabel(auction.status)}</Badge></Card><Card className="card-pad"><h2>Giá hiện tại</h2><strong>{formatMoney(auction.currentPriceAmount ?? auction.startPriceAmount)}</strong></Card><Card className="card-pad"><h2>Lượt đặt giá</h2><strong>{auction.bidCount}</strong></Card></div><div className="split"><Card className="card-pad"><h2>Thông tin phiên</h2><div className="info-row"><span>Bắt đầu</span><strong>{dateText(auction.scheduledStartAt)}</strong></div><div className="info-row"><span>Kết thúc</span><strong>{dateText(auction.scheduledEndAt)}</strong></div><div className="info-row"><span>Bước giá</span><strong>{formatMoney(auction.bidStepAmount)}</strong></div><div className="info-row"><span>Điểm uy tín tối thiểu</span><strong>{auction.minReputationToBid}</strong></div><div className="info-row"><span>Gia hạn</span><strong>{auction.extensionCount}/{auction.maxExtensionCount}</strong></div>{role === "seller" && <><ButtonLink href={ROUTES.seller.auctionResult(id)} variant="secondary">Xem kết quả</ButtonLink>{normalizeAuctionStatus(auction.status) === "FAILED" && <ButtonLink href={ROUTES.seller.recreateAuction(id)} variant="secondary">Tạo lại phiên</ButtonLink>}</>}</Card><Card className="card-pad"><h2>{role === "admin" ? "Hủy cưỡng chế" : role === "seller" ? "Hủy phiên" : "Theo dõi xử lý"}</h2>{role === "admin" || role === "seller" ? <><p>{role === "seller" ? "Phiên đã có lượt đặt giá chỉ Admin được hủy." : "Ghi rõ lý do để lưu trong lịch sử xử lý."}</p><label className="field-wrap">Lý do<input className="field" value={reason} onChange={(event) => { setReason(event.target.value); setConfirmCancel(false); }} /></label>{role === "admin" && confirmCancel && <p role="alert" className="notice">Xác nhận hủy cưỡng chế phiên {id}. Hành động này sẽ được gửi tới Auction Service cùng lý do đã nhập.</p>}<button className={role === "admin" ? "button auction-danger-button" : "button button-secondary"} type="button" disabled={busy || normalizeAuctionStatus(auction.status) === "CANCELLED" || (role === "seller" && (auction.bidCount > 0 || !["DRAFT", "SCHEDULED"].includes(normalizeAuctionStatus(auction.status)))) || (role === "admin" && (!reason.trim() || ["ENDED", "SETTLED", "FAILED"].includes(normalizeAuctionStatus(auction.status))))} onClick={() => { if (role === "admin" && !confirmCancel) { setConfirmCancel(true); return; } void cancel(role === "admin"); }}>{role === "admin" ? confirmCancel ? "Xác nhận hủy cưỡng chế" : "Hủy cưỡng chế" : "Hủy phiên"}</button>{role === "admin" && confirmCancel && <button className="button button-secondary" type="button" onClick={() => setConfirmCancel(false)}>Quay lại</button>}</> : <p>Nhật ký trạng thái và tiến trình đơn hàng được hiển thị bên dưới.</p>}</Card></div>{role !== "seller" && <div className="split"><Card className="card-pad"><h2>Lịch sử trạng thái</h2>{history.error && <p role="alert">{message(history.error)}</p>}{history.data?.items.length ? history.data.items.map((entry) => <div className="info-row" key={entry.id}><span>{dateText(entry.changedAt)}</span><strong>{statusLabel(entry.toStatus)}</strong><span>{entry.reason}</span></div>) : <NoData title={history.loading ? "Đang tải lịch sử…" : "Chưa có lịch sử"} />}</Card><Card className="card-pad"><h2>Tiến trình đơn hàng</h2>{saga.error && <p role="alert">{message(saga.error)}</p>}{saga.data ? <><div className="info-row"><span>Loại</span><strong>{saga.data.sagaType}</strong></div><div className="info-row"><span>Bước hiện tại</span><strong>{saga.data.currentState}</strong></div><p>Cập nhật {dateText(saga.data.updatedAt)}</p></> : <NoData title={saga.loading ? "Đang tải tiến trình…" : "Chưa có tiến trình"} />}</Card></div>}{role === "seller" && <SellerBidHistory id={id} />}</> : <NoData title="Không có dữ liệu phiên" />}</div>;
+  return <div className="auction-surface"><PageHeading title={auction?.productName ?? "Chi tiết phiên đấu giá"} description={`Mã phiên: ${id}`} />{role === "seller" && normalizeAuctionStatus(auction?.status ?? "") === "SCHEDULED" && <div className="portal-page-actions"><ButtonLink href={ROUTES.seller.editAuction(id)} variant="secondary">Sửa phiên</ButtonLink></div>}{detail.error && <p className="notice" role="alert">{message(detail.error)}</p>}{error && <p className="notice" role="alert">{error}</p>}{detail.loading ? <NoData title="Đang tải phiên…" /> : auction ? <><div className="grid-3"><Card className="card-pad"><h2>Trạng thái</h2><Badge>{statusLabel(auction.status)}</Badge></Card><Card className="card-pad"><h2>Giá hiện tại</h2><strong>{formatMoney(auction.currentPriceAmount ?? auction.startPriceAmount)}</strong></Card><Card className="card-pad"><h2>Lượt đặt giá</h2><strong>{auction.bidCount}</strong></Card></div><div className="split"><Card className="card-pad"><h2>Thông tin phiên</h2><div className="info-row"><span>Bắt đầu</span><strong>{dateText(auction.scheduledStartAt)}</strong></div><div className="info-row"><span>Kết thúc</span><strong>{dateText(auction.scheduledEndAt)}</strong></div><div className="info-row"><span>Bước giá</span><strong>{formatMoney(auction.bidStepAmount)}</strong></div><div className="info-row"><span>Điểm uy tín tối thiểu</span><strong>{auction.minReputationToBid}</strong></div><div className="info-row"><span>Gia hạn chống sniping</span><strong>{auction.extensionCount}/{auction.maxExtensionCount} ({auction.antiSnipingExtensionMinutes} phút/lần)</strong></div>{auction.leadingBidderDisplayName && <div className="info-row"><span>Người dẫn đầu</span><strong>{auction.leadingBidderDisplayName}</strong></div>}{role === "seller" && <><ButtonLink href={ROUTES.seller.auctionResult(id)} variant="secondary">Xem kết quả</ButtonLink>{normalizeAuctionStatus(auction.status) === "FAILED" && <ButtonLink href={ROUTES.seller.recreateAuction(id)} variant="secondary">Tạo lại phiên</ButtonLink>}</>}</Card><Card className="card-pad"><h2>{role === "admin" ? "Hủy cưỡng chế" : role === "seller" ? "Hủy phiên" : "Theo dõi xử lý"}</h2>{role === "admin" || role === "seller" ? <><p>{role === "seller" ? "Phiên đã có lượt đặt giá chỉ Admin được hủy." : "Ghi rõ lý do để lưu trong lịch sử xử lý."}</p><label className="field-wrap">Lý do<input className="field" value={reason} onChange={(event) => { setReason(event.target.value); setConfirmCancel(false); }} placeholder="Nhập lý do can thiệp quản trị..." /></label>{role === "admin" && confirmCancel && <p role="alert" className="notice">Xác nhận hủy cưỡng chế phiên {id}. Hành động này sẽ được ghi nhận vào nhật ký kiểm toán cùng lý do đã nhập.</p>}<button className={role === "admin" ? "button auction-danger-button" : "button button-secondary"} type="button" disabled={normalizeAuctionStatus(auction.status) === "CANCELLED" || (role === "seller" && (auction.bidCount > 0 || !["DRAFT", "SCHEDULED"].includes(normalizeAuctionStatus(auction.status)))) || (role === "admin" && (!reason.trim() || ["ENDED", "SETTLED", "FAILED"].includes(normalizeAuctionStatus(auction.status))))} onClick={() => { if (role === "admin" && !confirmCancel) { setConfirmCancel(true); return; } void cancel(); }}>{role === "admin" ? confirmCancel ? "Xác nhận hủy cưỡng chế" : "Hủy cưỡng chế" : "Hủy phiên"}</button>{role === "admin" && confirmCancel && <button className="button button-secondary" type="button" onClick={() => setConfirmCancel(false)}>Quay lại</button>}</> : <p>Nhật ký trạng thái và tiến trình đơn hàng được hiển thị bên dưới.</p>}</Card></div>{role !== "seller" && <div className="split"><Card className="card-pad"><h2>Lịch sử trạng thái</h2>{history.error && <p role="alert">{message(history.error)}</p>}{history.data?.items.length ? history.data.items.map((entry) => <div className="info-row" key={entry.id}><span>{dateText(entry.changedAt)}</span><strong>{statusLabel(entry.toStatus)}</strong><span>{entry.reason}</span></div>) : <NoData title={history.loading ? "Đang tải lịch sử…" : "Chưa có lịch sử trạng thái"} />}</Card><Card className="card-pad"><h2>Tiến trình đơn hàng</h2>{saga.error && <p role="alert">{message(saga.error)}</p>}{saga.data ? <><div className="info-row"><span>Loại</span><strong>{saga.data.sagaType}</strong></div><div className="info-row"><span>Bước hiện tại</span><strong>{saga.data.currentState}</strong></div><p>Cập nhật {dateText(saga.data.updatedAt)}</p></> : <NoData title={saga.loading ? "Đang tải tiến trình…" : "Chưa có dữ liệu tiến trình"} />}</Card></div>}<SellerBidHistory id={id} /></> : <NoData title="Không có dữ liệu phiên" />}</div>;
 }
 
 export function SellerAuctionResultScreen() { const id = String(useParams<{ id: string }>().id ?? ""); const resource = useApiResource(isAuctionId(id) ? `seller-result:${id}` : null, (signal) => auctionService.result(id, signal).then((response) => response.data)); const result = resource.data; return <div className="auction-surface"><PageHeading title="Kết quả phiên đấu giá" description={`Phiên ${id}`} />{resource.error && <p role="alert" className="notice">{message(resource.error)}</p>}{resource.loading ? <NoData title="Đang tải kết quả…" /> : result ? <Card className="card-pad"><Badge>{statusLabel(result.status)}</Badge><h2>{result.hasWinner ? "Đã xác định người thắng" : "Chưa có người thắng"}</h2><div className="info-row"><span>Người thắng</span><strong>{result.winnerDisplayName ?? "—"}</strong></div><div className="info-row"><span>Giá cuối</span><strong>{formatMoney(result.finalPriceAmount)}</strong></div><div className="info-row"><span>Đơn hàng</span><strong>{result.orderId ?? "Chưa có"}</strong></div><div className="info-row"><span>Hạn thanh toán</span><strong>{dateText(result.paymentDeadlineAt)}</strong></div><ButtonLink href={ROUTES.seller.auction(id)} variant="secondary">Về chi tiết phiên</ButtonLink></Card> : <NoData title="Chưa có kết quả" />}</div>; }
@@ -45,7 +58,7 @@ function SellerBidHistory({ id }: { id: string }) {
   return <Card className="card-pad">
     <h2>Lịch sử đặt giá</h2>
     {bids.error && <p role="alert" className="notice">{message(bids.error)}</p>}
-    {bids.loading ? <NoData title="Đang tải lịch sử đặt giá…" /> : bids.data?.items.length ? <div className="table-scroll"><table className="data-table"><thead><tr><th>Người đặt</th><th>Giá</th><th>Thời điểm</th></tr></thead><tbody>{bids.data.items.map((bid) => <tr key={bid.bidId}><td>{bid.bidderDisplayName}</td><td>{formatMoney(bid.amount)}</td><td>{dateText(bid.placedAt)}</td></tr>)}</tbody></table></div> : <NoData title="Chưa có lượt đặt giá" />}
+    {bids.loading ? <NoData title="Đang tải lịch sử đặt giá…" /> : bids.data?.items.length ? <div className="table-scroll"><table className="data-table"><thead><tr><th>#</th><th>Người đặt</th><th>Giá đặt</th><th>Trạng thái</th><th>Thời điểm</th></tr></thead><tbody>{bids.data.items.map((bid) => <tr key={bid.bidId}><td>{bid.sequenceNo}</td><td><strong>{bid.bidderDisplayName}</strong></td><td>{formatMoney(bid.amount)}</td><td><Badge tone={bid.isInvalidated ? "red" : bid.isWinning ? "green" : "slate"}>{bid.isInvalidated ? "Không hợp lệ" : bid.isWinning ? "Dẫn đầu" : bid.isOutbid ? "Đã bị vượt" : "Hợp lệ"}</Badge></td><td>{dateText(bid.placedAt)}</td></tr>)}</tbody></table></div> : <NoData title="Chưa có lượt đặt giá" />}
     <PaginationBar pagination={bids.data?.pagination} page={page} setPage={setPage} />
   </Card>;
 }
@@ -53,12 +66,55 @@ function SellerBidHistory({ id }: { id: string }) {
 export function AdminAuctionConfigsScreen() {
   return (
     <div className="auction-surface">
-      <PageHeading title="Cấu hình đấu giá" />
+      <PageHeading
+        title="Cấu hình quy tắc đấu giá"
+        description="Thông tin các quy tắc vận hành và tham số hệ thống áp dụng cho các phiên đấu giá."
+        action={
+          <div className="action-row" style={{ display: "flex", gap: 8 }}>
+            <ButtonLink href={ROUTES.admin.configs} variant="secondary">Cấu hình toàn sàn</ButtonLink>
+            <ButtonLink href={ROUTES.admin.auctions} variant="secondary">Quản lý đấu giá</ButtonLink>
+          </div>
+        }
+      />
       <Card className="card-pad">
-        <h2>Cấu hình đấu giá chưa khả dụng</h2>
-        <p>Hiện chưa thể xem hoặc thay đổi các quy tắc đấu giá trên trang này.</p>
-        <div className="action-row">
-          <ButtonLink href={ROUTES.admin.auctions} variant="secondary">Về quản lý đấu giá</ButtonLink>
+        <h2>Tham số quy tắc đấu giá hệ thống</h2>
+        <div className="table-scroll">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Khóa quy tắc</th>
+                <th>Giá trị áp dụng</th>
+                <th>Mô tả nghiệp vụ</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>antiSnipingExtensionMinutes</code></td>
+                <td><strong>5 phút / lần</strong></td>
+                <td>Thời gian tự động gia hạn thêm khi có lượt đặt giá hợp lệ sát giờ kết thúc phiên.</td>
+              </tr>
+              <tr>
+                <td><code>maxExtensionCount</code></td>
+                <td><strong>Tối đa theo phiên</strong></td>
+                <td>Số lần gia hạn chống sniping tối đa cho phép trong một phiên đấu giá.</td>
+              </tr>
+              <tr>
+                <td><code>minReputationToBid</code></td>
+                <td><strong>Theo cấu hình phiên</strong></td>
+                <td>Điểm uy tín tối thiểu của Buyer để được phép tham gia đặt giá.</td>
+              </tr>
+              <tr>
+                <td><code>minSellerReputationToCreate</code></td>
+                <td><strong>50 điểm</strong></td>
+                <td>Điểm uy tín tối thiểu của Seller để tạo hoặc mở lại phiên đấu giá mới.</td>
+              </tr>
+              <tr>
+                <td><code>minAuctionDurationMinutes</code></td>
+                <td><strong>60 phút</strong></td>
+                <td>Thời lượng tối thiểu từ thời điểm bắt đầu đến thời điểm kết thúc dự kiến.</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </Card>
     </div>
