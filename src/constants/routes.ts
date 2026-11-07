@@ -59,11 +59,9 @@ export const ROUTES = {
     auctionConfigs: "/admin/auction-configs",
     users: "/admin/users",
     roles: "/admin/roles",
-    auditLog: "/admin/audit-log",
     configs: "/admin/configs",
     ledger: "/admin/ledger",
     categories: "/admin/categories",
     coupons: "/admin/coupons",
-    systemHealth: "/admin/system-health",
   },
 } as const;

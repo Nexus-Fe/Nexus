@@ -1,11 +1,16 @@
-import { api, type ApiResponse } from "@/lib/api/client";
+import { api, unwrap, type ApiResponse } from "@/lib/api/client";
 
 export type AdminUserReputationLog = {
-  id: string;
+  id?: string;
+  logId?: string;
+  targetRole?: string;
   changeAmount: number;
+  delta?: number;
+  scoreAfter?: number;
   reason: string;
   referenceType?: string | null;
   referenceId?: string | null;
+  note?: string | null;
   createdAt: string;
 };
 
@@ -22,8 +27,11 @@ export type AdminUser = {
   identifyNumber?: string | null;
   address?: string | null;
   gender?: string | null;
+  isSeller?: boolean;
   reputationScore?: number;
   trustLevel?: string;
+  sellerReputationScore?: number;
+  sellerTrustLevel?: string;
   banReason?: string | null;
   bannedAt?: string | null;
   updatedAt?: string | null;
@@ -68,8 +76,6 @@ type UserDetailPayload = AdminUser | { user: AdminUser };
 
 const basePath = "/api/v1/admin/users";
 const userPath = (id: string) => `${basePath}/${encodeURIComponent(id)}`;
-const unwrap = <T,>(response: ApiResponse<T> | T): T =>
-  response && typeof response === "object" && "data" in response ? response.data : response;
 
 export const adminUsersService = {
   async list(
@@ -168,5 +174,28 @@ export const adminUsersService = {
       roleCodes: roleCodes.slice(0, 1),
       reason,
     });
+  },
+
+  async getReputationHistory(
+    userId: string,
+    signal?: AbortSignal,
+  ): Promise<AdminUserReputationLog[]> {
+    try {
+      const response = await api.get<ApiResponse<unknown> | unknown>(
+        `/api/v1/users/${encodeURIComponent(userId)}/reputation/history`,
+        { signal },
+      );
+      const payload = unwrap(response) as
+        | AdminUserReputationLog[]
+        | { items?: AdminUserReputationLog[]; data?: AdminUserReputationLog[]; history?: AdminUserReputationLog[] };
+
+      if (Array.isArray(payload)) return payload;
+      if (payload && Array.isArray(payload.items)) return payload.items;
+      if (payload && Array.isArray(payload.data)) return payload.data;
+      if (payload && Array.isArray(payload.history)) return payload.history;
+      return [];
+    } catch {
+      return [];
+    }
   },
 };

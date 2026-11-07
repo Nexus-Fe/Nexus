@@ -4,96 +4,18 @@ import { useState, type FormEvent } from "react";
 import { AdminPagination, Badge, Card, NoData, PageHeading, SectionHeading } from "@/components/ui/Primitives";
 import { ApiError } from "@/lib/api/client";
 import { useApiResource } from "@/lib/api/use-api-resource";
-import { adminUsersService, type AdminUser } from "./services/admin-users.service";
+import { adminUsersService, type AdminUserReputationLog } from "./services/admin-users.service";
+import {
+  userId,
+  userName,
+  maskIdentifyNumber,
+  userStatusLabel,
+  userStatusTone,
+  getPrimaryRole,
+  roleTone,
+} from "./services/admin-helpers";
 
 type Action = "ban" | "unban" | "delete" | "editProfile" | "reputation";
-type BadgeTone = "sky" | "green" | "amber" | "slate" | "red" | "indigo";
-
-function userId(user: AdminUser): string {
-  return user.userId ?? user.id ?? "";
-}
-
-function userName(user: AdminUser): string {
-  return (
-    user.displayName ||
-    [user.firstName, user.lastName].filter(Boolean).join(" ") ||
-    user.username ||
-    user.email
-  );
-}
-
-function maskIdentifyNumber(raw?: string | null): string {
-  if (!raw) return "—";
-  const trimmed = raw.trim();
-  if (trimmed.length <= 4) return "••••";
-  return `••••••••${trimmed.slice(-4)}`;
-}
-
-function userStatusLabel(status?: string): string {
-  const normalized = (status ?? "").toUpperCase().replace(/[\s_-]+/g, "");
-  const labels: Record<string, string> = {
-    ACTIVE: "Đang hoạt động",
-    BANNED: "Đã cấm",
-    PENDINGVERIFICATION: "Chờ xác thực",
-    PENDINGACTIVATION: "Chờ xác thực",
-    PENDING: "Chờ xác thực",
-    DELETED: "Đã xóa",
-  };
-  return labels[normalized] ?? status ?? "—";
-}
-
-function userStatusTone(status?: string): BadgeTone {
-  const normalized = (status ?? "").toUpperCase().replace(/[\s_-]+/g, "");
-  if (normalized === "ACTIVE") return "green";
-  if (normalized === "BANNED") return "red";
-  if (
-    normalized === "PENDINGVERIFICATION" ||
-    normalized === "PENDINGACTIVATION" ||
-    normalized === "PENDING"
-  ) {
-    return "amber";
-  }
-  if (normalized === "DELETED") return "slate";
-  return "sky";
-}
-
-type RoleInfo = { label: string; tone: BadgeTone; order: number };
-
-function formatRole(role: string): RoleInfo {
-  const normalized = role.toLowerCase().replace(/^role_/, "").replace(/[\s_-]+/g, "").trim();
-  if (normalized === "admin" || normalized === "administrator") {
-    return { label: "Admin", tone: "indigo", order: 1 };
-  }
-  if (normalized === "staff" || normalized === "supportstaff") {
-    return { label: "Staff", tone: "sky", order: 2 };
-  }
-  if (normalized === "seller") {
-    return { label: "Seller", tone: "amber", order: 3 };
-  }
-  if (normalized === "buyer" || normalized === "customer") {
-    return { label: "Buyer", tone: "slate", order: 4 };
-  }
-  return {
-    label: role.charAt(0).toUpperCase() + role.slice(1),
-    tone: "slate",
-    order: 5,
-  };
-}
-
-function renderRoles(roles?: string[]) {
-  if (!roles || roles.length === 0) return <span>—</span>;
-  const formatted = roles.map(formatRole).sort((a, b) => a.order - b.order);
-  const unique = Array.from(new Map(formatted.map((r) => [r.label, r])).values());
-  return (
-    <div style={{ display: "flex", gap: "6px", flexWrap: "wrap", alignItems: "center" }}>
-      {unique.map((r) => (
-        <Badge key={r.label} tone={r.tone}>
-          {r.label}
-        </Badge>
-      ))}
-    </div>
-  );
-}
 
 export function AdminUsersScreen() {
   const [keyword, setKeyword] = useState("");
@@ -105,6 +27,9 @@ export function AdminUsersScreen() {
   const [action, setAction] = useState<Action | null>(null);
   const [reason, setReason] = useState("");
   const [showFullCccd, setShowFullCccd] = useState(false);
+  const [showReputationHistory, setShowReputationHistory] = useState(false);
+  const [reputationLogs, setReputationLogs] = useState<AdminUserReputationLog[]>([]);
+  const [reputationLoading, setReputationLoading] = useState(false);
 
   // Edit profile form state
   const [profileForm, setProfileForm] = useState({
@@ -173,6 +98,8 @@ export function AdminUsersScreen() {
     setAction(null);
     setReason("");
     setShowFullCccd(false);
+    setShowReputationHistory(false);
+    setReputationLogs([]);
     setError(null);
     setSaved("");
   }
@@ -182,8 +109,27 @@ export function AdminUsersScreen() {
     setAction(null);
     setReason("");
     setShowFullCccd(false);
+    setShowReputationHistory(false);
+    setReputationLogs([]);
     setError(null);
     setSaved("");
+  }
+
+  function toggleReputationHistory() {
+    if (showReputationHistory) {
+      setShowReputationHistory(false);
+    } else {
+      setShowReputationHistory(true);
+      setAction(null);
+      if (selected) {
+        setReputationLoading(true);
+        adminUsersService
+          .getReputationHistory(selected)
+          .then((logs) => setReputationLogs(logs))
+          .catch(() => setReputationLogs([]))
+          .finally(() => setReputationLoading(false));
+      }
+    }
   }
 
   function openEditProfileAction() {
@@ -247,8 +193,8 @@ export function AdminUsersScreen() {
         setSaved("Đã cập nhật thông tin hồ sơ tài khoản.");
       } else if (action === "reputation") {
         const delta = Number(repForm.scoreDelta);
-        const hasSellerRole = (detail.data?.roles ?? []).some((r: string) => r.toLowerCase() === "seller");
-        if (repForm.targetRole === "Seller" && !hasSellerRole) {
+        const isSellerAccount = detail.data?.isSeller || (detail.data?.roles ?? []).some((r: string) => r.toLowerCase() === "seller");
+        if (repForm.targetRole === "Seller" && !isSellerAccount) {
           setError({ message: "Tài khoản này chỉ có vai trò Buyer, không thể điều chỉnh điểm uy tín Seller." });
           setBusy(false);
           return;
@@ -269,6 +215,11 @@ export function AdminUsersScreen() {
           reason: repForm.reason.trim(),
         });
         setSaved(`Đã điều chỉnh điểm uy tín (${delta > 0 ? `+${delta}` : delta}) thành công.`);
+        if (showReputationHistory) {
+          adminUsersService.getReputationHistory(selected).then((logs) => setReputationLogs(logs)).catch(() => {});
+        } else {
+          setReputationLogs([]);
+        }
       }
 
       if (action === "delete") {
@@ -437,7 +388,7 @@ export function AdminUsersScreen() {
                 <tr>
                   <th>Người dùng</th>
                   <th>Email</th>
-                  <th>Vai trò</th>
+                  <th>Vai trò chính</th>
                   <th>Uy tín</th>
                   <th>Trạng thái</th>
                   <th>Thao tác</th>
@@ -464,13 +415,31 @@ export function AdminUsersScreen() {
                       </button>
                     </td>
                     <td>{user.email}</td>
-                    <td>{renderRoles(user.roles)}</td>
                     <td>
-                      <strong>{user.reputationScore ?? 50}</strong>
-                      {user.trustLevel && (
-                        <small style={{ display: "block", color: "var(--muted)" }}>
-                          {user.trustLevel}
-                        </small>
+                      <Badge tone={roleTone(getPrimaryRole(user))}>
+                        {getPrimaryRole(user)}
+                      </Badge>
+                    </td>
+                    <td>
+                      <div>
+                        {user.isSeller && <small style={{ color: "var(--muted)" }}>Buyer: </small>}
+                        <strong>{user.reputationScore ?? 50}</strong>
+                        {user.trustLevel && (
+                          <small style={{ color: "var(--muted)", marginLeft: "4px" }}>
+                            ({user.trustLevel})
+                          </small>
+                        )}
+                      </div>
+                      {user.isSeller && (
+                        <div style={{ marginTop: "2px" }}>
+                          <small style={{ color: "var(--muted)" }}>Seller: </small>
+                          <strong style={{ color: "#b45309" }}>{user.sellerReputationScore ?? 50}</strong>
+                          {user.sellerTrustLevel && (
+                            <small style={{ color: "var(--muted)", marginLeft: "4px" }}>
+                              ({user.sellerTrustLevel})
+                            </small>
+                          )}
+                        </div>
                       )}
                     </td>
                     <td>
@@ -628,8 +597,10 @@ export function AdminUsersScreen() {
                     </div>
                   )}
                   <div className="info-row">
-                    <span>Vai trò</span>
-                    {renderRoles(detail.data.roles)}
+                    <span>Vai trò chính</span>
+                    <Badge tone={roleTone(getPrimaryRole(detail.data))}>
+                      {getPrimaryRole(detail.data)}
+                    </Badge>
                   </div>
                   <div className="info-row">
                     <span>Trạng thái</span>
@@ -639,9 +610,17 @@ export function AdminUsersScreen() {
                   </div>
                   {detail.data.reputationScore != null && (
                     <div className="info-row">
-                      <span>Điểm uy tín</span>
+                      <span>Điểm uy tín Buyer</span>
                       <strong>
                         {detail.data.reputationScore} ({detail.data.trustLevel ?? "Standard"})
+                      </strong>
+                    </div>
+                  )}
+                  {(detail.data.isSeller || detail.data.sellerReputationScore != null) && (
+                    <div className="info-row">
+                      <span>Điểm uy tín Seller</span>
+                      <strong>
+                        {detail.data.sellerReputationScore ?? 50} ({detail.data.sellerTrustLevel ?? "Standard"})
                       </strong>
                     </div>
                   )}
@@ -658,6 +637,73 @@ export function AdminUsersScreen() {
                     </div>
                   )}
                 </div>
+
+                {((detail.data.reputationLogs && detail.data.reputationLogs.length > 0) || showReputationHistory) && (
+                  <div style={{ borderTop: "1px solid var(--line)", paddingTop: "14px", marginBottom: "16px" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+                      <span style={{ fontSize: "13px", fontWeight: 700, color: "var(--ink)" }}>
+                        Lịch sử biến động điểm uy tín
+                      </span>
+                      {reputationLoading && <small style={{ color: "var(--muted)" }}>Đang tải…</small>}
+                    </div>
+
+                    {reputationLoading ? (
+                      <p style={{ fontSize: "12px", color: "var(--muted)", margin: "8px 0" }}>
+                        Đang truy vấn lịch sử uy tín từ máy chủ…
+                      </p>
+                    ) : (reputationLogs.length > 0 || (detail.data.reputationLogs && detail.data.reputationLogs.length > 0)) ? (
+                      <div style={{ display: "flex", flexDirection: "column", gap: "6px", maxHeight: "200px", overflowY: "auto" }}>
+                        {(reputationLogs.length > 0 ? reputationLogs : detail.data.reputationLogs ?? []).map((log: AdminUserReputationLog, idx: number) => {
+                          const delta = Number(log.changeAmount ?? log.delta ?? 0);
+                          const isPositive = delta > 0;
+                          return (
+                            <div
+                              key={log.id || log.logId || idx}
+                              style={{
+                                padding: "8px 10px",
+                                backgroundColor: "#f8fafc",
+                                borderRadius: "6px",
+                                border: "1px solid #e2e8f0",
+                                fontSize: "12px",
+                                display: "flex",
+                                flexDirection: "column",
+                                gap: "2px",
+                              }}
+                            >
+                              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                <span style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                                  <Badge tone={String(log.targetRole ?? "").toLowerCase() === "seller" ? "amber" : "slate"}>
+                                    {log.targetRole ?? "Buyer"}
+                                  </Badge>
+                                  <strong style={{ color: isPositive ? "#16a34a" : delta < 0 ? "#dc2626" : "var(--ink)" }}>
+                                    {isPositive ? `+${delta}` : delta} điểm
+                                  </strong>
+                                  {log.scoreAfter != null && (
+                                    <span style={{ color: "var(--muted)" }}>
+                                      (Sau: {log.scoreAfter})
+                                    </span>
+                                  )}
+                                </span>
+                                <small style={{ color: "var(--muted)" }}>
+                                  {log.createdAt ? new Date(log.createdAt).toLocaleString("vi-VN") : "—"}
+                                </small>
+                              </div>
+                              {(log.note || log.reason) && (
+                                <div style={{ color: "var(--ink)", marginTop: "2px" }}>
+                                  Lý do: <strong>{log.note || log.reason}</strong>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <p style={{ fontSize: "12px", color: "var(--muted)", margin: "8px 0" }}>
+                        Chưa có dữ liệu biến động điểm uy tín nào được ghi nhận cho tài khoản này.
+                      </p>
+                    )}
+                  </div>
+                )}
 
                 <div
                   className="action-row"
@@ -678,6 +724,14 @@ export function AdminUsersScreen() {
                     onClick={openReputationAction}
                   >
                     Chỉnh điểm uy tín
+                  </button>
+                  <button
+                    type="button"
+                    className={`button button-small ${showReputationHistory ? "button-primary" : "button-secondary"}`}
+                    disabled={busy}
+                    onClick={toggleReputationHistory}
+                  >
+                    {showReputationHistory ? "Ẩn lịch sử uy tín" : "Nhật ký uy tín"}
                   </button>
                   {currentStatus !== "BANNED" && currentStatus !== "DELETED" && (
                     <button
@@ -863,7 +917,7 @@ export function AdminUsersScreen() {
                           }
                         >
                           <option value="Buyer">Buyer (Người mua)</option>
-                          {(detail.data?.roles ?? []).some((r: string) => r.toLowerCase() === "seller") ? (
+                          {detail.data?.isSeller || (detail.data?.roles ?? []).some((r: string) => r.toLowerCase() === "seller") ? (
                             <option value="Seller">Seller (Người bán)</option>
                           ) : (
                             <option value="Seller" disabled>

@@ -1,4 +1,4 @@
-import { api, type ApiResponse } from "@/lib/api/client";
+import { api, unwrap, type ApiResponse } from "@/lib/api/client";
 
 export type AdminCategory = {
   categoryId: string;
@@ -39,12 +39,6 @@ function flatten(categories: AdminCategory[], parentId: string | null = null): A
       ...flatten(category.children ?? [], resolvedId),
     ];
   });
-}
-
-function unwrap<T>(response: ApiResponse<T> | T): T {
-  return response && typeof response === "object" && "data" in response
-    ? response.data
-    : response;
 }
 
 export const adminCategoriesService = {

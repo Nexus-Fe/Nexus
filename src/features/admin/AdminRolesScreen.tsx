@@ -6,6 +6,17 @@ import { Icon } from "@/components/ui/Icon";
 import { api, type ApiResponse } from "@/lib/api/client";
 import { useApiResource } from "@/lib/api/use-api-resource";
 import { adminUsersService, type AdminUser } from "./services/admin-users.service";
+import {
+  canonicalRoleCode,
+  getPrimaryRole,
+  getUserRoles,
+  normalizeRoleCode,
+  roleTone,
+  userId,
+  userName,
+  userStatusLabel,
+  userStatusTone,
+} from "./services/admin-helpers";
 
 type BadgeTone = "sky" | "green" | "amber" | "slate" | "red" | "indigo";
 
@@ -21,21 +32,12 @@ export type SystemRoleItem = {
 
 const DEFAULT_SYSTEM_ROLES: SystemRoleItem[] = [
   {
-    id: "Admin",
-    code: "Admin",
-    name: "Admin (Quản trị viên)",
+    id: "Buyer",
+    code: "Buyer",
+    name: "Buyer (Người mua / Khách hàng)",
     description:
-      "Toàn quyền quản trị hệ thống: kiểm soát tài khoản người dùng, giám sát các phiên đấu giá trực tiếp, tra cứu nhật ký kiểm toán và cấu hình toàn sàn.",
-    tone: "indigo",
-    status: "Đang hoạt động",
-  },
-  {
-    id: "SupportStaff",
-    code: "SupportStaff",
-    name: "Staff (Nhân viên vận hành)",
-    description:
-      "Vận hành và hỗ trợ sàn: kiểm duyệt sản phẩm đấu giá, xét duyệt hồ sơ người bán (Seller KYC), xử lý khiếu nại báo cáo và duyệt yêu cầu rút tiền.",
-    tone: "sky",
+      "Khách hàng mua sắm: tham gia phòng đấu giá trực tiếp, đặt giá thầu (bids), thanh toán đơn trúng đấu giá và quản lý ví tiền.",
+    tone: "slate",
     status: "Đang hoạt động",
   },
   {
@@ -48,93 +50,27 @@ const DEFAULT_SYSTEM_ROLES: SystemRoleItem[] = [
     status: "Đang hoạt động",
   },
   {
-    id: "Buyer",
-    code: "Buyer",
-    name: "Buyer (Người mua / Khách hàng)",
+    id: "SupportStaff",
+    code: "SupportStaff",
+    name: "Staff (Nhân viên vận hành)",
     description:
-      "Khách hàng mua sắm: tham gia phòng đấu giá trực tiếp, đặt giá thầu (bids), thanh toán đơn trúng đấu giá và quản lý ví tiền.",
-    tone: "slate",
+      "Vận hành và hỗ trợ sàn: kiểm duyệt sản phẩm đấu giá, xét duyệt hồ sơ người bán (Seller KYC), xử lý khiếu nại báo cáo và duyệt yêu cầu rút tiền.",
+    tone: "sky",
+    status: "Đang hoạt động",
+  },
+  {
+    id: "Admin",
+    code: "Admin",
+    name: "Admin (Quản trị viên)",
+    description:
+      "Toàn quyền quản trị hệ thống: kiểm soát tài khoản người dùng, giám sát các phiên đấu giá trực tiếp, và cấu hình toàn sàn.",
+    tone: "indigo",
     status: "Đang hoạt động",
   },
 ];
 
-function normalizeRoleCode(role: string): string {
-  return role.toLowerCase().replace(/^role_/, "").replace(/[\s_-]+/g, "");
-}
-
-function canonicalRoleCode(role: string): string {
-  const norm = normalizeRoleCode(role);
-  if (norm === "admin" || norm === "administrator") return "Admin";
-  if (norm === "supportstaff" || norm === "staff") return "SupportStaff";
-  if (norm === "seller") return "Seller";
-  if (norm === "buyer" || norm === "customer") return "Buyer";
-  return role;
-}
-
-function roleTone(role: string): BadgeTone {
-  const r = normalizeRoleCode(role);
-  if (r.includes("admin")) return "indigo";
-  if (r.includes("staff")) return "sky";
-  if (r.includes("seller")) return "amber";
-  return "slate";
-}
-
-function getUserRoles(user: AdminUser): string[] {
-  const raw: string[] = [];
-  if (Array.isArray(user.roles) && user.roles.length > 0) {
-    raw.push(...user.roles.map((r) => String(r)));
-  } else if ((user as { role?: unknown }).role) {
-    raw.push(String((user as { role?: unknown }).role));
-  }
-  if (raw.length === 0) return ["Buyer"];
-  return Array.from(new Set(raw.map(canonicalRoleCode)));
-}
-
-function getPrimaryRole(user: AdminUser): string {
-  const canonical = getUserRoles(user);
-  const precedence = ["Admin", "SupportStaff", "Seller", "Buyer"];
-  for (const role of precedence) {
-    if (canonical.includes(role)) return role;
-  }
-  return canonical[0] ?? "Buyer";
-}
-
 function userMatchesRole(user: AdminUser, targetRoleCode: string): boolean {
   return canonicalRoleCode(getPrimaryRole(user)) === canonicalRoleCode(targetRoleCode);
-}
-
-function userId(user: AdminUser): string {
-  return user.userId ?? user.id ?? "";
-}
-
-function userName(user: AdminUser): string {
-  return (
-    user.displayName ||
-    [user.firstName, user.lastName].filter(Boolean).join(" ") ||
-    user.username ||
-    user.email
-  );
-}
-
-function userStatusLabel(status?: string): string {
-  const labels: Record<string, string> = {
-    ACTIVE: "Đang hoạt động",
-    BANNED: "Đã cấm",
-    PENDINGVERIFICATION: "Chờ xác thực",
-    PENDING_ACTIVATION: "Chờ xác thực",
-    PENDING: "Chờ xác thực",
-    DELETED: "Đã xóa",
-  };
-  return status ? labels[status.toUpperCase()] ?? status : "—";
-}
-
-function userStatusTone(status?: string): BadgeTone {
-  const s = (status ?? "").toUpperCase();
-  if (s === "ACTIVE") return "green";
-  if (s === "BANNED") return "red";
-  if (s === "PENDINGVERIFICATION" || s === "PENDING_ACTIVATION" || s === "PENDING") return "amber";
-  if (s === "DELETED") return "slate";
-  return "sky";
 }
 
 function parseRolesFromApi(data: unknown): SystemRoleItem[] {
@@ -182,7 +118,7 @@ function parseRolesFromApi(data: unknown): SystemRoleItem[] {
 }
 
 export function AdminRolesScreen() {
-  const [selectedRoleCode, setSelectedRoleCode] = useState<string>("Admin");
+  const [selectedRoleCode, setSelectedRoleCode] = useState<string>("Buyer");
   const [keyword, setKeyword] = useState("");
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("");
@@ -404,155 +340,145 @@ export function AdminRolesScreen() {
   return (
     <>
       <PageHeading
-        overline="Quản lý vai trò"
-        title="Danh sách vai trò & Phân quyền"
-        description="Quản lý vai trò người dùng và phân quyền vận hành hệ thống."
+        overline="Phân quyền tài khoản"
+        title="Quản lý tài khoản theo vai trò"
+        description="Quản lý và chuyển đổi vai trò người dùng hệ thống (quy tắc 1 tài khoản - 1 vai trò chính)."
       />
 
-      <Card
-        className="card-pad"
-        style={{ marginBottom: "20px", background: "#f8fafc", borderLeft: "4px solid var(--sky)" }}
-      >
-        <div style={{ display: "flex", alignItems: "flex-start", gap: "12px" }}>
-          <span style={{ color: "var(--sky-dark)", marginTop: "2px" }}>
-            <Icon name="shield" size={20} />
+      <div className="role-rule-strip">
+        <div className="role-rule-content">
+          <Icon name="shield" size={16} />
+          <span>
+            <strong>Quy tắc phân quyền:</strong> Mỗi tài khoản chỉ nắm giữ duy nhất <strong>1 vai trò chính</strong> trong hệ thống. Vai trò <strong>Seller</strong> được kích hoạt tự động sau khi duyệt hồ sơ KYC người bán.
           </span>
-          <div style={{ fontSize: "13px", lineHeight: "1.5" }}>
-            <strong style={{ color: "var(--ink)", display: "block", marginBottom: "2px" }}>
-              Quy tắc phân quyền tài khoản
-            </strong>
-            <p style={{ margin: 0, color: "#64748b" }}>
-              Mỗi tài khoản chỉ nắm giữ duy nhất <strong>1 vai trò chính</strong> trong hệ thống nhằm đảm bảo an toàn phân quyền. Vai trò <strong>Seller</strong> được kích hoạt tự động sau khi duyệt hồ sơ người bán.
-            </p>
-          </div>
         </div>
-      </Card>
+      </div>
 
-      <div className="roles-grid-layout">
-        {/* Left Column: Roles list */}
-        <div>
-          <SectionHeading
-            title="Vai trò hệ thống"
-            hint="Chọn vai trò để xem danh sách tài khoản"
-          />
-          <div style={{ display: "grid", gap: "12px" }}>
+      {/* Secondary Role Selector (Minimalist Horizontal Tabs) */}
+      <div className="role-selector-bar">
+        <div className="role-tabs-wrap">
+          <span className="role-tabs-title">Vai trò hệ thống:</span>
+          <div className="role-tabs-list" role="tablist" aria-label="Vai trò hệ thống">
             {roles.map((r) => {
               const isSelected = currentRole?.code === r.code || currentRole?.id === r.id;
               return (
                 <button
                   type="button"
-                  key={r.id}
-                  className="role-card-btn"
-                  aria-pressed={isSelected}
+                  key={r.id || r.code}
+                  role="tab"
+                  aria-selected={isSelected}
+                  className={`role-tab-pill ${isSelected ? `active active-${r.tone}` : ""}`}
                   onClick={() => selectRole(r)}
                 >
-                  <div className="role-card-header">
-                    <span className="role-card-title">{r.name}</span>
-                    <Badge tone={r.tone}>{r.code}</Badge>
-                  </div>
-                  <p className="role-card-desc">{r.description}</p>
-                  <div className="role-card-footer">
-                    <span>
-                      Trạng thái: <strong style={{ color: "var(--ink)" }}>{r.status}</strong>
-                    </span>
-                    {isSelected && (
-                      <span style={{ color: "var(--sky-dark)", fontWeight: 700 }}>
-                        ● Đang quản lý
-                      </span>
-                    )}
-                  </div>
+                  <span className="role-tab-label">{r.name}</span>
+                  <Badge tone={r.tone}>
+                    {r.code}
+                  </Badge>
                 </button>
               );
             })}
           </div>
         </div>
 
-        {/* Right Column: Directly assigned accounts */}
-        <div>
-          <SectionHeading
-            title={`Tài khoản thuộc vai trò: ${currentRole?.name ?? ""}`}
-            hint={
-              isCurrentRoleSeller
-                ? "Vai trò Seller chỉ được cấp tự động qua luồng xét duyệt hồ sơ KYC (/staff/sellers)"
-                : `Quản lý và chuyển vai trò chính cho người dùng thuộc vai trò ${currentRole?.code ?? ""}`
-            }
-            action={
-              isCurrentRoleSeller ? (
-                <Badge tone="amber">Cấp tự động qua duyệt KYC</Badge>
-              ) : (
-                <button
-                  type="button"
-                  className="button button-primary button-small"
-                  onClick={openAddUserModal}
-                  style={{ display: "flex", alignItems: "center", gap: "6px" }}
-                >
-                  <span>+</span> Gán tài khoản vào vai trò này
-                </button>
-              )
-            }
-          />
+        <div className="role-active-hint">
+          <div className="role-active-desc">
+            <span className="role-active-dot" />
+            <span>{currentRole.description}</span>
+          </div>
+          {isCurrentRoleSeller && (
+            <span className="role-seller-notice">
+              Cấp tự động qua duyệt KYC (/staff/sellers)
+            </span>
+          )}
+        </div>
+      </div>
 
-          <Card>
-            <form className="toolbar" onSubmit={handleSearch}>
-              <label className="field-wrap" style={{ flex: 1, minWidth: 200 }}>
-                Tìm kiếm trong vai trò này
-                <input
-                  className="field"
-                  type="search"
-                  placeholder="Nhập họ tên, username hoặc email…"
-                  value={keyword}
-                  onChange={(e) => setKeyword(e.target.value)}
-                />
-              </label>
-
-              <label className="field-wrap">
-                Trạng thái
-                <select
-                  className="select-field"
-                  value={status}
-                  onChange={(e) => {
-                    setStatus(e.target.value);
-                    setPage(1);
-                  }}
-                >
-                  <option value="">Tất cả</option>
-                  <option value="Active">Đang hoạt động</option>
-                  <option value="Banned">Đã cấm</option>
-                  <option value="PendingVerification">Chờ xác thực</option>
-                  <option value="Deleted">Đã xóa</option>
-                </select>
-              </label>
-
+      {/* Primary Centerpiece: Accounts Belonging to Selected Role */}
+      <div className="role-accounts-main">
+        <SectionHeading
+          title={`Tài khoản thuộc vai trò: ${currentRole?.name ?? ""}`}
+          hint={
+            isCurrentRoleSeller
+              ? "Vai trò Seller chỉ được cấp tự động qua luồng xét duyệt hồ sơ KYC (/staff/sellers)"
+              : `Quản lý và chuyển vai trò chính cho người dùng thuộc vai trò ${currentRole?.code ?? ""}`
+          }
+          action={
+            isCurrentRoleSeller ? (
+              <Badge tone="amber">Cấp tự động qua duyệt KYC</Badge>
+            ) : (
               <button
-                className="button button-secondary"
-                type="submit"
-                style={{ alignSelf: "flex-end" }}
+                type="button"
+                className="button button-primary button-small"
+                onClick={openAddUserModal}
+                style={{ display: "flex", alignItems: "center", gap: "6px" }}
               >
-                Tìm kiếm
+                <span>+</span> Gán tài khoản vào vai trò này
               </button>
-            </form>
+            )
+          }
+        />
 
-            {usersResource.error && (
-              <p role="alert" className="notice" style={{ margin: "14px 20px" }}>
-                Không tải được danh sách tài khoản: {usersResource.error.message}
-              </p>
-            )}
+        <Card>
+          <form className="toolbar" onSubmit={handleSearch}>
+            <label className="field-wrap" style={{ flex: 1, minWidth: 240 }}>
+              Tìm kiếm trong vai trò này
+              <input
+                className="field"
+                type="search"
+                placeholder="Nhập họ tên, username hoặc email…"
+                value={keyword}
+                onChange={(e) => setKeyword(e.target.value)}
+              />
+            </label>
 
-            {users.length > 0 ? (
-              <div className="table-scroll">
-                <table className="data-table">
-                  <thead>
-                    <tr>
-                      <th>Người dùng</th>
-                      <th>Email & SĐT</th>
-                      <th>Vai trò chính</th>
-                      <th>Trạng thái</th>
-                      <th className="text-right sticky-col-right" style={{ textAlign: "right", whiteSpace: "nowrap" }}>
-                        Thao tác phân quyền
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
+            <label className="field-wrap">
+              Trạng thái
+              <select
+                className="select-field"
+                value={status}
+                onChange={(e) => {
+                  setStatus(e.target.value);
+                  setPage(1);
+                }}
+              >
+                <option value="">Tất cả</option>
+                <option value="Active">Đang hoạt động</option>
+                <option value="Banned">Đã cấm</option>
+                <option value="PendingVerification">Chờ xác thực</option>
+                <option value="Deleted">Đã xóa</option>
+              </select>
+            </label>
+
+            <button
+              className="button button-secondary"
+              type="submit"
+              style={{ alignSelf: "flex-end" }}
+            >
+              Tìm kiếm
+            </button>
+          </form>
+
+          {usersResource.error && (
+            <p role="alert" className="notice" style={{ margin: "14px 20px" }}>
+              Không tải được danh sách tài khoản: {usersResource.error.message}
+            </p>
+          )}
+
+          {users.length > 0 ? (
+            <div className="table-scroll">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th style={{ minWidth: 200 }}>Người dùng</th>
+                    <th style={{ minWidth: 220 }}>Email & SĐT</th>
+                    <th style={{ minWidth: 130 }}>Vai trò chính</th>
+                    <th style={{ minWidth: 140 }}>Trạng thái</th>
+                    <th className="text-right sticky-col-right" style={{ textAlign: "right", whiteSpace: "nowrap", minWidth: 160 }}>
+                      Thao tác phân quyền
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
                     {users.map((user) => {
                       const primaryRole = getPrimaryRole(user);
                       return (
@@ -627,7 +553,6 @@ export function AdminRolesScreen() {
             )}
           </Card>
         </div>
-      </div>
 
       {/* Modal 1: Single-Select Radio Button Role Editor (1-User 1-Primary-Role) */}
       {editingUser && (

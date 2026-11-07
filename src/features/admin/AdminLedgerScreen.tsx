@@ -2,23 +2,13 @@
 
 import { useState, type FormEvent } from "react";
 import { Badge, Card, NoData, PageHeading, SectionHeading } from "@/components/ui/Primitives";
-import { ApiError, api, unwrap, type ApiResponse } from "@/lib/api/client";
+import { ApiError } from "@/lib/api/client";
 import { formatMoney } from "@/lib/presentation";
-
-type ProcessWithdrawalResponse = {
-  withdrawalId: string;
-  status: string;
-  processedAt: string;
-  transactionId?: string | null;
-};
-
-type BalanceAdjustmentResponse = {
-  adjustmentId: string;
-  walletId: string;
-  amount: number;
-  balanceAfter: number;
-  createdAt: string;
-};
+import {
+  adminLedgerService,
+  type ProcessWithdrawalResponse,
+  type BalanceAdjustmentResponse,
+} from "./services/admin-ledger.service";
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -66,14 +56,10 @@ export function AdminLedgerScreen() {
     setWithdrawalError(null);
     setWithdrawalSuccess("");
     try {
-      const response = await api.patch<ApiResponse<ProcessWithdrawalResponse> | ProcessWithdrawalResponse>(
-        `/api/v1/admin/wallets/withdrawals/${encodeURIComponent(trimmedId)}`,
-        {
-          action: withdrawalAction,
-          adminNote: adminNote.trim() || undefined,
-        },
-      );
-      const result = unwrap(response);
+      const result = await adminLedgerService.processWithdrawal(trimmedId, {
+        action: withdrawalAction,
+        adminNote,
+      });
       setWithdrawalHistory((prev) => [result, ...prev]);
       setWithdrawalSuccess(
         `Đã xử lý yêu cầu rút tiền ${result.withdrawalId} với trạng thái: ${result.status}.`,
@@ -117,15 +103,11 @@ export function AdminLedgerScreen() {
     setAdjustError(null);
     setAdjustSuccess("");
     try {
-      const response = await api.post<ApiResponse<BalanceAdjustmentResponse> | BalanceAdjustmentResponse>(
-        `/api/v1/admin/wallets/${encodeURIComponent(trimmedWalletId)}/adjustments`,
-        {
-          amount: numericAmount,
-          adjustmentType,
-          reason: trimmedReason,
-        },
-      );
-      const result = unwrap(response);
+      const result = await adminLedgerService.adjustBalance(trimmedWalletId, {
+        amount: numericAmount,
+        adjustmentType,
+        reason: trimmedReason,
+      });
       setAdjustHistory((prev) => [
         { ...result, adjustmentType, reason: trimmedReason },
         ...prev,

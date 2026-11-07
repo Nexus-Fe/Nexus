@@ -2,7 +2,8 @@
 
 import { useState, type FormEvent } from "react";
 import { AdminPagination, Card, NoData, PageHeading, SectionHeading } from "@/components/ui/Primitives";
-import { ApiError, api, unwrap, type ApiResponse } from "@/lib/api/client";
+import { ApiError } from "@/lib/api/client";
+import { adminConfigsService } from "./services/admin-configs.service";
 import { useApiResource } from "@/lib/api/use-api-resource";
 
 export type SystemConfigItem = {
@@ -11,18 +12,6 @@ export type SystemConfigItem = {
   description?: string | null;
   dataType: string;
   updatedAt?: string;
-};
-
-type PagedConfigsPayload = {
-  items?: SystemConfigItem[];
-  pagination?: {
-    pageIndex: number;
-    pageSize: number;
-    totalCount: number;
-    totalPages: number;
-    hasPreviousPage: boolean;
-    hasNextPage: boolean;
-  };
 };
 
 const CONFIG_DESCRIPTIONS_VI: Record<string, string> = {
@@ -66,19 +55,6 @@ function formatConfigDescription(key: string, description?: string | null): stri
   return "Tham số cấu hình vận hành hệ thống";
 }
 
-function parseConfigList(raw: unknown): { items: SystemConfigItem[]; total: number } {
-  if (Array.isArray(raw)) {
-    return { items: raw as SystemConfigItem[], total: raw.length };
-  }
-  if (raw && typeof raw === "object") {
-    const obj = raw as PagedConfigsPayload;
-    const items = Array.isArray(obj.items) ? obj.items : [];
-    const total = obj.pagination?.totalCount ?? items.length;
-    return { items, total };
-  }
-  return { items: [], total: 0 };
-}
-
 function formatDateTimeSplit(value?: string): { time: string; date: string } | null {
   if (!value) return null;
   const d = new Date(value);
@@ -116,13 +92,7 @@ export function AdminConfigsScreen() {
   const [copiedTrace, setCopiedTrace] = useState(false);
 
   const pageSize = 50;
-  const resource = useApiResource(`admin-configs:${page}`, async (signal) => {
-    const res = await api.get<ApiResponse<PagedConfigsPayload> | PagedConfigsPayload>(
-      `/api/v1/admin/configs?page=${page}&pageSize=${pageSize}`,
-      { signal },
-    );
-    return parseConfigList(unwrap(res));
-  });
+  const resource = useApiResource(`admin-configs:${page}`, async (signal) => adminConfigsService.list(page, pageSize, signal));
 
   const allItems = resource.data?.items ?? [];
   const filteredItems = keyword.trim()
@@ -200,7 +170,7 @@ export function AdminConfigsScreen() {
     setError(null);
     setSaved("");
     try {
-      await api.put("/api/v1/admin/configs", { key, value, reason });
+      await adminConfigsService.update({ key, value, reason });
       setSaved(`Đã cập nhật tham số cấu hình "${key}" thành công.`);
       setModalOpen(false);
       resource.reload();
@@ -509,3 +479,6 @@ export function AdminConfigsScreen() {
     </>
   );
 }
+
+
+

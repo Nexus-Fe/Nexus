@@ -14,7 +14,9 @@ export function Card({ children, className = "", style }: { children: ReactNode;
   return <section className={"card " + className} style={style}>{children}</section>;
 }
 
-export function Badge({ children, tone = "sky" }: { children: ReactNode; tone?: "sky" | "green" | "amber" | "slate" | "red" | "indigo" }) {
+export type BadgeTone = "sky" | "green" | "amber" | "slate" | "red" | "indigo";
+
+export function Badge({ children, tone = "sky" }: { children: ReactNode; tone?: BadgeTone }) {
   return <span className={"badge badge-" + tone}>{children}</span>;
 }
 

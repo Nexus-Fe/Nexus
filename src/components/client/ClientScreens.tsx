@@ -130,14 +130,13 @@ export const StaffReportsScreenClient = dynamic(
 export const StaffQueueScreenClient = dynamic(() => import("@/features/staff/StaffScreens").then((module) => module.StaffQueueScreen), { ssr: false, loading: ScreenLoading });
 
 export const AdminUsersScreenClient = dynamic(
-  () => import("@/features/admin/AdminUsersScreen").then((module) => module.AdminUsersScreen),
+  () => import("@/features/admin").then((module) => module.AdminUsersScreen),
   { ssr: false, loading: ScreenLoading },
 );
 export const AdminRolesScreenClient = dynamic(
-  () => import("@/features/admin/AdminScreens").then((module) => module.AdminRolesScreen),
+  () => import("@/features/admin").then((module) => module.AdminRolesScreen),
   { ssr: false, loading: ScreenLoading },
 );
-export const AdminOverviewScreenClient = dynamic(() => import("@/features/admin/AdminScreens").then((module) => module.AdminOverviewScreen), { ssr: false, loading: ScreenLoading });
-export const AdminAuditLogScreenClient = dynamic(() => import("@/features/admin/AdminScreens").then((module) => module.AdminAuditLogScreen), { ssr: false, loading: ScreenLoading });
-export const AdminContractScreenClient = dynamic(() => import("@/features/admin/AdminScreens").then((module) => module.AdminContractScreen), { ssr: false, loading: ScreenLoading });
-export const AdminCategoriesScreenClient = dynamic(() => import("@/features/admin/AdminCategoriesScreen").then((module) => module.AdminCategoriesScreen), { ssr: false, loading: ScreenLoading });
+export const AdminOverviewScreenClient = dynamic(() => import("@/features/admin").then((module) => module.AdminOverviewScreen), { ssr: false, loading: ScreenLoading });
+export const AdminContractScreenClient = dynamic(() => import("@/features/admin").then((module) => module.AdminContractScreen), { ssr: false, loading: ScreenLoading });
+export const AdminCategoriesScreenClient = dynamic(() => import("@/features/admin").then((module) => module.AdminCategoriesScreen), { ssr: false, loading: ScreenLoading });
