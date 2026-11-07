@@ -5,14 +5,15 @@ import { useParams } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
 import { useSession } from "@/components/auth/SessionProvider";
 import { BackendImage } from "@/components/ui/BackendImage";
-import { Icon } from "@/components/ui/Icon";
-import { Badge, ButtonLink, Card, NoData, PageHeading, SectionHeading } from "@/components/ui/Primitives";
+
+import { AdminPagination, Badge, ButtonLink, Card, NoData, PageHeading, SectionHeading } from "@/components/ui/Primitives";
 import { ROUTES } from "@/constants/routes";
 import { ApiError } from "@/lib/api/client";
 import { useApiResource } from "@/lib/api/use-api-resource";
 import { formatMoney, resolveImageUrl } from "@/lib/presentation";
 import { AuctionOrderPayment } from "@/widgets/payment/AuctionOrderPayment";
 import { AuctionUnavailableState } from "./AuctionUnavailableState";
+import { AuctionComingSoon } from "./AuctionComingSoon";
 import { auctionService } from "./services/auction.service";
 import { normalizeAuctionStatus, statusLabel } from "./contract";
 import type { AuctionStatus, AuctionSummary, Pagination } from "./types";
@@ -21,13 +22,22 @@ import { isAuctionId } from "./validation";
 export { normalizeAuctionStatus, statusLabel } from "./contract";
 
 export const auctionStatuses: (AuctionStatus | "ALL")[] = ["ALL", "RUNNING", "SCHEDULED", "DRAFT", "ENDED", "SETTLED", "FAILED", "CANCELLED"];
-const publicAuctionStatuses: (AuctionStatus | "ALL")[] = ["ALL", "RUNNING", "SCHEDULED", "ENDED"];
+
 export const dateText = (value: string | null | undefined) => value ? new Intl.DateTimeFormat("vi-VN", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value)) : "Chưa có dữ liệu";
 export const message = (error: Error | null) => error instanceof ApiError && error.status === 503 ? "Dịch vụ đấu giá hiện không khả dụng. Vui lòng thử lại sau." : error?.message ?? "";
 
 export function PaginationBar({ pagination, page, setPage }: { pagination?: Pagination; page: number; setPage: (page: number) => void }) {
   if (!pagination || pagination.totalPages <= 1) return null;
-  return <nav className="auction-pagination" aria-label="Trang kết quả"><button type="button" disabled={!pagination.hasPreviousPage} onClick={() => setPage(page - 1)}>Trang trước</button><span>Trang {pagination.pageIndex} / {pagination.totalPages}</span><button type="button" disabled={!pagination.hasNextPage} onClick={() => setPage(page + 1)}>Trang sau</button></nav>;
+  return (
+    <AdminPagination
+      page={page}
+      pageSize={pagination.pageSize}
+      totalItems={pagination.totalCount}
+      totalPages={pagination.totalPages}
+      onPageChange={setPage}
+      itemLabel="phiên đấu giá"
+    />
+  );
 }
 
 export function StatusFilter({ status, setStatus, options = auctionStatuses }: { status: AuctionStatus | "ALL"; setStatus: (status: AuctionStatus | "ALL") => void; options?: (AuctionStatus | "ALL")[] }) {
@@ -39,11 +49,14 @@ export function AuctionTile({ auction, href }: { auction: AuctionSummary; href: 
 }
 
 export function AuctionListScreen() {
-  const [status, setStatus] = useState<AuctionStatus | "ALL">("RUNNING");
-  const [page, setPage] = useState(1);
-  const resource = useApiResource(`auctions:${page}:${status}`, (signal) => auctionService.list(page, 12, status, signal).then((response) => response.data));
-  const visibleAuctions = resource.data?.items.filter((auction) => status === "ALL" || normalizeAuctionStatus(auction.status) === status) ?? [];
-  return <div className="auction-surface"><section className="hero auction-hero"><div className="hero-copy"><p className="overline">Nexus Auction</p><h1>Khám phá phiên đang diễn ra</h1><p>Theo dõi giá và thời hạn của từng phiên. Chọn một phiên để xem chi tiết và tham gia.</p><div className="action-row"><ButtonLink href={ROUTES.buyer.auctions}>Đấu giá của tôi</ButtonLink></div></div><div className="hero-visual" aria-hidden="true"><span className="hero-orbit hero-orbit-one"/><span className="hero-orbit hero-orbit-two"/><span className="hero-icon"><Icon name="gavel" size={58}/></span></div></section><SectionHeading title="Danh sách phiên" hint="Dữ liệu được tải trực tiếp từ Auction Service." /><StatusFilter status={status} options={publicAuctionStatuses} setStatus={(next) => { setStatus(next); setPage(1); }} />{resource.error && <div role="alert" className="notice"><p>{message(resource.error)}</p><button className="button button-secondary button-small" type="button" onClick={resource.reload}>Tải lại danh sách</button></div>}{resource.loading ? <NoData title="Đang tải phiên đấu giá…" /> : visibleAuctions.length ? <div className="auction-list-grid">{visibleAuctions.map((auction) => <AuctionTile key={auction.auctionId} auction={auction} href={ROUTES.auction.room(auction.auctionId)} />)}</div> : <NoData title={resource.error ? "Không tải được danh sách phiên" : "Chưa có phiên ở trạng thái này"} />}<PaginationBar pagination={resource.data?.pagination} page={page} setPage={setPage} /></div>;
+  return (
+    <AuctionComingSoon
+      title="Sàn Đấu giá Trực tiếp (Coming Soon)"
+      description="Tính năng đấu giá thời gian thực với phòng đấu giá trực tiếp, đặt giá tự động và quản lý phiên đang trong giai đoạn hoàn thiện. Hãy khám phá danh mục sản phẩm trong khi chờ đợi nhé!"
+      backHref={ROUTES.catalog.index}
+      backLabel="Khám phá sản phẩm ngay"
+    />
+  );
 }
 
 function useAuctionId() { return String(useParams<{ id: string }>().id ?? ""); }

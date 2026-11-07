@@ -2,125 +2,158 @@
 /* Gateway list envelopes vary by domain; these adapters normalize their JSON records. */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import Link from "next/link";
-import { useState } from "react";
-import { Badge, Card, NoData, PageHeading, SectionHeading } from "@/components/ui/Primitives";
+import { Badge, Card, PageHeading, SectionHeading } from "@/components/ui/Primitives";
 import { ROUTES } from "@/constants/routes";
-import { isSensitiveIdentityKey } from "@/features/seller/services/seller.service";
-import { api, type ApiResponse } from "@/lib/api/client";
+import { api, unwrap, type ApiResponse } from "@/lib/api/client";
 import { useApiResource } from "@/lib/api/use-api-resource";
+import { AdminCategoriesScreen } from "./AdminCategoriesScreen";
+import { AdminConfigsScreen } from "./AdminConfigsScreen";
+import { AdminCouponsScreen } from "./AdminCouponsScreen";
+import { AdminLedgerScreen } from "./AdminLedgerScreen";
+import { AdminRolesScreen } from "./AdminRolesScreen";
 
-export { AdminRolesScreen } from "./AdminRolesScreen";
-
-type Obj = Record<string, any>;
-const unwrap = <T,>(x: ApiResponse<T> | T): T =>
-  x && typeof x === "object" && "data" in x ? (x as ApiResponse<T>).data : (x as T);
-const list = (x: any): Obj[] =>
-  Array.isArray(x) ? x : x?.items ?? x?.data ?? x?.users ?? x?.roles ?? x?.permissions ?? [];
-const msg = (e: Error | null) => e?.message ?? "";
-
-export function AdminUsersScreen() {
-  const [q, setQ] = useState("");
-  const [selected, setSelected] = useState("");
-  const users = useApiResource(
-    `/api/v1/admin/users?page=1&limit=50&keyword=${encodeURIComponent(q)}`,
-    async () => list(unwrap(await api.get<ApiResponse<any>>(`/api/v1/admin/users?page=1&limit=50&keyword=${encodeURIComponent(q)}`)))
-  );
-  const detail = useApiResource(
-    selected ? `/api/v1/admin/user/${selected}` : null,
-    async () => unwrap(await api.get<ApiResponse<Obj>>(`/api/v1/admin/user/${encodeURIComponent(selected)}`))
-  );
-  const data = users.data ?? [];
-  return (
-    <>
-      <PageHeading overline="Bảng điều khiển Admin" title="Quản lý tài khoản" description="Dữ liệu tài khoản được truy vấn từ User API." />
-      <SectionHeading title="Danh sách tài khoản" />
-      <Card>
-        <form
-          className="toolbar"
-          onSubmit={(e) => {
-            e.preventDefault();
-            users.reload();
-          }}
-        >
-          <input className="field" style={{ maxWidth: 320 }} placeholder="Tìm tên hoặc email" value={q} onChange={(e) => setQ(e.target.value)} />
-          <button className="button button-secondary">Tìm kiếm</button>
-        </form>
-        {users.error && <p role="alert" className="notice">{msg(users.error)}</p>}
-        {data.length ? (
-          <div className="table-scroll">
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>Người dùng</th>
-                  <th>Email</th>
-                  <th>Vai trò</th>
-                  <th>Trạng thái</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.map((u, i) => (
-                  <tr key={u.id ?? u.userId ?? i}>
-                    <td>{u.displayName ?? u.username ?? u.id}</td>
-                    <td>{u.email ?? ""}</td>
-                    <td>{(u.roles ?? []).join?.(", ") ?? u.role ?? ""}</td>
-                    <td>
-                      <Badge>{u.status ?? (u.isActive ? "Active" : "")}</Badge>
-                    </td>
-                    <td>
-                      <button type="button" className="button button-secondary button-small" onClick={() => setSelected(String(u.id ?? u.userId))}>
-                        Chi tiết
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <NoData title={users.loading ? "Đang tải tài khoản…" : users.error ? "Không tải được danh sách" : "Không có người dùng"} />
-        )}
-      </Card>
-      <SectionHeading title="Chi tiết tài khoản" />
-      {detail.error && <p role="alert" className="notice">{msg(detail.error)}</p>}
-      <Card className="card-pad">
-        {detail.data ? (
-          Object.entries(detail.data)
-            .filter(([k, v]) => !isSensitiveIdentityKey(k) && (v == null || typeof v !== "object"))
-            .map(([k, v]) => (
-              <div className="info-row" key={k}>
-                <span>{k}</span>
-                <strong>{String(v ?? "—")}</strong>
-              </div>
-            ))
-        ) : (
-          <NoData title={selected ? (detail.loading ? "Đang tải…" : "Chọn tài khoản để xem") : "Chọn tài khoản để xem chi tiết"} />
-        )}
-      </Card>
-    </>
-  );
-}
+export {
+  AdminCategoriesScreen,
+  AdminConfigsScreen,
+  AdminCouponsScreen,
+  AdminLedgerScreen,
+  AdminRolesScreen,
+};
 
 const adminWorkspaces = [
-  ["Tài khoản", "Người dùng, trạng thái và hồ sơ", ROUTES.admin.users],
-  ["Danh sách vai trò", "Xem vai trò hệ thống và tài khoản gán trực tiếp", ROUTES.admin.roles],
-  ["Đấu giá", "Theo dõi phiên và xử lý vận hành", ROUTES.admin.auctions],
-  ["Cấu hình đấu giá", "Ngưỡng và quy tắc phiên", ROUTES.admin.auctionConfigs],
-  ["Danh mục", "Cấu trúc danh mục sản phẩm", ROUTES.admin.categories],
-  ["Sổ giao dịch", "Dòng tiền và đối soát", ROUTES.admin.ledger],
-  ["Nhật ký kiểm toán", "Tra cứu thay đổi có người thực hiện", ROUTES.admin.auditLog],
-  ["Cấu hình hệ thống", "Tham số toàn sàn", ROUTES.admin.configs],
-];
+  ["Tài khoản người dùng", "Quản lý hồ sơ, tạo tài khoản nội bộ, điểm uy tín và khóa/mở khóa", ROUTES.admin.users],
+  ["Vai trò & Phân quyền", "Quản lý vai trò hệ thống (1-User 1-Primary-Role) và gán quyền", ROUTES.admin.roles],
+  ["Danh mục sản phẩm", "Cấu trúc cây danh mục toàn sàn (bao gồm cả danh mục đang ẩn)", ROUTES.admin.categories],
+  ["Giám sát đấu giá", "Theo dõi phiên đấu giá trực tiếp, lịch sử lượt đặt giá (bids)", ROUTES.admin.auctions],
+  ["Cấu hình đấu giá", "Quy tắc chống sniping, bước giá và điểm uy tín đấu giá", ROUTES.admin.auctionConfigs],
+  ["Cấu hình toàn sàn", "Tham số vận hành động của toàn hệ thống", ROUTES.admin.configs],
+  ["Mã giảm giá toàn sàn", "Thiết lập và quản lý các chương trình khuyến mãi", ROUTES.admin.coupons],
+  ["Sổ cái & Đối soát ví", "Duyệt yêu cầu rút tiền và điều chỉnh số dư ví theo ID", ROUTES.admin.ledger],
+] as const;
+
+type OverviewSnapshot = {
+  usersCount: number | null;
+  auctionsCount: number | null;
+  pendingReportsCount: number | null;
+};
+
+function extractTotalCount(raw: unknown): number {
+  const payload = unwrap(raw as any);
+  if (payload && typeof payload === "object") {
+    if (typeof (payload as any).pagination?.totalCount === "number") {
+      return (payload as any).pagination.totalCount;
+    }
+    if (typeof (payload as any).total === "number") {
+      return (payload as any).total;
+    }
+    if (Array.isArray((payload as any).items)) {
+      return (payload as any).items.length;
+    }
+  }
+  if (Array.isArray(payload)) {
+    return payload.length;
+  }
+  return 0;
+}
 
 export function AdminOverviewScreen() {
+  const overview = useApiResource("admin-overview-metrics", async (signal) => {
+    const [usersRes, reportsRes] = await Promise.allSettled([
+      api.get<ApiResponse<any>>("/api/v1/admin/users?page=1&pageSize=1", { signal }),
+      api.get<ApiResponse<any>>("/api/v1/admin/reports?status=Pending&page=1&pageSize=1", { signal }),
+    ]);
+
+    const snapshot: OverviewSnapshot = {
+      usersCount:
+        usersRes.status === "fulfilled" ? extractTotalCount(usersRes.value) : null,
+      auctionsCount: null,
+      pendingReportsCount:
+        reportsRes.status === "fulfilled" ? extractTotalCount(reportsRes.value) : null,
+    };
+
+    return snapshot;
+  });
+
+  const data = overview.data;
+
   return (
     <>
-      <PageHeading overline="Không gian quản trị" title="Tổng quan vận hành" description="Đi tới từng khu vực quản trị. Chỉ số sẽ xuất hiện khi có API tổng hợp được xác nhận." />
-      <Card className="notice">
-        <strong>Chưa có dữ liệu tổng quan</strong>
-        <p>User, Finance và System Health chưa cung cấp hợp đồng REST đã xác minh cho dashboard. Nexus không hiển thị số liệu minh họa như số liệu thật.</p>
-      </Card>
-      <SectionHeading title="Khu vực quản trị" />
+      <PageHeading
+        overline="Quản trị hệ thống"
+        title="Tổng quan vận hành hệ thống"
+        description="Theo dõi tình trạng hoạt động của người dùng và các phân hệ trên sàn."
+        action={
+          <button
+            type="button"
+            className="button button-secondary button-small"
+            disabled={overview.loading}
+            onClick={overview.reload}
+          >
+            {overview.loading ? "Đang cập nhật…" : "Làm mới số liệu"}
+          </button>
+        }
+      />
+
+      <div className="grid-3" style={{ marginBottom: "24px" }}>
+        <Card className="card-pad">
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span style={{ fontSize: "13px", color: "var(--muted)" }}>Tài khoản toàn sàn</span>
+            <Badge tone="indigo">Người dùng</Badge>
+          </div>
+          <strong style={{ display: "block", fontSize: "24px", margin: "10px 0 4px" }}>
+            {data?.usersCount != null
+              ? data.usersCount.toLocaleString("vi-VN")
+              : overview.loading
+                ? "Đang tải…"
+                : "—"}
+          </strong>
+          <small style={{ display: "block", color: "var(--muted)", marginBottom: "10px" }}>
+            Tổng số tài khoản người dùng trên toàn sàn
+          </small>
+          <Link className="button button-secondary button-small" href={ROUTES.admin.users}>
+            Quản lý tài khoản
+          </Link>
+        </Card>
+
+        <Card className="card-pad">
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span style={{ fontSize: "13px", color: "var(--muted)" }}>Phiên đấu giá</span>
+            <Badge tone="amber">Sắp ra mắt</Badge>
+          </div>
+          <strong style={{ display: "block", fontSize: "24px", margin: "10px 0 4px" }}>
+            Coming Soon
+          </strong>
+          <small style={{ display: "block", color: "var(--muted)", marginBottom: "10px" }}>
+            Tính năng đấu giá đang được hoàn thiện
+          </small>
+          <Link className="button button-secondary button-small" href={ROUTES.admin.auctions}>
+            Xem chi tiết
+          </Link>
+        </Card>
+
+        <Card className="card-pad">
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span style={{ fontSize: "13px", color: "var(--muted)" }}>Báo cáo chờ xử lý</span>
+            <Badge tone={data?.pendingReportsCount ? "amber" : "slate"}>Báo cáo</Badge>
+          </div>
+          <strong style={{ display: "block", fontSize: "24px", margin: "10px 0 4px" }}>
+            {data?.pendingReportsCount != null
+              ? data.pendingReportsCount.toLocaleString("vi-VN")
+              : overview.loading
+                ? "Đang tải…"
+                : "—"}
+          </strong>
+          <small style={{ display: "block", color: "var(--muted)", marginBottom: "10px" }}>
+            Báo cáo vi phạm đang chờ xem xét
+          </small>
+          <span style={{ display: "inline-block", height: "32px" }} />
+        </Card>
+      </div>
+
+      <SectionHeading
+        title="Lối tắt quản lý"
+        hint="Truy cập nhanh các phân hệ chức năng"
+      />
       <div className="form-grid">
         {adminWorkspaces.map(([title, description, href]) => (
           <Link className="card card-pad" href={href} key={href}>
@@ -134,126 +167,13 @@ export function AdminOverviewScreen() {
   );
 }
 
-export function AdminAuditLogScreen() {
-  const [filters, setFilters] = useState({ actorId: "", action: "", fromDate: "", toDate: "" });
-  const query = new URLSearchParams({
-    page: "1",
-    limit: "50",
-    ...Object.fromEntries(Object.entries(filters).filter(([, value]) => value)),
-  }).toString();
-  const resource = useApiResource(
-    `/api/v1/admin/audit-logs?${query}`,
-    async () => list(unwrap(await api.get<ApiResponse<any>>(`/api/v1/admin/audit-logs?${query}`)))
-  );
-  const rows = resource.data ?? [];
-  return (
-    <>
-      <PageHeading overline="Admin · chỉ đọc" title="Nhật ký kiểm toán" description="Tra cứu ai đã thực hiện thay đổi, đối tượng bị tác động và lý do." />
-      <Card>
-        <form
-          className="toolbar"
-          onSubmit={(event) => {
-            event.preventDefault();
-            resource.reload();
-          }}
-        >
-          <input className="field" placeholder="Mã người thực hiện" value={filters.actorId} onChange={(e) => setFilters({ ...filters, actorId: e.target.value })} />
-          <input className="field" placeholder="Hành động" value={filters.action} onChange={(e) => setFilters({ ...filters, action: e.target.value })} />
-          <label>
-            Từ ngày
-            <input className="field" type="date" value={filters.fromDate} onChange={(e) => setFilters({ ...filters, fromDate: e.target.value })} />
-          </label>
-          <label>
-            Đến ngày
-            <input className="field" type="date" value={filters.toDate} onChange={(e) => setFilters({ ...filters, toDate: e.target.value })} />
-          </label>
-          <button className="button button-secondary">Lọc nhật ký</button>
-        </form>
-      </Card>
-      {resource.error && <p role="alert" className="notice">Không tải được nhật ký: {msg(resource.error)}</p>}
-      <Card>
-        {rows.length ? (
-          <div className="table-scroll">
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>Thời điểm</th>
-                  <th>Người thực hiện</th>
-                  <th>Hành động</th>
-                  <th>Đối tượng</th>
-                  <th>Lý do</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((row, index) => (
-                  <tr key={row.id ?? index}>
-                    <td>{row.createdAt ?? "—"}</td>
-                    <td>{row.actorId ?? "—"}</td>
-                    <td>
-                      <Badge>{row.action ?? "—"}</Badge>
-                    </td>
-                    <td>{row.targetEntity ?? "—"}</td>
-                    <td>{row.reason ?? "—"}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <NoData title={resource.loading ? "Đang tải nhật ký…" : resource.error ? "Không có dữ liệu do Gateway trả lỗi" : "Chưa có sự kiện trong khoảng thời gian này"} />
-        )}
-      </Card>
-    </>
-  );
-}
-
-export function AdminContractScreen({ screen }: { screen: "categories" | "configs" | "coupons" | "ledger" | "system-health" }) {
-  const metadata = {
-    categories: { title: "Danh mục sản phẩm", endpoint: "/api/v1/categories", note: "Gateway hiện chưa xác nhận được đường dẫn Catalog tương thích; màn này chỉ đọc dữ liệu nếu endpoint hoạt động." },
-    configs: { title: "Cấu hình toàn sàn", endpoint: "/api/v1/admin/configs", note: "Hiện chỉ đọc. Chưa bật lưu vì User API chưa công khai controller quản trị tương ứng trong audit backend." },
-    coupons: { title: "Mã giảm giá toàn sàn", endpoint: null, note: "Gateway và backend chưa có endpoint coupon được xác nhận; chưa có dữ liệu hoặc thao tác tạo mã." },
-    ledger: { title: "Sổ giao dịch và đối soát", endpoint: null, note: "Chưa có endpoint REST đọc ledger đã xác nhận. Không hiển thị giao dịch mẫu như số liệu thật." },
-    "system-health": { title: "Tình trạng hệ thống", endpoint: null, note: "Chưa có hợp đồng API cho Event Log/System Health trong frontend Gateway." },
-  }[screen];
-  const resource = useApiResource(metadata.endpoint, async () => list(unwrap(await api.get<ApiResponse<any>>(metadata.endpoint!))));
-  const records = resource.data ?? [];
-  return (
-    <>
-      <PageHeading overline="Không gian quản trị" title={metadata.title} description={metadata.note} />
-      {resource.error && <p role="alert" className="notice">Gateway không trả dữ liệu: {msg(resource.error)}</p>}
-      <Card>
-        {records.length ? (
-          <div className="table-scroll">
-            <table className="data-table">
-              <thead>
-                <tr>
-                  {Object.keys(records[0])
-                    .filter((key) => !isSensitiveIdentityKey(key))
-                    .slice(0, 6)
-                    .map((key) => (
-                      <th key={key}>{key}</th>
-                    ))}
-                </tr>
-              </thead>
-              <tbody>
-                {records.map((row, index) => (
-                  <tr key={row.id ?? row.key ?? index}>
-                    {Object.keys(records[0])
-                      .filter((key) => !isSensitiveIdentityKey(key))
-                      .slice(0, 6)
-                      .map((key) => (
-                        <td key={key}>{String(row[key] ?? "—")}</td>
-                      ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <NoData title={resource.loading ? "Đang tải dữ liệu…" : resource.error ? "Dữ liệu chưa sẵn sàng từ Gateway" : "Chưa có API dữ liệu cho khu vực này"} />
-        )}
-      </Card>
-      <p className="status-note">Các thao tác ghi đang tắt cho đến khi hợp đồng và quyền backend được xác nhận.</p>
-    </>
-  );
+export function AdminContractScreen({
+  screen,
+}: {
+  screen: "categories" | "configs" | "coupons" | "ledger";
+}) {
+  if (screen === "categories") return <AdminCategoriesScreen />;
+  if (screen === "configs") return <AdminConfigsScreen />;
+  if (screen === "coupons") return <AdminCouponsScreen />;
+  return <AdminLedgerScreen />;
 }

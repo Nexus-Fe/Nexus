@@ -19,8 +19,8 @@ const labels: Record<string, string> = {
   "/staff/product-moderation": "Kiểm duyệt sản phẩm", "/staff/transactions/discrepancies": "Sai lệch giao dịch",
   "/admin": "Quản trị hệ thống", "/admin/overview": "Tổng quan", "/admin/auctions": "Quản lý đấu giá",
   "/admin/auction-configs": "Cấu hình đấu giá", "/admin/users": "Quản lý tài khoản", "/admin/roles": "Danh sách vai trò",
-  "/admin/categories": "Danh mục", "/admin/ledger": "Sổ giao dịch", "/admin/audit-log": "Audit Log",
-  "/admin/configs": "Cấu hình hệ thống", "/admin/coupons": "Mã giảm giá", "/admin/system-health": "Tình trạng hệ thống",
+  "/admin/categories": "Danh mục", "/admin/ledger": "Sổ giao dịch",
+  "/admin/configs": "Cấu hình hệ thống", "/admin/coupons": "Mã giảm giá",
   "/account/profile": "Hồ sơ cá nhân", "/account/change-password": "Đổi mật khẩu",
 };
 

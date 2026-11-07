@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useState } from "react";
-import { Badge, Card, NoData, PageHeading } from "@/components/ui/Primitives";
+import { AdminPagination, Badge, Card, NoData, PageHeading } from "@/components/ui/Primitives";
 import { ROUTES } from "@/constants/routes";
 import { useApiResource } from "@/lib/api/use-api-resource";
 import { sellerRegistrationsService, type SellerRegistration } from "./services/seller-registrations.service";
@@ -61,7 +61,16 @@ export function StaffSellersScreen() {
     <Card>
       {registrations.error && <p role="alert" className="notice">{registrations.error.message}</p>}
       {records.length ? <div className="table-scroll"><table className="data-table"><thead><tr><th>Mã hồ sơ</th><th>Tên shop</th><th>Email doanh nghiệp</th><th>Trạng thái</th><th>Thao tác</th></tr></thead><tbody>{records.map((registration) => <tr key={registration.registrationId}><td>{registration.registrationId}</td><td>{registration.shopName}</td><td>{registration.businessEmail ?? "—"}</td><td><Badge tone={statusTone(registration.status)}>{statusLabel(registration.status)}</Badge></td><td><Link className="button button-secondary button-small" href={ROUTES.staff.seller(registration.registrationId)}>Chi tiết</Link></td></tr>)}</tbody></table></div> : <NoData title={registrations.loading ? "Đang tải hồ sơ…" : registrations.error ? "Không tải được hồ sơ" : "Không có hồ sơ"} />}
-      {registrations.data && registrations.data.total > registrations.data.limit && <div className="action-row"><button type="button" className="button button-secondary button-small" disabled={page <= 1 || registrations.loading} onClick={() => setPage((value) => value - 1)}>Trang trước</button><span>Trang {page}</span><button type="button" className="button button-secondary button-small" disabled={page * registrations.data.limit >= registrations.data.total || registrations.loading} onClick={() => setPage((value) => value + 1)}>Trang sau</button></div>}
+      {registrations.data && (
+        <AdminPagination
+          page={page}
+          pageSize={registrations.data.limit}
+          totalItems={registrations.data.total}
+          loading={registrations.loading}
+          onPageChange={(nextPage) => setPage(nextPage)}
+          itemLabel="hồ sơ"
+        />
+      )}
     </Card>
   </>;
 }
