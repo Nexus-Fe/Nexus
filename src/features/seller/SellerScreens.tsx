@@ -241,7 +241,15 @@ export function SellerProductEditorScreen() {
   // Quick create warehouse drawer (WH-04)
   const [showCreateWarehouse, setShowCreateWarehouse] = useState(false);
   useEffect(() => {
-    if (window.location.hash === "#create-warehouse") setShowCreateWarehouse(true);
+    const openWarehouseFormFromHash = () => {
+      if (window.location.hash === "#create-warehouse") setShowCreateWarehouse(true);
+    };
+    window.addEventListener("hashchange", openWarehouseFormFromHash);
+    const initialCheck = window.setTimeout(openWarehouseFormFromHash, 0);
+    return () => {
+      window.removeEventListener("hashchange", openWarehouseFormFromHash);
+      window.clearTimeout(initialCheck);
+    };
   }, []);
   const [newWhCode, setNewWhCode] = useState("");
   const [newWhName, setNewWhName] = useState("");
