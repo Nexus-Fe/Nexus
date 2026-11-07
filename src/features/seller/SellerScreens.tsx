@@ -3,7 +3,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ROUTES } from "@/constants/routes";
 import { useSession } from "@/components/auth/SessionProvider";
 import { Icon } from "@/components/ui/Icon";
@@ -13,7 +13,7 @@ import { useApiResource } from "@/lib/api/use-api-resource";
 import { formatMoney } from "@/lib/presentation";
 import { fulfillmentService } from "@/features/fulfillment";
 import { loadSafeRegistrationDraft } from "./services/seller.service";
-import { sellerCatalogService, type InventoryBalance } from "./services/catalog.service";
+import { sellerCatalogService, type InventoryBalance, type ProductVariant } from "./services/catalog.service";
 import { sellerOrdersService } from "./services/seller-orders.service";
 import { MAX_INVENTORY_QUANTITY, parseInitialInventoryQuantity } from "./services/inventory-quantity";
 import { describeCategoryError, leafCategoryOptions } from "./services/category-options";
@@ -86,9 +86,9 @@ export function SellerProductsScreen() {
           </ButtonLink>
         }
       />
-      <Card>
+      <Card className="seller-products-list">
         <form
-          className="toolbar"
+          className="toolbar seller-products-search"
           onSubmit={(e) => {
             e.preventDefault();
             setPage(1);
@@ -102,7 +102,7 @@ export function SellerProductsScreen() {
             value={q}
             onChange={(e) => setQ(e.target.value)}
           />
-          <button className="button button-secondary">Tìm kiếm</button>
+          <button type="submit" className="button button-secondary">Tìm kiếm</button>
         </form>
         {resource.error && (
           <p role="alert" className="notice">
@@ -140,9 +140,7 @@ export function SellerProductsScreen() {
                       <Badge>{p.status ?? ""}</Badge>
                     </td>
                     <td>
-                      <ButtonLink href={ROUTES.seller.product(p.productId)} variant="secondary">
-                        Quản lý & Kho
-                      </ButtonLink>
+                      <ButtonLink href={ROUTES.seller.product(p.productId)} variant="secondary">Điều chỉnh</ButtonLink>
                     </td>
                   </tr>
                 ))}
@@ -161,9 +159,9 @@ export function SellerProductsScreen() {
           />
         )}
         {resource.data && (
-          <div className="action-row">
-            <label>
-              Hiển thị{" "}
+          <div className="seller-products-pagination">
+            <label className="seller-products-page-size">
+              <span>Hiển thị</span>
               <select
                 className="field"
                 aria-label="Số sản phẩm mỗi trang"
@@ -242,6 +240,9 @@ export function SellerProductEditorScreen() {
 
   // Quick create warehouse drawer (WH-04)
   const [showCreateWarehouse, setShowCreateWarehouse] = useState(false);
+  useEffect(() => {
+    if (window.location.hash === "#create-warehouse") setShowCreateWarehouse(true);
+  }, []);
   const [newWhCode, setNewWhCode] = useState("");
   const [newWhName, setNewWhName] = useState("");
   const [newWhAddress, setNewWhAddress] = useState("");
@@ -435,13 +436,9 @@ export function SellerProductEditorScreen() {
         );
       }
 
-      // Build specifications JSON object
-      const specObject: Record<string, string> = {};
-      for (const row of specs) {
-        const k = row.key.trim();
-        const v = row.value.trim();
-        if (k && v) specObject[k] = v;
-      }
+      const specifications = specs
+        .map((row) => ({ name: row.key.trim(), value: row.value.trim() }))
+        .filter((row) => row.name && row.value);
 
       // Validate and normalize variants
       const preparedVariants = variants.map((v, idx) => {
@@ -474,7 +471,7 @@ export function SellerProductEditorScreen() {
         name: name.trim(),
         description: description.trim() || undefined,
         brand: brand.trim() || undefined,
-        specifications: Object.keys(specObject).length > 0 ? specObject : null,
+        specifications,
         variants: preparedVariants,
       });
 
@@ -566,7 +563,7 @@ export function SellerProductEditorScreen() {
                 <span className="seller-section-step">1</span>
                 <div>
                   <h2>Thông tin cơ bản & Ngành hàng</h2>
-                  <p>Tên sản phẩm rõ ràng, đúng danh mục lá giúp người mua dễ tìm kiếm và lọc trên sàn.</p>
+                  <p>Tên sản phẩm rõ ràng, đúng danh mục giúp người mua dễ tìm kiếm và lọc trên sàn.</p>
                 </div>
               </div>
               <Badge>{isBasicReady ? "Đã hoàn tất" : "Bắt buộc"}</Badge>
@@ -590,7 +587,7 @@ export function SellerProductEditorScreen() {
               <div className="form-grid">
                 <label className="field-wrap">
                   <span>
-                    Danh mục ngành hàng (Leaf Category) <strong style={{ color: "#dc2626" }}>*</strong>
+                    Danh mục ngành hàng <strong style={{ color: "#dc2626" }}>*</strong>
                   </span>
                   <select
                     className="select-field"
@@ -598,7 +595,7 @@ export function SellerProductEditorScreen() {
                     value={categoryId}
                     onChange={(e) => setCategoryId(e.target.value)}
                   >
-                    <option value="">Chọn danh mục lá</option>
+                    <option value="">Chọn danh mục</option>
                     {categoryOptions.map((option) => (
                       <option key={option.categoryId} value={option.categoryId}>
                         {option.label}
@@ -801,7 +798,7 @@ export function SellerProductEditorScreen() {
             </div>
 
             {/* Warehouse Selection Bar (WH-03 / WH-01 / WH-04) */}
-            <div className="seller-warehouse-box">
+            <div className="seller-warehouse-box" id="create-warehouse">
               <div className="seller-warehouse-header">
                 <div>
                   <strong>Kho nhận hàng & Khai báo tồn đầu kỳ (WH-03 / FUL-01)</strong>
@@ -810,13 +807,15 @@ export function SellerProductEditorScreen() {
                     mới ngay.
                   </div>
                 </div>
-                <button
-                  type="button"
-                  className="button button-secondary button-small"
-                  onClick={() => setShowCreateWarehouse((v) => !v)}
-                >
-                  {showCreateWarehouse ? "Đóng tạo kho" : "+ Tạo kho mới (WH-04)"}
-                </button>
+                {!warehouses.data?.some((warehouse) => warehouse.type === "SellerWarehouse") && (
+                  <button
+                    type="button"
+                    className="button button-secondary button-small"
+                    onClick={() => setShowCreateWarehouse((v) => !v)}
+                  >
+                    {showCreateWarehouse ? "Đóng tạo kho" : "+ Tạo kho riêng"}
+                  </button>
+                )}
               </div>
 
               <label className="field-wrap">
@@ -838,7 +837,7 @@ export function SellerProductEditorScreen() {
                 </select>
               </label>
 
-              {showCreateWarehouse && (
+              {showCreateWarehouse && !warehouses.data?.some((warehouse) => warehouse.type === "SellerWarehouse") && (
                 <div className="seller-warehouse-create-drawer">
                   <strong style={{ fontSize: 13 }}>Đăng ký kho mới cho Gian hàng (API WH-04)</strong>
                   <div className="form-grid">
@@ -915,15 +914,6 @@ export function SellerProductEditorScreen() {
                       </label>
                     </div>
                     <div style={{ display: "flex", gap: 8 }}>
-                      <button
-                        type="button"
-                        className="button button-secondary button-small"
-                        onClick={() =>
-                          updateVariantField(vIdx, "skuCode", buildAutoSku(name, variant.name, vIdx))
-                        }
-                      >
-                        Tự sinh mã SKU
-                      </button>
                       {variants.length > 1 && (
                         <button
                           type="button"
@@ -949,6 +939,14 @@ export function SellerProductEditorScreen() {
                           value={variant.skuCode}
                           onChange={(e) => updateVariantField(vIdx, "skuCode", e.target.value)}
                         />
+                        <button
+                          type="button"
+                          className="button button-secondary button-small seller-sku-generate"
+                          aria-label="Tự sinh mã SKU"
+                          onClick={() => updateVariantField(vIdx, "skuCode", buildAutoSku(name, variant.name, vIdx))}
+                        >
+                          +
+                        </button>
                       </div>
                     </label>
 
@@ -1023,6 +1021,13 @@ export function SellerProductEditorScreen() {
                             + {preset}
                           </button>
                         ))}
+                        <button
+                          type="button"
+                          className="seller-preset-chip"
+                          onClick={() => addVariantAttribute(vIdx)}
+                        >
+                          + Thuộc tính
+                        </button>
                       </div>
                     </div>
 
@@ -1059,7 +1064,7 @@ export function SellerProductEditorScreen() {
         {/* STICKY RIGHT RAIL: LIVE PREVIEW & READINESS CHECKLIST */}
         <aside className="seller-studio-rail">
           <Card className="card-pad">
-            <SectionHeading title="Xem trước trên sàn (Live)" />
+            <SectionHeading title="Xem trước" />
             <div className="seller-preview-card">
               <div className="seller-preview-media">
                 {primaryPreviewImage ? (
@@ -1094,8 +1099,8 @@ export function SellerProductEditorScreen() {
                   {isBasicReady ? "✓" : "1"}
                 </span>
                 <span>
-                  <strong>Thông tin & Danh mục lá:</strong>{" "}
-                  {isBasicReady ? selectedCategory?.label : "Cần nhập tên & chọn danh mục lá"}
+                  <strong>Thông tin & Danh mục:</strong>{" "}
+                  {isBasicReady ? selectedCategory?.label : "Cần nhập tên & chọn danh mục"}
                 </span>
               </li>
               <li>
@@ -1163,25 +1168,35 @@ export function SellerProductEditorScreen() {
 
 export function SellerInventoryScreen() {
   const { user } = useSession();
-  const products = useApiResource("seller-inventory-products", (signal) =>
-    sellerCatalogService.list(1, "", signal),
-  );
   const warehouses = useApiResource(
     user?.id ? `seller-inv-warehouses:${user.id}` : "seller-inv-warehouses:anon",
     (signal) => sellerCatalogService.listWarehouses(user?.id, signal),
   );
+  const personalWarehouses = warehouses.data?.filter((warehouse) => warehouse.type === "SellerWarehouse") ?? [];
+  const platformWarehouses = warehouses.data?.filter((warehouse) => warehouse.type === "PlatformWarehouse") ?? [];
+  const [warehouseId, setWarehouseId] = useState("");
+  const activeWarehouseId = warehouses.data?.some((warehouse) => warehouse.id === warehouseId)
+    ? warehouseId
+    : (warehouses.data?.[0]?.id ?? "");
+  const products = useApiResource(
+    activeWarehouseId ? `seller-inventory-products:${user?.id}:${activeWarehouseId}` : null,
+    (signal) => sellerCatalogService.listProductsInWarehouse(activeWarehouseId, signal),
+  );
 
   const [productId, setProductId] = useState("");
-  const activeProductId = productId || products.data?.items[0]?.productId || "";
+  const activeProductId = products.data?.some((product) => product.productId === productId)
+    ? productId
+    : (products.data?.[0]?.productId ?? "");
   const detail = useApiResource(
     activeProductId ? `seller-inventory-product:${activeProductId}` : null,
     (signal) => sellerCatalogService.detail(activeProductId, signal),
   );
   const [skuId, setSkuId] = useState("");
-
-  const activeSkuId = detail.data?.variants.some((variant) => variant.variantId === skuId)
-    ? skuId
-    : (detail.data?.variants[0]?.variantId ?? "");
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [variantDrafts, setVariantDrafts] = useState<Record<string, { name: string; price: string; totalQuantity: string }>>({});
+  const [savingVariantId, setSavingVariantId] = useState<string | null>(null);
+  const [detailsMessage, setDetailsMessage] = useState("");
+  const [detailsError, setDetailsError] = useState("");
 
   const variantIdsKey = detail.data?.variants.map((v) => v.variantId).join(",") ?? "";
   const batchBalances = useApiResource(
@@ -1189,16 +1204,94 @@ export function SellerInventoryScreen() {
     (signal) => sellerCatalogService.inventoryBatch(detail.data?.variants.map((v) => v.variantId) ?? [], signal),
   );
 
-  const balance = useApiResource(
-    activeSkuId ? `seller-inventory:${activeSkuId}` : null,
-    (signal) => sellerCatalogService.inventory(activeSkuId, signal),
-  );
-  const balanceMap = new Map<string, InventoryBalance>();
+  const balanceMap = new Map<string, InventoryBalance[]>();
   for (const item of batchBalances.data ?? []) {
-    balanceMap.set(item.skuId, item);
+    balanceMap.set(item.skuId, [...(balanceMap.get(item.skuId) ?? []), item]);
+  }
+  const visibleVariants = detail.data?.variants.filter((variant) =>
+    balanceMap.get(variant.variantId)?.some((balance) => balance.warehouseId === activeWarehouseId),
+  ) ?? [];
+  const activeSkuId = visibleVariants.some((variant) => variant.variantId === skuId)
+    ? skuId
+    : (visibleVariants[0]?.variantId ?? "");
+  const warehouseName = (warehouseId: string) => {
+    const warehouse = warehouses.data?.find((item) => item.id === warehouseId);
+    return warehouse ? `[${warehouse.code}] ${warehouse.name}` : `Kho ${warehouseId}`;
+  };
+
+  useEffect(() => {
+    if (!detailsOpen) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setDetailsOpen(false);
+    };
+    document.addEventListener("keydown", closeOnEscape);
+    return () => document.removeEventListener("keydown", closeOnEscape);
+  }, [detailsOpen]);
+
+  function openProductDetails(variant: ProductVariant) {
+    setSkuId(variant.variantId);
+    setDetailsError("");
+    setDetailsMessage("");
+    const inventory = balanceMap.get(variant.variantId)?.find((balance) => balance.warehouseId === activeWarehouseId);
+    setVariantDrafts({
+      [variant.variantId]: {
+        name: variant.name,
+        price: String(variant.price ?? ""),
+        totalQuantity: String(inventory?.totalQuantity ?? ""),
+      },
+    });
+    setDetailsOpen(true);
   }
 
-  const selectedVariant = detail.data?.variants.find((v) => v.variantId === activeSkuId);
+  async function saveVariantDetails(variant: ProductVariant) {
+    const draft = variantDrafts[variant.variantId];
+    const inventories = balanceMap.get(variant.variantId) ?? [];
+    if (!draft) {
+      setDetailsError("Không có thay đổi để lưu.");
+      return;
+    }
+
+    const nextPrice = Number(draft.price);
+    if (!draft.name.trim() || !Number.isFinite(nextPrice) || nextPrice <= 0) {
+      setDetailsError("Tên biến thể và giá bán phải hợp lệ; giá bán phải lớn hơn 0.");
+      return;
+    }
+
+    const variantChanged = draft.name.trim() !== variant.name || nextPrice !== Number(variant.price);
+    if (!variantChanged) {
+      setDetailsError("Chưa có thay đổi tên hoặc giá bán để lưu.");
+      return;
+    }
+    setSavingVariantId(variant.variantId);
+    setDetailsError("");
+    setDetailsMessage("");
+    try {
+      await sellerCatalogService.updateVariant(variant.variantId, {
+          name: draft.name.trim(),
+          price: nextPrice,
+          currency: variant.currency || "VND",
+          attributes: variant.attributes,
+      });
+      detail.reload();
+      batchBalances.reload();
+      setVariantDrafts((current) => ({
+        ...current,
+        [variant.variantId]: {
+          name: draft.name.trim(),
+          price: String(nextPrice),
+          totalQuantity: inventories[0] ? String(inventories[0].totalQuantity) : "",
+        },
+      }));
+      setDetailsMessage("Đã lưu tên biến thể và giá bán.");
+    } catch (cause) {
+      detail.reload();
+      batchBalances.reload();
+      const failure = cause instanceof Error ? cause.message : "Không lưu được thay đổi.";
+      setDetailsError(failure);
+    } finally {
+      setSavingVariantId(null);
+    }
+  }
 
   return (
     <>
@@ -1220,37 +1313,47 @@ export function SellerInventoryScreen() {
           }}
         >
           <div>
-            <h2 style={{ margin: "0 0 4px", fontSize: 17 }}>Kho hàng đang liên kết (WH-03 / WH-01)</h2>
+            <h2 style={{ margin: "0 0 4px", fontSize: 17 }}>Kho hàng đang liên kết</h2>
             <p style={{ margin: 0, fontSize: 12, color: "var(--muted)" }}>
-              Tồn kho của từng biến thể SKU được quản lý tại kho vật lý dưới đây.
+              Kho riêng của seller: {personalWarehouses.length} · Kho chung nền tảng: {platformWarehouses.length}
             </p>
           </div>
-          <ButtonLink href={ROUTES.seller.newProduct}>
-            <Icon name="plus" size={16} /> Tạo sản phẩm lên kho
-          </ButtonLink>
+          <div className="action-row">
+            {personalWarehouses.length ? (
+              <button type="button" className="button button-disabled" disabled title="Mỗi seller chỉ có một kho riêng">Tạo kho riêng</button>
+            ) : (
+              <ButtonLink href={`${ROUTES.seller.newProduct}#create-warehouse`}>Tạo kho riêng</ButtonLink>
+            )}
+          </div>
         </div>
 
         {warehouses.data?.length ? (
           <div className="grid-2" style={{ marginTop: 14 }}>
-            {warehouses.data.slice(0, 4).map((wh) => (
-              <div key={wh.id} className="mini-item">
+            {warehouses.data.map((wh) => (
+              <button
+                key={wh.id}
+                type="button"
+                className={`mini-item seller-warehouse-choice${activeWarehouseId === wh.id ? " is-selected" : ""}`}
+                aria-pressed={activeWarehouseId === wh.id}
+                onClick={() => { setWarehouseId(wh.id); setProductId(""); setSkuId(""); setDetailsOpen(false); }}
+              >
                 <div>
                   <strong>
                     [{wh.code}] {wh.name}
                   </strong>
                   <p>{wh.address || "Kho tiêu chuẩn trên hệ thống Fulfillment"}</p>
                 </div>
-                <Badge>{wh.sellerId === user?.id ? "Kho của Shop" : "Kho Mặc định"}</Badge>
-              </div>
+                <Badge>{wh.type === "PlatformWarehouse" ? "Kho chung nền tảng" : "Kho riêng của seller"}</Badge>
+              </button>
             ))}
           </div>
         ) : (
-          <p className="status-note">Đang sử dụng kho trung tâm mặc định của hệ thống.</p>
+          <p className="status-note">{warehouses.loading ? "Đang tải danh sách kho…" : warehouses.error ? `Không tải được danh sách kho: ${warehouses.error.message}` : "Chưa có kho nào khả dụng."}</p>
         )}
       </Card>
 
       {/* Product & Variant Selector */}
-      <Card className="card-pad" style={{ marginBottom: 20 }}>
+      <Card className="card-pad seller-inventory-selector" style={{ marginBottom: 20 }}>
         <SectionHeading title="Chọn Sản phẩm & Biến thể SKU" />
         <div className="form-grid">
           <label className="field-wrap">
@@ -1264,7 +1367,7 @@ export function SellerInventoryScreen() {
               }}
             >
               <option value="">Chọn sản phẩm</option>
-              {products.data?.items.map((item) => (
+              {products.data?.map((item) => (
                 <option key={item.productId} value={item.productId}>
                   {item.name} ({item.status})
                 </option>
@@ -1282,7 +1385,7 @@ export function SellerInventoryScreen() {
               disabled={!detail.data}
             >
               <option value="">Chọn biến thể SKU</option>
-              {detail.data?.variants.map((variant) => (
+              {visibleVariants.map((variant) => (
                 <option key={variant.variantId} value={variant.variantId}>
                   {variant.skuCode} · {variant.name} ({formatMoney(variant.price)})
                 </option>
@@ -1291,14 +1394,19 @@ export function SellerInventoryScreen() {
           </label>
         </div>
 
+        {products.loading && <p className="status-note">Đang tìm sản phẩm của bạn trong kho đã chọn…</p>}
+        {products.error && <p className="notice" role="alert">Không tải được sản phẩm trong kho: {products.error.message}</p>}
+        {products.data?.length === 0 && <p className="status-note">Bạn chưa có sản phẩm nào trong kho này.</p>}
+
         {/* Batch overview of all variants in the selected product */}
-        {detail.data && detail.data.variants.length > 0 && (
+        {detail.data && visibleVariants.length > 0 && (
           <div className="table-scroll" style={{ marginTop: 18 }}>
             <table className="data-table">
               <thead>
                 <tr>
                   <th>Mã SKU</th>
                   <th>Tên biến thể</th>
+                    <th>Kho</th>
                   <th>Giá bán</th>
                   <th>Tổng tồn (Total)</th>
                   <th>Khả dụng (Available)</th>
@@ -1307,18 +1415,19 @@ export function SellerInventoryScreen() {
                 </tr>
               </thead>
               <tbody>
-                {detail.data.variants.map((v) => {
-                  const inv = balanceMap.get(v.variantId);
+                {visibleVariants.flatMap((v) => {
+                  const inventories = (balanceMap.get(v.variantId) ?? []).filter((balance) => balance.warehouseId === activeWarehouseId);
                   const isSelected = v.variantId === activeSkuId;
-                  return (
+                  return (inventories.length ? inventories : [null]).map((inv) => (
                     <tr
-                      key={v.variantId}
+                      key={`${v.variantId}:${inv?.warehouseId ?? "empty"}`}
                       style={isSelected ? { background: "#f0f9ff" } : undefined}
                     >
                       <td>
                         <strong>{v.skuCode}</strong>
                       </td>
                       <td>{v.name}</td>
+                      <td>{inv ? warehouseName(inv.warehouseId) : "Chưa có kho"}</td>
                       <td>{formatMoney(v.price)}</td>
                       <td>
                         <strong>{inv ? inv.totalQuantity : "—"}</strong>
@@ -1333,13 +1442,14 @@ export function SellerInventoryScreen() {
                         <button
                           type="button"
                           className={`button button-small ${isSelected ? "button-primary" : "button-secondary"}`}
-                          onClick={() => setSkuId(v.variantId)}
+                          disabled={batchBalances.loading}
+                          onClick={() => openProductDetails(v)}
                         >
-                          {isSelected ? "Đang chọn" : "Chọn xử lý"}
+                          Chi tiết
                         </button>
                       </td>
                     </tr>
-                  );
+                  ));
                 })}
               </tbody>
             </table>
@@ -1347,56 +1457,127 @@ export function SellerInventoryScreen() {
         )}
       </Card>
 
-      {/* Selected SKU Balance */}
-      <div className="grid-2" style={{ marginBottom: 20 }}>
-        <Card className="card-pad">
-          <SectionHeading
-            title={
-              selectedVariant
-                ? `Số dư tồn kho: ${selectedVariant.skuCode}`
-                : "Số dư tồn kho chi tiết (FUL-03)"
-            }
-          />
-          {balance.error && (
-            <p className="notice" role="alert">
-              Không đọc được tồn kho: {balance.error.message}
-            </p>
-          )}
-          {balance.data ? (
-            <>
-              <div className="seller-kpi-grid">
-                <div className="seller-kpi-box">
-                  <span>Tổng tồn vật lý</span>
-                  <strong>{balance.data.totalQuantity}</strong>
-                </div>
-                <div className="seller-kpi-box is-emerald">
-                  <span>Có thể bán ngay</span>
-                  <strong>{balance.data.availableQuantity}</strong>
-                </div>
-                <div className="seller-kpi-box is-amber">
-                  <span>Đang giữ cho đơn chờ</span>
-                  <strong>{balance.data.reservedQuantity}</strong>
-                </div>
+      {detailsOpen && detail.data && (
+        <div
+          className="seller-inventory-modal-backdrop"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setDetailsOpen(false);
+          }}
+        >
+          <section
+            className="seller-inventory-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="seller-inventory-modal-title"
+          >
+            <header className="seller-inventory-modal-header">
+              <div>
+                <h2 id="seller-inventory-modal-title">Chi tiết sản phẩm & tồn kho</h2>
+                <p>{detail.data.name}</p>
               </div>
-              <p className="status-note">
-                Khi người mua đặt hàng, hệ thống giữ kho tạm (tăng Đang giữ, giảm Có thể bán). Khi bạn bấm Chấp nhận
-                đơn, hệ thống sẽ trừ chính thức vào Tổng tồn vật lý.
-              </p>
-            </>
-          ) : (
-            <NoData
-              title={
-                skuId
-                  ? balance.loading
-                    ? "Đang tải tồn kho…"
-                    : "SKU chưa có bản ghi tồn kho"
-                  : "Chọn một biến thể SKU để xem tồn kho"
-              }
-            />
-          )}
-        </Card>
+              <button
+                type="button"
+                className="seller-inventory-modal-close"
+                aria-label="Đóng chi tiết"
+                onClick={() => setDetailsOpen(false)}
+              >
+                ×
+              </button>
+            </header>
 
-      </div>
+            <p className="seller-inventory-modal-help">
+              Bạn có thể sửa tên và giá bán. Tồn kho được hiển thị riêng theo từng kho; điều chỉnh tồn cần API chỉ rõ kho.
+            </p>
+
+            {detailsError && <p className="notice" role="alert">{detailsError}</p>}
+            {detailsMessage && <p className="form-success" role="status">{detailsMessage}</p>}
+
+            <div className="table-scroll seller-inventory-modal-table-scroll">
+              <table className="data-table seller-inventory-modal-table">
+                <thead>
+                  <tr>
+                    <th>Tên biến thể</th>
+                  <th>Kho</th>
+                    <th>Giá bán</th>
+                    <th>Tổng tồn (Total)</th>
+                    <th>Khả dụng (Available)</th>
+                    <th>Đang giữ (Reserved)</th>
+                    <th>Thao tác</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {visibleVariants.filter((variant) => variant.variantId === activeSkuId).map((variant) => {
+                    const draft = variantDrafts[variant.variantId];
+                    const inventories = (balanceMap.get(variant.variantId) ?? []).filter((balance) => balance.warehouseId === activeWarehouseId);
+                    const isSelected = variant.variantId === activeSkuId;
+                    const hasChanges = Boolean(draft && (
+                      draft.name.trim() !== variant.name ||
+                      Number(draft.price) !== Number(variant.price)
+                    ));
+                    return (
+                      <tr key={variant.variantId} className={isSelected ? "is-selected" : undefined}>
+                        <td>
+                          <label className="seller-inventory-modal-name">
+                            <span>{variant.skuCode}</span>
+                            <input
+                              className="field"
+                              value={draft?.name ?? variant.name}
+                              aria-label={`Tên biến thể ${variant.skuCode}`}
+                              onChange={(event) => setVariantDrafts((current) => ({
+                                ...current,
+                                [variant.variantId]: { ...current[variant.variantId], name: event.target.value },
+                              }))}
+                            />
+                          </label>
+                        </td>
+                        <td>{inventories.length ? inventories.map((item) => <div key={item.warehouseId}>{warehouseName(item.warehouseId)}</div>) : "Chưa có kho"}</td>
+                        <td>
+                          <input
+                            className="field seller-inventory-modal-number"
+                            type="number"
+                            min="1"
+                            step="1"
+                            value={draft?.price ?? String(variant.price ?? "")}
+                            aria-label={`Giá bán ${variant.skuCode}`}
+                            onChange={(event) => setVariantDrafts((current) => ({
+                              ...current,
+                              [variant.variantId]: { ...current[variant.variantId], price: event.target.value },
+                            }))}
+                          />
+                        </td>
+                        <td className="seller-inventory-modal-readonly">{inventories.length ? inventories.map((item) => <div key={item.warehouseId}>{item.totalQuantity.toLocaleString("vi-VN")}</div>) : "—"}</td>
+                        <td className="seller-inventory-modal-readonly">
+                          {inventories.length ? inventories.map((item) => <div key={item.warehouseId}>{item.availableQuantity.toLocaleString("vi-VN")}</div>) : "—"}
+                        </td>
+                        <td className="seller-inventory-modal-readonly">
+                          {inventories.length ? inventories.map((item) => <div key={item.warehouseId}>{item.reservedQuantity.toLocaleString("vi-VN")}</div>) : "—"}
+                        </td>
+                        <td>
+                          <button
+                            type="button"
+                            className="button button-primary button-small"
+                            disabled={savingVariantId === variant.variantId || !hasChanges}
+                            onClick={() => void saveVariantDetails(variant)}
+                          >
+                            {savingVariantId === variant.variantId ? "Đang lưu…" : "Lưu"}
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            <footer className="seller-inventory-modal-footer">
+              <button type="button" className="button button-secondary" onClick={() => setDetailsOpen(false)}>
+                Đóng
+              </button>
+            </footer>
+          </section>
+        </div>
+      )}
     </>
   );
 }
@@ -1482,6 +1663,12 @@ type SellerSubOrder = {
   items: SellerSubOrderItem[];
 };
 
+type SellerSubOrderSummary = Pick<
+  SellerSubOrder,
+  "subOrderId" | "subOrderNo" | "orderId" | "buyerId" | "sellerId" | "status" | "paymentMethod" |
+  "itemsAmount" | "shippingFeeAmount" | "totalAmount" | "createdAt"
+> & { itemCount: number };
+
 type SellerPaged<T> = {
   items: T[];
   pagination: { pageIndex: number; pageSize: number; totalCount: number; totalPages: number; hasNextPage: boolean };
@@ -1507,19 +1694,28 @@ function describeSellerOrderStatus(status: string): string {
   );
 }
 
+function sellerOrderStatusTone(status: string): "sky" | "amber" | "green" | "red" {
+  const key = status.replace(/[^a-z]/gi, "").toUpperCase();
+  if (key === "CONFIRMED" || key === "SELLERACCEPTED") return "amber";
+  if (key === "COMPLETED") return "green";
+  if (key === "CANCELLED" || key === "SELLERREJECTED") return "red";
+  return "sky";
+}
+
 export function SellerOrdersScreen() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+  const [statusFilter, setStatusFilter] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
   const [feedback, setFeedback] = useState("");
   const [actionError, setActionError] = useState("");
   const resource = useApiResource(
-    `seller-sub-orders:${page}:${pageSize}`,
+    `seller-sub-orders:${page}:${pageSize}:${statusFilter}`,
     (signal) =>
-      sellerOrdersService.list<SellerPaged<SellerSubOrder>>(page, signal, pageSize),
+      sellerOrdersService.list<SellerPaged<SellerSubOrderSummary>>(page, signal, pageSize, statusFilter || undefined),
   );
 
-  async function acceptOrder(sub: SellerSubOrder) {
+  async function acceptOrder(sub: SellerSubOrderSummary) {
     setBusyId(sub.subOrderId);
     setFeedback("");
     setActionError("");
@@ -1553,15 +1749,30 @@ export function SellerOrdersScreen() {
           {feedback}
         </p>
       )}
-      <Card className="card-pad">
+      <div className="seller-orders-filter">
+        <label className="field-wrap">
+          Trạng thái đơn
+          <select className="select-field" value={statusFilter} onChange={(event) => { setPage(1); setStatusFilter(event.target.value); }}>
+            <option value="">Tất cả trạng thái</option>
+            <option value="Paid">Chờ xác nhận</option>
+            <option value="Confirmed">Đã xác nhận</option>
+            <option value="Shipped">Đang giao hàng</option>
+            <option value="Delivered">Đã giao</option>
+            <option value="Completed">Hoàn tất</option>
+            <option value="Cancelled">Đã hủy</option>
+            <option value="Refunded">Đã hoàn tiền</option>
+          </select>
+        </label>
+      </div>
+      <Card className="card-pad seller-orders-card">
         {resource.data?.items.length ? (
-          <div className="table-scroll">
+          <div className="table-scroll seller-orders-table-scroll">
             <table className="data-table">
               <thead>
                 <tr>
                   <th>Mã đơn gian hàng</th>
-                  <th>Người nhận</th>
-                  <th>Sản phẩm</th>
+                  <th>Mã người mua</th>
+                  <th>Mặt hàng</th>
                   <th>Tổng tiền</th>
                   <th>Trạng thái</th>
                   <th>Thao tác</th>
@@ -1569,7 +1780,8 @@ export function SellerOrdersScreen() {
               </thead>
               <tbody>
                 {resource.data.items.map((sub) => {
-                  const canAccept = ["PAID", "PENDINGCONFIRMATION"].includes(sub.status.replace(/[^a-z]/gi, "").toUpperCase());
+                  const normalizedStatus = sub.status.replace(/[^a-z]/gi, "").toUpperCase();
+                  const canAccept = ["PAID", "PENDINGCONFIRMATION"].includes(normalizedStatus);
                   return (
                     <tr key={sub.subOrderId}>
                       <td>
@@ -1581,10 +1793,9 @@ export function SellerOrdersScreen() {
                         </div>
                       </td>
                       <td>
-                        <strong>{sub.shippingAddress?.receiverName}</strong>
-                        <div style={{ fontSize: 12, color: "var(--muted)" }}>{sub.contactPhone}</div>
+                        <strong>{sub.buyerId}</strong>
                       </td>
-                      <td>{sub.items.map((i) => `${i.productName} (x${i.quantity})`).join(", ")}</td>
+                      <td>{sub.itemCount} mặt hàng</td>
                       <td>
                         <strong>{formatMoney(sub.totalAmount)}</strong>
                         <div style={{ fontSize: 11, color: "var(--muted)" }}>
@@ -1592,10 +1803,12 @@ export function SellerOrdersScreen() {
                         </div>
                       </td>
                       <td>
-                        <Badge>{describeSellerOrderStatus(sub.status)}</Badge>
+                        <Badge tone={sellerOrderStatusTone(sub.status)}>
+                          {describeSellerOrderStatus(sub.status)}
+                        </Badge>
                       </td>
                       <td>
-                        <div className="action-row" style={{ margin: 0 }}>
+                        <div className="action-row seller-orders-actions">
                           {canAccept && (
                             <button
                               type="button"
@@ -1624,14 +1837,14 @@ export function SellerOrdersScreen() {
                 ? "Đang tải danh sách đơn bán…"
                 : resource.error
                   ? "Không tải được danh sách đơn bán"
-                  : "Chưa có đơn hàng nào được chuyển đến shop"
+                  : statusFilter ? "Không có đơn ở trạng thái đã chọn" : "Chưa có đơn hàng nào được chuyển đến shop"
             }
           />
         )}
         {resource.data && (
-          <div className="action-row">
-            <label>
-              Hiển thị{" "}
+          <div className="seller-products-pagination seller-orders-pagination">
+            <label className="seller-products-page-size">
+              <span>Hiển thị</span>
               <select
                 className="field"
                 aria-label="Số đơn mỗi trang"
@@ -1740,7 +1953,7 @@ export function SellerOrderDetailScreen() {
           {feedback}
         </p>
       )}
-      <Card className="card-pad">
+      <Card className="card-pad seller-order-detail-card">
         {sub ? (
           <>
             <div
@@ -1754,8 +1967,11 @@ export function SellerOrderDetailScreen() {
               }}
             >
               <h2 style={{ margin: 0 }}>Đơn hàng {sub.subOrderNo}</h2>
-              <Badge>{describeSellerOrderStatus(sub.status)}</Badge>
+              <Badge tone={sellerOrderStatusTone(sub.status)}>{describeSellerOrderStatus(sub.status)}</Badge>
             </div>
+            <div className="seller-order-detail-columns">
+              <div className="seller-order-detail-main">
+            <div className="seller-order-detail-facts">
             <div className="info-row">
               <span>Phương thức thanh toán</span>
               <strong>Ví Nexus ({sub.paymentMethod})</strong>
@@ -1773,7 +1989,8 @@ export function SellerOrderDetailScreen() {
                   `${sub.shippingAddress?.street}, ${sub.shippingAddress?.ward}, ${sub.shippingAddress?.province}`}
               </strong>
             </div>
-            <div className="table-scroll" style={{ marginTop: 14 }}>
+            </div>
+            <div className="table-scroll seller-order-detail-items">
               <table className="data-table">
                 <thead>
                   <tr>
@@ -1799,7 +2016,10 @@ export function SellerOrderDetailScreen() {
                 </tbody>
               </table>
             </div>
-            <div className="info-row" style={{ marginTop: 12 }}>
+              </div>
+              <aside className="seller-order-detail-side">
+            <h3>Tổng kết đơn hàng</h3>
+            <div className="info-row">
               <span>Tiền hàng</span>
               <strong>{formatMoney(sub.itemsAmount)}</strong>
             </div>
@@ -1835,6 +2055,8 @@ export function SellerOrderDetailScreen() {
               <ButtonLink href={ROUTES.seller.orders} variant="secondary">
                 Quay lại đơn hàng
               </ButtonLink>
+            </div>
+              </aside>
             </div>
           </>
         ) : (

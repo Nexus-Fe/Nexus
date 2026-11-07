@@ -15,24 +15,13 @@ import {
   type SellerProductDetail,
 } from "./services/catalog.service";
 import { MAX_INVENTORY_QUANTITY, parseInitialInventoryQuantity } from "./services/inventory-quantity";
+import type { ProductSpecification } from "@/features/catalog/types/product-specification";
 
 const maxImageBytes = 5 * 1024 * 1024;
 const imageTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
 
-function parseSpecificationsToRows(specText?: string | null): Array<{ key: string; value: string }> {
-  if (!specText) return [];
-  try {
-    const parsed = JSON.parse(specText) as unknown;
-    if (typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)) {
-      return Object.entries(parsed as Record<string, unknown>).map(([k, v]) => ({
-        key: k,
-        value: String(v ?? ""),
-      }));
-    }
-  } catch {
-    // Plain text fallback
-  }
-  return [];
+function parseSpecificationsToRows(specifications?: ProductSpecification[] | null): Array<{ key: string; value: string }> {
+  return specifications?.map(({ name, value }) => ({ key: name, value })) ?? [];
 }
 
 function ProductDetailsForm({ product, onSaved }: { product: SellerProductDetail; onSaved: () => void }) {
@@ -50,18 +39,15 @@ function ProductDetailsForm({ product, onSaved }: { product: SellerProductDetail
     setBusy(true);
     setError("");
     try {
-      const specObj: Record<string, string> = {};
-      for (const r of specRows) {
-        if (r.key.trim() && r.value.trim()) {
-          specObj[r.key.trim()] = r.value.trim();
-        }
-      }
+      const specifications = specRows
+        .map((row) => ({ name: row.key.trim(), value: row.value.trim() }))
+        .filter((row) => row.name && row.value);
       await sellerCatalogService.update(product.productId, {
         name: name.trim(),
         description: description.trim(),
         brand: brand.trim(),
         categoryId: product.categoryId,
-        specifications: Object.keys(specObj).length > 0 ? specObj : null,
+        specifications,
       });
       onSaved();
     } catch (cause) {
@@ -84,9 +70,9 @@ function ProductDetailsForm({ product, onSaved }: { product: SellerProductDetail
             Thương hiệu
             <input className="field" value={brand} onChange={(event) => setBrand(event.target.value)} />
           </label>
-          <div className="field-wrap">
+          <div className="field-wrap seller-product-category-field">
             <span>Danh mục ngành hàng</span>
-            <strong style={{ paddingTop: 10 }}>{product.categoryName ?? product.categoryId}</strong>
+            <strong className="seller-product-static-value">{product.categoryName ?? product.categoryId}</strong>
           </div>
         </div>
         <label className="field-wrap">
@@ -197,12 +183,21 @@ export function SellerProductDetailScreen() {
   // Upload image state
   const [file, setFile] = useState<File | null>(null);
   const [altText, setAltText] = useState("");
+  const [imageVariantId, setImageVariantId] = useState("");
+  const [fileInputKey, setFileInputKey] = useState(0);
 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
 
   const data = product.data;
+  const generalImageCount = data?.images.filter((image) => !image.variantId).length ?? 0;
+  const availableImageVariants = data?.variants.filter((variant) =>
+    data.images.filter((image) => image.variantId === variant.variantId).length < 3,
+  ) ?? [];
+  const uploadVariantId = availableImageVariants.some((variant) => variant.variantId === imageVariantId)
+    ? imageVariantId
+    : generalImageCount < 5 ? "" : availableImageVariants[0]?.variantId ?? "";
   const activeVariants =
     data?.variants.filter((variant) => variant.status.toUpperCase() === "ACTIVE" && Number(variant.price) > 0) ?? [];
   const defaultVariant = activeVariants.find((variant) => variant.isActive) ?? activeVariants[0];
@@ -315,10 +310,12 @@ export function SellerProductDetailScreen() {
     setError("");
     setNotice("");
     try {
-      await sellerCatalogService.uploadImage(id, file, altText);
+      await sellerCatalogService.uploadImage(id, file, altText, 0, uploadVariantId || undefined);
       setFile(null);
+      setFileInputKey((value) => value + 1);
       setAltText("");
-      setNotice("Đã tải ảnh sản phẩm lên thành công.");
+      setImageVariantId("");
+      setNotice(uploadVariantId ? "Đã tải ảnh biến thể lên thành công." : "Đã tải ảnh sản phẩm lên thành công.");
       product.reload();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Không tải được ảnh.");
@@ -488,15 +485,15 @@ export function SellerProductDetailScreen() {
 
           <Card className="card-pad">
             <SectionHeading title={`Biến thể SKU & Tồn kho (${data.variants.length}/10)`} />
-            <div className="table-scroll">
-              <table className="data-table">
+            <div className="table-scroll seller-product-table-scroll">
+              <table className="data-table seller-product-variant-table">
                 <thead>
                   <tr>
                     <th>Mã SKU</th>
                     <th>Tên biến thể</th>
                     <th>Thuộc tính</th>
                     <th>Giá bán</th>
-                    <th>Tồn kho (Tổng / Khả dụng / Giữ)</th>
+                    <th>Tồn kho</th>
                     <th>Mặc định</th>
                     <th>Thao tác</th>
                   </tr>
@@ -507,10 +504,10 @@ export function SellerProductDetailScreen() {
                     const isEditing = editingVariantId === variant.variantId;
                     return (
                       <tr key={variant.variantId}>
-                        <td>
+                        <td className="seller-product-sku-cell">
                           <strong>{variant.skuCode}</strong>
                         </td>
-                        <td>
+                        <td className="seller-product-name-cell">
                           {isEditing ? (
                             <input
                               className="field"
@@ -522,17 +519,16 @@ export function SellerProductDetailScreen() {
                             variant.name
                           )}
                         </td>
-                        <td>
+                        <td className="seller-product-attributes-cell">
                           {variant.attributes.map((attribute) => `${attribute.attrName}: ${attribute.attrValue}`).join(", ") ||
                             "—"}
                         </td>
-                        <td>
+                        <td className="seller-product-price-cell">
                           {isEditing ? (
                             <input
-                              className="field"
+                              className="field seller-product-number-input"
                               type="number"
                               min="1"
-                              style={{ width: 130 }}
                               value={editVariantPrice}
                               onChange={(e) => setEditVariantPrice(e.target.value)}
                             />
@@ -540,12 +536,12 @@ export function SellerProductDetailScreen() {
                             <strong>{formatMoney(variant.price)}</strong>
                           )}
                         </td>
-                        <td>
+                        <td className="seller-product-stock-cell">
                           {inv ? (
-                            <div style={{ fontSize: 12, fontVariantNumeric: "tabular-nums" }}>
-                              <strong>{inv.totalQuantity}</strong> tổng ·{" "}
-                              <span style={{ color: "#059669", fontWeight: 700 }}>{inv.availableQuantity} khả dụng</span>{" "}
-                              · <span style={{ color: "#b45309" }}>{inv.reservedQuantity} giữ</span>
+                            <div className="seller-product-stock-values">
+                              <span><strong>{inv.totalQuantity}</strong><small>Tổng</small></span>
+                              <span><strong>{inv.availableQuantity}</strong><small>Khả dụng</small></span>
+                              <span><strong>{inv.reservedQuantity}</strong><small>Đang giữ</small></span>
                             </div>
                           ) : (
                             <span style={{ color: "var(--muted)", fontSize: 12 }}>Đang đồng bộ…</span>
@@ -566,7 +562,7 @@ export function SellerProductDetailScreen() {
                           )}
                         </td>
                         <td>
-                          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                          <div className="seller-product-row-actions">
                             {isEditing ? (
                               <>
                                 <button
@@ -694,13 +690,18 @@ export function SellerProductDetailScreen() {
           </Card>
 
           <Card className="card-pad">
-            <SectionHeading title={`Ảnh sản phẩm (${data.images.length}/5)`} />
+            <SectionHeading title={`Ảnh sản phẩm (${generalImageCount}/5)`} />
             <div className="seller-product-images">
               {data.images.map((image) => (
-                <div className="seller-product-image" key={image.id}>
+                <div
+                  className={`seller-product-image${image.isActive && !image.variantId ? " is-primary" : ""}${image.variantId ? " is-variant" : ""}`}
+                  key={image.id}
+                >
                   <BackendImage src={resolveImageUrl(image.url)} alt={image.altText || data.name} compact />
-                  <span>{image.isActive ? "★ Ảnh đại diện chính" : image.altText || "Ảnh sản phẩm"}</span>
-                  {!image.isActive && (
+                  <span>{image.variantId
+                    ? `Biến thể: ${data.variants.find((variant) => variant.variantId === image.variantId)?.name ?? image.variantId}`
+                    : image.isActive ? "★ Ảnh đại diện chính" : image.altText || "Ảnh sản phẩm"}</span>
+                  {!image.variantId && !image.isActive && (
                     <button
                       type="button"
                       className="button button-secondary button-small"
@@ -721,11 +722,21 @@ export function SellerProductDetailScreen() {
                 </div>
               ))}
             </div>
-            {data.images.length < 5 && (
+            {data.images.length < 15 && (generalImageCount < 5 || availableImageVariants.length > 0) && (
               <form className="auth-fields seller-product-form" onSubmit={(event) => void upload(event)}>
+                <label className="field-wrap">
+                  Ảnh cho
+                  <select className="select-field" value={uploadVariantId} onChange={(event) => { setImageVariantId(event.target.value); setFile(null); setFileInputKey((value) => value + 1); }}>
+                    {generalImageCount < 5 && <option value="">Sản phẩm chung</option>}
+                    {availableImageVariants.map((variant) => (
+                      <option key={variant.variantId} value={variant.variantId}>{variant.name} ({variant.skuCode})</option>
+                    ))}
+                  </select>
+                </label>
                 <label className="field-wrap">
                   Tải thêm ảnh JPG, PNG hoặc WEBP (tối đa 5 MB)
                   <input
+                    key={fileInputKey}
                     className="field"
                     type="file"
                     accept="image/jpeg,image/png,image/webp"
@@ -739,7 +750,7 @@ export function SellerProductDetailScreen() {
                 </label>
                 <div>
                   <button className="button button-primary" disabled={busy || !file}>
-                    Tải ảnh lên
+                    {uploadVariantId ? "Tải ảnh biến thể" : "Tải ảnh sản phẩm"}
                   </button>
                 </div>
               </form>
@@ -751,16 +762,16 @@ export function SellerProductDetailScreen() {
 
           <Card className="card-pad">
             <SectionHeading title="Trạng thái Mở bán & Liên thông Kho" />
-            <p>
+            <p className="seller-product-status-copy">
               Sản phẩm đủ điều kiện mở bán khi có ít nhất 1 biến thể đang hoạt động (giá &gt; 0 ₫) và 1 ảnh đại diện.
             </p>
             {defaultVariant && (
-              <p>
+              <p className="seller-product-status-copy">
                 SKU mặc định: <strong>{defaultVariant.skuCode}</strong> · Tồn khả dụng:{" "}
                 <strong>{defaultStock ? `${defaultStock.availableQuantity} sản phẩm` : "Đã khai báo kho"}</strong>
               </p>
             )}
-            <div className="action-row">
+            <div className="seller-product-status-actions">
               <button
                 className="button button-secondary"
                 type="button"
