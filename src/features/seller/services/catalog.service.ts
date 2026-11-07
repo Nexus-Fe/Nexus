@@ -146,33 +146,49 @@ export const sellerCatalogService = {
 
   async listProductsInWarehouse(warehouseId: string, signal?: AbortSignal): Promise<SellerProduct[]> {
     const products: SellerProduct[] = [];
-    for (let page = 1; ; page += 1) {
-      const result = await this.list(page, "", signal, 100);
-      products.push(...result.items);
-      if (!result.pagination.hasNextPage) break;
+    try {
+      for (let page = 1; ; page += 1) {
+        const result = await this.list(page, "", signal, 100);
+        products.push(...(result?.items ?? []));
+        if (!result?.pagination?.hasNextPage) break;
+      }
+    } catch {
+      return [];
     }
+
+    if (products.length === 0) return [];
 
     const details: SellerProductDetail[] = [];
     for (let index = 0; index < products.length; index += 5) {
-      details.push(...await Promise.all(products.slice(index, index + 5).map((product) =>
-        this.detail(product.productId, signal),
-      )));
+      const chunk = await Promise.allSettled(
+        products.slice(index, index + 5).map((product) => this.detail(product.productId, signal)),
+      );
+      for (const res of chunk) {
+        if (res.status === "fulfilled" && res.value) {
+          details.push(res.value);
+        }
+      }
     }
-    const variants = details.flatMap((detail) => detail.variants.map((variant) => ({
+    const variants = details.flatMap((detail) => (detail.variants ?? []).map((variant) => ({
       productId: detail.productId,
       skuId: variant.variantId,
     })));
+    if (variants.length === 0) return [];
+
     const stockedSkuIds = new Set<string>();
     for (let index = 0; index < variants.length; index += 100) {
-      const balances = await this.inventoryBatch(variants.slice(index, index + 100).map((variant) => variant.skuId), signal);
-      for (const balance of balances) {
-        if (balance.warehouseId === warehouseId) stockedSkuIds.add(balance.skuId);
+      try {
+        const balances = await this.inventoryBatch(variants.slice(index, index + 100).map((variant) => variant.skuId), signal);
+        for (const balance of balances) {
+          if (balance.warehouseId === warehouseId) stockedSkuIds.add(balance.skuId);
+        }
+      } catch {
+        // ignore single batch balance failure
       }
     }
     const stockedProductIds = new Set(variants.filter((variant) => stockedSkuIds.has(variant.skuId)).map((variant) => variant.productId));
     return products.filter((product) => stockedProductIds.has(product.productId));
   },
-
   async detail(id: string, signal?: AbortSignal) {
     return unwrap(
       await api.get<ApiResponse<SellerProductDetail> | SellerProductDetail>(
@@ -355,24 +371,28 @@ export const sellerCatalogService = {
       }
     }
 
-    let page = 1;
-    while (true) {
-      const activePaged = unwrap(
-        await api.get<ApiResponse<Paged<WarehouseInfo>> | Paged<WarehouseInfo>>(
-          `/api/v1/warehouses?page=${page}&pageSize=50`,
-          { signal },
-        ),
-      );
-      for (const item of activePaged.items) {
-        if (item?.id && (isPlatformWarehouse(item) || isSellerWarehouse(item, sellerId)) && !seen.has(item.id)) {
-          seen.add(item.id);
-          result.push({ ...item, type: isPlatformWarehouse(item) ? "PlatformWarehouse" : "SellerWarehouse" });
+    try {
+      let page = 1;
+      while (true) {
+        const activePaged = unwrap(
+          await api.get<ApiResponse<Paged<WarehouseInfo> | WarehouseInfo[]> | Paged<WarehouseInfo> | WarehouseInfo[]>(
+            `/api/v1/warehouses?page=${page}&pageSize=50`,
+            { signal },
+          ),
+        );
+        const list = Array.isArray(activePaged) ? activePaged : activePaged?.items ?? [];
+        for (const item of list) {
+          if (item?.id && (isPlatformWarehouse(item) || isSellerWarehouse(item, sellerId)) && !seen.has(item.id)) {
+            seen.add(item.id);
+            result.push({ ...item, type: isPlatformWarehouse(item) ? "PlatformWarehouse" : "SellerWarehouse" });
+          }
         }
+        if (Array.isArray(activePaged) || !activePaged?.pagination?.hasNextPage) break;
+        page += 1;
       }
-      if (!activePaged.pagination.hasNextPage) break;
-      page += 1;
+    } catch {
+      // Platform warehouse list fallback
     }
-
     return result;
   },
 
