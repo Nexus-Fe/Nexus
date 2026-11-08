@@ -48,7 +48,7 @@ export function SellerWalletScreen() {
             <NoData title="Đang tải số dư…" />
           ) : balance.data ? (
             <>
-              <strong style={{ fontSize: 24, color: "var(--sky-dark)" }}>
+              <strong className="seller-wallet-balance-amount" style={{ color: "var(--sky-dark)" }}>
                 {formatMoney(balance.data.availableBalance ?? balance.data.balance)}
               </strong>
               <p className="status-note">
@@ -65,7 +65,7 @@ export function SellerWalletScreen() {
             <NoData title="Đang tải…" />
           ) : balance.data ? (
             <>
-              <strong style={{ fontSize: 20 }}>{formatMoney(balance.data.lockedBalance ?? 0)}</strong>
+              <strong className="seller-wallet-balance-amount">{formatMoney(balance.data.lockedBalance ?? 0)}</strong>
               <p className="status-note">Số tiền đang được ví tạm giữ.</p>
             </>
           ) : (
@@ -93,7 +93,7 @@ export function SellerWalletScreen() {
           <NoData title="Đang tải lịch sử doanh thu…" />
         ) : transactions.data?.length ? (
           <div className="table-scroll">
-            <table className="data-table">
+            <table className="data-table seller-wallet-table">
               <thead>
                 <tr>
                   <th>Thời gian</th>

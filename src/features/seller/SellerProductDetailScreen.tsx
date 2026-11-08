@@ -440,6 +440,7 @@ export function SellerProductDetailScreen() {
                 <p style={{ margin: 0, fontSize: 12, color: "var(--muted)" }}>Mã sản phẩm: {data.productId}</p>
               </div>
               <div className="action-row" style={{ margin: 0 }}>
+                <Link className="button button-secondary" href={ROUTES.seller.editProduct(data.productId)}>Chỉnh sửa sản phẩm</Link>
                 <Link className="button button-secondary" href={ROUTES.seller.inventory}>
                   Quản lý kho
                 </Link>

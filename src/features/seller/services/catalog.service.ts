@@ -1,6 +1,22 @@
 import { api, unwrap, type ApiResponse } from "@/lib/api/client";
 import type { ProductSpecification } from "@/features/catalog/types/product-specification";
 
+function normalizeSpecifications(value: unknown): ProductSpecification[] {
+  let parsed = value;
+  if (typeof parsed === "string") {
+    try { parsed = JSON.parse(parsed); } catch { return []; }
+  }
+  if (Array.isArray(parsed)) {
+    return parsed.filter((item): item is ProductSpecification =>
+      typeof item === "object" && item !== null && typeof item.name === "string" && typeof item.value === "string");
+  }
+  if (parsed && typeof parsed === "object") {
+    return Object.entries(parsed).filter(([, item]) => typeof item === "string")
+      .map(([name, item]) => ({ name, value: String(item) }));
+  }
+  return [];
+}
+
 export type Pagination = {
   pageIndex: number;
   pageSize: number;
@@ -189,13 +205,14 @@ export const sellerCatalogService = {
     const stockedProductIds = new Set(variants.filter((variant) => stockedSkuIds.has(variant.skuId)).map((variant) => variant.productId));
     return products.filter((product) => stockedProductIds.has(product.productId));
   },
-  async detail(id: string, signal?: AbortSignal) {
-    return unwrap(
+  async detail(id: string, signal?: AbortSignal): Promise<SellerProductDetail> {
+    const product = unwrap(
       await api.get<ApiResponse<SellerProductDetail> | SellerProductDetail>(
         `/api/v1/seller/products/${encodeURIComponent(id)}`,
         { signal },
       ),
     );
+    return { ...product, specifications: normalizeSpecifications(product.specifications) };
   },
 
   async create(input: {
@@ -348,52 +365,21 @@ export const sellerCatalogService = {
   },
 
   async listWarehouses(sellerId?: string, signal?: AbortSignal): Promise<WarehouseInfo[]> {
-    const result: WarehouseInfo[] = [];
-    const seen = new Set<string>();
-
-    if (sellerId) {
-      try {
-        const sellerWh = unwrap(
-          await api.get<ApiResponse<WarehouseInfo | WarehouseInfo[]> | WarehouseInfo | WarehouseInfo[]>(
-            `/api/v1/warehouses/seller/${encodeURIComponent(sellerId)}`,
-            { signal },
-          ),
-        );
-        const list = Array.isArray(sellerWh) ? sellerWh : sellerWh ? [sellerWh] : [];
-        for (const item of list) {
-          if (item?.id && !seen.has(item.id)) {
-            seen.add(item.id);
-            result.push({ ...item, type: "SellerWarehouse" });
-          }
-        }
-      } catch {
-        // Seller may not have a dedicated warehouse yet; fallback to active platform warehouses
-      }
-    }
-
+    if (!sellerId) return [];
     try {
-      let page = 1;
-      while (true) {
-        const activePaged = unwrap(
-          await api.get<ApiResponse<Paged<WarehouseInfo> | WarehouseInfo[]> | Paged<WarehouseInfo> | WarehouseInfo[]>(
-            `/api/v1/warehouses?page=${page}&pageSize=50`,
-            { signal },
-          ),
-        );
-        const list = Array.isArray(activePaged) ? activePaged : activePaged?.items ?? [];
-        for (const item of list) {
-          if (item?.id && (isPlatformWarehouse(item) || isSellerWarehouse(item, sellerId)) && !seen.has(item.id)) {
-            seen.add(item.id);
-            result.push({ ...item, type: isPlatformWarehouse(item) ? "PlatformWarehouse" : "SellerWarehouse" });
-          }
-        }
-        if (Array.isArray(activePaged) || !activePaged?.pagination?.hasNextPage) break;
-        page += 1;
-      }
-    } catch {
-      // Platform warehouse list fallback
+      const result = unwrap(
+        await api.get<ApiResponse<WarehouseInfo | WarehouseInfo[]> | WarehouseInfo | WarehouseInfo[]>(
+          `/api/v1/warehouses/seller/${encodeURIComponent(sellerId)}`,
+          { signal },
+        ),
+      );
+      const warehouses = Array.isArray(result) ? result : result ? [result] : [];
+      return warehouses.filter((warehouse) => !isPlatformWarehouse(warehouse))
+        .slice(0, 1).map((warehouse) => ({ ...warehouse, type: "SellerWarehouse" }));
+    } catch (error) {
+      if (error instanceof Error && /404|not found/i.test(error.message)) return [];
+      throw error;
     }
-    return result;
   },
 
   async createWarehouse(input: { code: string; name: string; address: string; sellerId?: string }) {

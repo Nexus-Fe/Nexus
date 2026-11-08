@@ -1916,3 +1916,32 @@ h1,h2,h3 { letter-spacing: -.025em; }
 .role-accounts-main {
   width: 100%;
 }
+
+/* Seller money columns keep values aligned and readable at narrow widths. */
+.seller-product-list-table th:nth-child(3),
+.seller-product-list-table td:nth-child(3),
+.seller-wallet-table th:nth-child(4),
+.seller-wallet-table td:nth-child(4) {
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.seller-product-list-table td:nth-child(3) strong,
+.seller-wallet-table td:nth-child(4) strong {
+  display: inline-block;
+  white-space: nowrap;
+}
+@media (max-width: 640px) {
+  .seller-product-list-table th:nth-child(3),
+  .seller-product-list-table td:nth-child(3),
+  .seller-wallet-table th:nth-child(4),
+  .seller-wallet-table td:nth-child(4) { font-size: 0.82rem; }
+}
+
+.seller-wallet-balance-amount {
+  display: block;
+  text-align: right;
+  white-space: nowrap;
+  font-size: clamp(1rem, 2vw, 1.5rem);
+  font-variant-numeric: tabular-nums;
+}
