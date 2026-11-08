@@ -17,6 +17,8 @@ import { sellerCatalogService, type InventoryBalance, type ProductVariant } from
 import { sellerOrdersService } from "./services/seller-orders.service";
 import { MAX_INVENTORY_QUANTITY, parseInitialInventoryQuantity } from "./services/inventory-quantity";
 import { describeCategoryError, leafCategoryOptions } from "./services/category-options";
+import { SellerShopAddressFields } from "./components/SellerShopAddressFields";
+import { ghnPresets } from "./ghn-presets";
 
 export { BecomeSellerScreen } from "./BecomeSellerScreen";
 
@@ -111,12 +113,12 @@ export function SellerProductsScreen() {
         )}
         {resource.data?.items.length ? (
           <div className="table-scroll">
-            <table className="data-table">
+            <table className="data-table seller-products-table">
               <thead>
                 <tr>
                   <th>Sản phẩm</th>
                   <th>Danh mục</th>
-                  <th>Giá bán</th>
+                  <th className="seller-product-price">Giá bán</th>
                   <th>Biến thể SKU</th>
                   <th>Trạng thái</th>
                   <th>Thao tác</th>
@@ -132,7 +134,7 @@ export function SellerProductsScreen() {
                       {p.brand && <div style={{ fontSize: 12, color: "var(--muted)" }}>{p.brand}</div>}
                     </td>
                     <td>{p.categoryName || "—"}</td>
-                    <td>
+                    <td className="seller-product-price">
                       <strong>{formatMoney(p.minPrice ?? null)}</strong>
                     </td>
                     <td>{p.variantCount} SKU</td>
@@ -158,45 +160,21 @@ export function SellerProductsScreen() {
             }
           />
         )}
-        {resource.data && (
-          <div className="seller-products-pagination">
-            <label className="seller-products-page-size">
-              <span>Hiển thị</span>
-              <select
-                className="field"
-                aria-label="Số sản phẩm mỗi trang"
-                value={pageSize}
-                onChange={(event) => {
-                  setPage(1);
-                  setPageSize(Number(event.target.value));
-                }}
-              >
-                {[10, 30, 50].map((size) => (
-                  <option key={size} value={size}>{size}</option>
-                ))}
-              </select>
-            </label>
-            <button
-              type="button"
-              className="button button-secondary"
-              disabled={page <= 1 || resource.loading}
-              onClick={() => setPage((value) => value - 1)}
-            >
-              Trang trước
-            </button>
-            <span>
-              Trang {page}/{resource.data.pagination.totalPages}
-            </span>
-            <button
-              type="button"
-              className="button button-secondary"
-              disabled={!resource.data.pagination.hasNextPage || resource.loading}
-              onClick={() => setPage((value) => value + 1)}
-            >
-              Trang sau
-            </button>
-          </div>
-        )}
+        {resource.data && <div className="seller-products-pagination">
+          <label className="seller-products-page-size">Hiển thị
+            <select className="select-field" value={pageSize} onChange={(event) => { setPageSize(Number(event.target.value)); setPage(1); }}>
+              <option value={10}>10</option>
+              <option value={30}>30</option>
+              <option value={50}>50</option>
+            </select>
+            sản phẩm/trang
+          </label>
+          <nav className="seller-products-page-controls" aria-label="Phân trang sản phẩm">
+            <button type="button" className="button button-secondary" disabled={page <= 1 || resource.loading} onClick={() => setPage((value) => value - 1)}>Trang trước</button>
+            <span>Trang {page}/{Math.max(1, resource.data.pagination.totalPages)}</span>
+            <button type="button" className="button button-secondary" disabled={!resource.data.pagination.hasNextPage || resource.loading} onClick={() => setPage((value) => value + 1)}>Trang sau</button>
+          </nav>
+        </div>}
       </Card>
     </>
   );
@@ -2209,6 +2187,8 @@ export function SellerShopScreen() {
       draft?.warehouseAddress.streetAddress ??
       "",
   );
+  const selectedArea = ghnPresets.find((place) => place.provinceId === resolvedProvinceId &&
+    place.districtId === resolvedDistrictId && place.wardCode === resolvedWardCode);
 
   return (
     <>
@@ -2225,11 +2205,14 @@ export function SellerShopScreen() {
       <div className="seller-shop-columns">
         <Card className="card-pad seller-shop-summary">
           <h2>Thông tin đã lưu</h2>
+          <Badge>{String(data.status ?? "Chưa xác nhận")}</Badge>
           <dl className="seller-shop-facts">
             <div><dt>Tên gian hàng</dt><dd>{resolvedShopName || "—"}</dd></div>
             <div><dt>Hotline</dt><dd>{resolvedHotline || "—"}</dd></div>
             <div><dt>Địa chỉ lấy hàng</dt><dd>{resolvedStreetAddress || "—"}</dd></div>
+            <div><dt>Khu vực lấy hàng</dt><dd>{selectedArea ? `${selectedArea.city} · ${selectedArea.district} · ${selectedArea.ward}` : resolvedProvinceId ? "Địa chỉ đã lưu" : "Chưa khai báo"}</dd></div>
           </dl>
+          <p className="status-note">Trạng thái hồ sơ UserService không chứng minh kho đã được tạo ở Fulfillment. Chỉ xác nhận đồng bộ khi backend cung cấp mã kho hoặc truy vấn kho theo Seller.</p>
         </Card>
 
         <Card className="card-pad seller-shop-editor">
@@ -2258,25 +2241,8 @@ export function SellerShopScreen() {
             Mô tả
             <textarea className="textarea-field" name="description" defaultValue={String(data.description ?? "")} />
           </label>
-          <h3>Địa chỉ lấy hàng (Mã GHN)</h3>
-          <div className="form-grid">
-            <label className="field-wrap">
-              Mã tỉnh (provinceId)
-              <input className="field" name="provinceId" type="number" required defaultValue={resolvedProvinceId} />
-            </label>
-            <label className="field-wrap">
-              Mã quận/huyện (districtId)
-              <input className="field" name="districtId" type="number" required defaultValue={resolvedDistrictId} />
-            </label>
-            <label className="field-wrap">
-              Mã phường (wardCode)
-              <input className="field" name="wardCode" required defaultValue={resolvedWardCode} />
-            </label>
-            <label className="field-wrap">
-              Địa chỉ cụ thể (streetAddress)
-              <input className="field" name="streetAddress" required defaultValue={resolvedStreetAddress} />
-            </label>
-          </div>
+          <SellerShopAddressFields provinceId={resolvedProvinceId} districtId={resolvedDistrictId}
+            wardCode={resolvedWardCode} streetAddress={resolvedStreetAddress} />
           {error && (
             <p role="alert" className="notice">
               {error}
