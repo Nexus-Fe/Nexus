@@ -114,12 +114,12 @@ export function SellerProductsScreen() {
         )}
         {resource.data?.items.length ? (
           <div className="table-scroll">
-            <table className="data-table seller-product-list-table">
+            <table className="data-table seller-products-table">
               <thead>
                 <tr>
                   <th>Sản phẩm</th>
                   <th>Danh mục</th>
-                  <th>Giá bán</th>
+                  <th className="seller-product-price">Giá bán</th>
                   <th>Biến thể SKU</th>
                   <th>Trạng thái</th>
                   <th>Thao tác</th>
@@ -135,7 +135,7 @@ export function SellerProductsScreen() {
                       {p.brand && <div style={{ fontSize: 12, color: "var(--muted)" }}>{p.brand}</div>}
                     </td>
                     <td>{p.categoryName || "—"}</td>
-                    <td>
+                    <td className="seller-product-price">
                       <strong>{formatMoney(p.minPrice ?? null)}</strong>
                     </td>
                     <td>{p.variantCount} SKU</td>
@@ -161,45 +161,21 @@ export function SellerProductsScreen() {
             }
           />
         )}
-        {resource.data && (
-          <div className="seller-products-pagination">
-            <label className="seller-products-page-size">
-              <span>Hiển thị</span>
-              <select
-                className="field"
-                aria-label="Số sản phẩm mỗi trang"
-                value={pageSize}
-                onChange={(event) => {
-                  setPage(1);
-                  setPageSize(Number(event.target.value));
-                }}
-              >
-                {[10, 30, 50].map((size) => (
-                  <option key={size} value={size}>{size}</option>
-                ))}
-              </select>
-            </label>
-            <button
-              type="button"
-              className="button button-secondary"
-              disabled={page <= 1 || resource.loading}
-              onClick={() => setPage((value) => value - 1)}
-            >
-              Trang trước
-            </button>
-            <span>
-              Trang {page}/{resource.data.pagination.totalPages}
-            </span>
-            <button
-              type="button"
-              className="button button-secondary"
-              disabled={!resource.data.pagination.hasNextPage || resource.loading}
-              onClick={() => setPage((value) => value + 1)}
-            >
-              Trang sau
-            </button>
-          </div>
-        )}
+        {resource.data && <div className="seller-products-pagination">
+          <label className="seller-products-page-size">Hiển thị
+            <select className="select-field" value={pageSize} onChange={(event) => { setPageSize(Number(event.target.value)); setPage(1); }}>
+              <option value={10}>10</option>
+              <option value={30}>30</option>
+              <option value={50}>50</option>
+            </select>
+            sản phẩm/trang
+          </label>
+          <nav className="seller-products-page-controls" aria-label="Phân trang sản phẩm">
+            <button type="button" className="button button-secondary" disabled={page <= 1 || resource.loading} onClick={() => setPage((value) => value - 1)}>Trang trước</button>
+            <span>Trang {page}/{Math.max(1, resource.data.pagination.totalPages)}</span>
+            <button type="button" className="button button-secondary" disabled={!resource.data.pagination.hasNextPage || resource.loading} onClick={() => setPage((value) => value + 1)}>Trang sau</button>
+          </nav>
+        </div>}
       </Card>
     </>
   );
@@ -1380,7 +1356,7 @@ export function SellerInventoryScreen() {
       />
 
       {/* Warehouse Bar */}
-      <Card className="card-pad" style={{ marginBottom: 20 }}>
+      <Card className="card-pad seller-inventory-warehouse-bar" style={{ marginBottom: 20 }}>
         <div
           style={{
             display: "flex",
@@ -2231,6 +2207,12 @@ export function SellerShopScreen() {
   const [saved, setSaved] = useState("");
   const [busy, setBusy] = useState(false);
 
+  useEffect(() => {
+    if (!saved) return;
+    const timeout = window.setTimeout(() => setSaved(""), 4000);
+    return () => window.clearTimeout(timeout);
+  }, [saved]);
+
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const values = new FormData(event.currentTarget);
@@ -2270,21 +2252,21 @@ export function SellerShopScreen() {
   const resolvedProvinceId = String(address.provinceId ?? data.provinceId ?? draft?.warehouseAddress.provinceId ?? "");
   const resolvedDistrictId = String(address.districtId ?? data.districtId ?? draft?.warehouseAddress.districtId ?? "");
   const resolvedWardCode = String(address.wardCode ?? data.wardCode ?? draft?.warehouseAddress.wardCode ?? "");
-  const selectedArea = ghnPresets.find((place) => place.provinceId === resolvedProvinceId &&
-    place.districtId === resolvedDistrictId && place.wardCode === resolvedWardCode);
+
   const resolvedStreetAddress = String(
     address.streetAddress ??
       (typeof data.pickupAddress === "string" ? data.pickupAddress : "") ??
       draft?.warehouseAddress.streetAddress ??
       "",
   );
+  const selectedArea = ghnPresets.find((place) => place.provinceId === resolvedProvinceId &&
+    place.districtId === resolvedDistrictId && place.wardCode === resolvedWardCode);
 
   return (
     <>
       <PageHeading
         overline="Kênh người bán"
-        title="Hồ sơ gian hàng & Kho GHN"
-        description="Xem hồ sơ shop và địa chỉ lấy hàng từ UserService."
+        title="Hồ sơ gian hàng"
       />
       {shop.error && (
         <p role="alert" className="notice">
@@ -2292,51 +2274,21 @@ export function SellerShopScreen() {
         </p>
       )}
 
-      <Card className="card-pad" style={{ marginBottom: 22 }}>
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            flexWrap: "wrap",
-            gap: 10,
-            marginBottom: 14,
-          }}
-        >
-          <h2 style={{ margin: 0, fontSize: 18 }}>Thông tin lấy hàng đã khai báo</h2>
+      <div className="seller-shop-columns">
+        <Card className="card-pad seller-shop-summary">
+          <h2>Thông tin đã lưu</h2>
           <Badge>{String(data.status ?? "Chưa xác nhận")}</Badge>
-        </div>
-        <div className="grid-2">
-          <div>
-            <div className="info-row">
-              <span>Tên gian hàng</span>
-              <strong>{resolvedShopName || "—"}</strong>
-            </div>
-          </div>
-          <div>
-            <div className="info-row">
-              <span>Hotline kho</span>
-              <strong>{resolvedHotline || "—"}</strong>
-            </div>
-            <div className="info-row">
-              <span>Địa chỉ kho lấy hàng</span>
-              <strong>{resolvedStreetAddress || "—"}</strong>
-            </div>
-            <div className="info-row">
-              <span>Khu vực lấy hàng</span>
-              <strong>
-                {selectedArea ? `${selectedArea.city} · ${selectedArea.district} · ${selectedArea.ward}` : "Khu vực đã lưu ngoài danh sách mẫu"}
-              </strong>
-            </div>
-          </div>
-        </div>
-        <p className="status-note">
-          Trạng thái hồ sơ UserService không chứng minh kho đã được tạo ở Fulfillment. Chỉ xác nhận đồng bộ khi backend
-          cung cấp mã kho hoặc truy vấn kho theo Seller.
-        </p>
-      </Card>
+          <dl className="seller-shop-facts">
+            <div><dt>Tên gian hàng</dt><dd>{resolvedShopName || "—"}</dd></div>
+            <div><dt>Hotline</dt><dd>{resolvedHotline || "—"}</dd></div>
+            <div><dt>Địa chỉ lấy hàng</dt><dd>{resolvedStreetAddress || "—"}</dd></div>
+            <div><dt>Khu vực lấy hàng</dt><dd>{selectedArea ? `${selectedArea.city} · ${selectedArea.district} · ${selectedArea.ward}` : resolvedProvinceId ? "Địa chỉ đã lưu" : "Chưa khai báo"}</dd></div>
+          </dl>
+          <p className="status-note">Trạng thái hồ sơ UserService không chứng minh kho đã được tạo ở Fulfillment. Chỉ xác nhận đồng bộ khi backend cung cấp mã kho hoặc truy vấn kho theo Seller.</p>
+        </Card>
 
-      <Card className="card-pad">
+        <Card className="card-pad seller-shop-editor">
+        <h2>Chỉnh sửa gian hàng</h2>
         <form
           className="auth-fields"
           key={JSON.stringify([
@@ -2368,16 +2320,19 @@ export function SellerShopScreen() {
               {error}
             </p>
           )}
-          {saved && (
-            <p role="status" className="form-success">
-              {saved}
-            </p>
-          )}
           <button className="button button-primary" disabled={busy || shop.loading}>
             {busy ? "Đang lưu…" : "Lưu hồ sơ shop"}
           </button>
         </form>
-      </Card>
+        </Card>
+      </div>
+      {saved && (
+        <div className="app-notification" role="status" aria-live="polite" aria-atomic="true">
+          <span className="app-notification-mark" aria-hidden="true">✓</span>
+          <span className="app-notification-message">{saved}</span>
+          <button type="button" className="app-notification-close" aria-label="Đóng thông báo" onClick={() => setSaved("")}>×</button>
+        </div>
+      )}
     </>
   );
 }

@@ -81,8 +81,20 @@ function uniqueImages(images: ProductImage[]): ProductImage[] {
 }
 
 function purchasableVariant(variant: ProductVariant): boolean {
-  return variant.isActive && variant.status?.toUpperCase() === "ACTIVE" &&
+  // Catalog uses isActive for the default SKU; purchasability follows status and price.
+  return variant.status?.toUpperCase() === "ACTIVE" &&
     typeof variant.price === "number" && Number.isFinite(variant.price) && variant.price > 0;
+}
+
+function normalizedAttributeName(name: string): string {
+  return name.trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+}
+
+function variantAttribute(variant: ProductVariant, kind: "color" | "size"): string {
+  const names = kind === "color" ? ["color", "colour", "mau", "mau sac"] : ["size", "kich co"];
+  return variant.attributes?.find((attribute) =>
+    names.includes(normalizedAttributeName(attribute.attrName ?? "")),
+  )?.attrValue?.trim() ?? "";
 }
 
 function normalizeProduct(value: ProductDetail): ProductDetail {
@@ -149,6 +161,9 @@ export function ProductDetailScreen() {
   });
 
   const [selectedSkuId, setSelectedSkuId] = useState("");
+  const [selectionProductId, setSelectionProductId] = useState("");
+  const [selectedColor, setSelectedColor] = useState("");
+  const [selectedSize, setSelectedSize] = useState("");
   const [selectedImageUrl, setSelectedImageUrl] = useState("");
   const [quantity, setQuantity] = useState("1");
   const [adding, setAdding] = useState(false);
@@ -173,7 +188,20 @@ export function ProductDetailScreen() {
 
   const regularProduct = product.saleType?.toUpperCase() === "REGULAR" && product.status?.toUpperCase() === "ACTIVE";
   const availableVariants = regularProduct ? product.variants.filter(purchasableVariant) : [];
-  const effectiveSkuId = availableVariants.some((variant) => variant.variantId === selectedSkuId)
+  const colorChoice = selectionProductId === product.productId ? selectedColor : "";
+  const sizeChoice = selectionProductId === product.productId ? selectedSize : "";
+  const colors = [...new Set(availableVariants.map((variant) => variantAttribute(variant, "color")).filter(Boolean))];
+  const sizes = [...new Set(availableVariants.map((variant) => variantAttribute(variant, "size")).filter(Boolean))];
+  const canChooseAttributes = (colors.length > 0 || sizes.length > 0) &&
+    availableVariants.every((variant) => (!colors.length || variantAttribute(variant, "color")) &&
+      (!sizes.length || variantAttribute(variant, "size"))) &&
+    new Set(availableVariants.map((variant) => `${variantAttribute(variant, "color")}\u0000${variantAttribute(variant, "size")}`)).size === availableVariants.length;
+  const matchingVariants = canChooseAttributes ? availableVariants.filter((variant) =>
+    (!colorChoice || variantAttribute(variant, "color") === colorChoice) &&
+    (!sizeChoice || variantAttribute(variant, "size") === sizeChoice)) : availableVariants;
+  const chosenVariant = canChooseAttributes && (!colors.length || colorChoice) && (!sizes.length || sizeChoice)
+    ? matchingVariants[0] : undefined;
+  const effectiveSkuId = canChooseAttributes ? chosenVariant?.variantId ?? "" : availableVariants.some((variant) => variant.variantId === selectedSkuId)
     ? selectedSkuId
     : availableVariants.length === 1 ? availableVariants[0].variantId : "";
   const selectedVariant = product.variants.find((variant) => variant.variantId === effectiveSkuId);
@@ -186,7 +214,7 @@ export function ProductDetailScreen() {
     gallery.push({ url: selectedVariant.primaryImageUrl, altText: product.name });
   }
   const currentImage = gallery.find((image) => image.url === selectedImageUrl) ?? gallery[0];
-  const validPrices = availableVariants.map((variant) => variant.price).filter((price): price is number => typeof price === "number");
+  const validPrices = matchingVariants.map((variant) => variant.price).filter((price): price is number => typeof price === "number");
   const price = selectedVariant?.price ?? (validPrices.length ? Math.min(...validPrices) : null);
   const parsedQuantity = Number(quantity);
   const validQuantity = Number.isInteger(parsedQuantity) && parsedQuantity > 0;
@@ -207,6 +235,8 @@ export function ProductDetailScreen() {
     } catch (cause) {
       setCartError(cause instanceof ApiError && cause.errorCode === "INSUFFICIENT_STOCK"
         ? "Kho hiện không đủ số lượng bạn chọn. Hãy giảm số lượng và thử lại."
+        : cause instanceof ApiError && cause.status >= 500
+          ? "Giỏ hàng đang gặp lỗi hệ thống. Vui lòng thử lại sau."
         : cause instanceof Error ? cause.message : "Không thêm được sản phẩm vào giỏ hàng.");
     } finally {
       setAdding(false);
@@ -259,7 +289,34 @@ export function ProductDetailScreen() {
         <p className="product-detail-price-label">{selectedVariant || price === null ? "Giá bán" : "Giá từ"}</p>
         <p className="product-detail-price">{formatMoney(price)}</p>
         <div className="product-detail-divider" />
-        <label className="field-wrap" htmlFor="product-detail-variant">Phiên bản
+        {canChooseAttributes ? <div className="product-detail-options">
+          {colors.length > 0 && <fieldset className="product-detail-option-group"><legend>Màu sắc</legend>
+            <div className="product-detail-option-list">{colors.map((color) => <button key={color} type="button"
+              className={`product-detail-option${colorChoice === color ? " active" : ""}`} aria-pressed={colorChoice === color}
+              onClick={() => {
+                const nextColor = colorChoice === color ? "" : color;
+                setSelectionProductId(product.productId);
+                setSelectedColor(nextColor);
+                if (nextColor && sizeChoice && !availableVariants.some((variant) =>
+                  variantAttribute(variant, "color") === nextColor && variantAttribute(variant, "size") === sizeChoice)) setSelectedSize("");
+                else setSelectedSize(sizeChoice);
+                setSelectedImageUrl(""); setCartError("");
+              }}>{color}</button>)}</div>
+          </fieldset>}
+          {sizes.length > 0 && <fieldset className="product-detail-option-group"><legend>Kích cỡ</legend>
+            <div className="product-detail-option-list">{sizes.map((size) => <button key={size} type="button"
+              className={`product-detail-option${sizeChoice === size ? " active" : ""}`} aria-pressed={sizeChoice === size}
+              onClick={() => {
+                const nextSize = sizeChoice === size ? "" : size;
+                setSelectionProductId(product.productId);
+                setSelectedSize(nextSize);
+                if (nextSize && colorChoice && !availableVariants.some((variant) =>
+                  variantAttribute(variant, "size") === nextSize && variantAttribute(variant, "color") === colorChoice)) setSelectedColor("");
+                else setSelectedColor(colorChoice);
+                setSelectedImageUrl(""); setCartError("");
+              }}>{size}</button>)}</div>
+          </fieldset>}
+        </div> : <label className="field-wrap" htmlFor="product-detail-variant">Phiên bản
           <select id="product-detail-variant" className="select-field" value={effectiveSkuId} onChange={(event) => {
             setSelectedSkuId(event.target.value);
             setSelectedImageUrl("");
@@ -270,15 +327,18 @@ export function ProductDetailScreen() {
               {variant.name || variant.skuCode} ({variant.skuCode}) · {purchasableVariant(variant) ? formatMoney(variant.price) : "Chưa thể mua"}
             </option>)}
           </select>
-        </label>
+        </label>}
         {selectedVariant && <div className="product-detail-variant-facts">
           <span>Mã SKU: {selectedVariant.skuCode}</span>
-          {selectedVariant.attributes?.filter((attribute) => attribute.attrName && attribute.attrValue).map((attribute) =>
+          {selectedVariant.attributes?.filter((attribute) => attribute.attrName && attribute.attrValue &&
+            (!canChooseAttributes || !["color", "colour", "mau", "mau sac", "size", "kich co"].includes(
+              normalizedAttributeName(attribute.attrName)))).map((attribute) =>
             <span key={`${attribute.attrName}-${attribute.attrValue}`}><strong>{attribute.attrName}:</strong> {attribute.attrValue}</span>)}
         </div>}
         <p className="product-detail-availability" role="status">
           {canAdd ? "Chưa xác định tồn kho tổng hợp. Hệ thống sẽ kiểm tra khi thêm vào giỏ." : !regularProduct || availableVariants.length === 0
-            ? "Sản phẩm hiện chưa thể mua." : selectedVariant ? "Phiên bản này chưa thể mua." : "Chọn phiên bản để thêm vào giỏ."}
+            ? "Sản phẩm hiện chưa thể mua." : selectedVariant ? "Phiên bản này chưa thể mua." : canChooseAttributes
+              ? "Chọn màu sắc và kích cỡ để thêm vào giỏ." : "Chọn phiên bản để thêm vào giỏ."}
         </p>
         <label className="field-wrap" htmlFor="product-detail-quantity">Số lượng
           <input id="product-detail-quantity" className="field product-detail-quantity" type="number" min="1" step="1"

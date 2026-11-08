@@ -6,7 +6,40 @@ import { ROUTES } from "@/constants/routes";
 import { useApiResource } from "@/lib/api/use-api-resource";
 import { formatMoney } from "@/lib/presentation";
 import { walletService } from "./services/wallet.service";
-import { transactionDate, transactionStatus, transactionType } from "./WalletScreen";
+
+
+function sellerTransactionType(type: string): string {
+  return ({ ESCROWRELEASE: "Doanh thu đơn hàng", WITHDRAWAL: "Rút tiền", WITHDRAWALDEBIT: "Rút tiền",
+    REFUND: "Hoàn tiền", REFUNDCREDIT: "Hoàn tiền" } as Record<string, string>)[type.toUpperCase()] ?? type;
+}
+
+function sellerTransactionStatus(status: string): string {
+  return ({ PENDING: "Đang xử lý", SUCCESS: "Thành công", COMPLETED: "Hoàn tất", FAILED: "Thất bại",
+    CANCELLED: "Đã hủy" } as Record<string, string>)[status.toUpperCase()] ?? status;
+}
+
+function sellerTransactionDirection(type: string, status: string, amount: number): "credit" | "debit" | null {
+  if (!Number.isFinite(amount) || amount === 0 || !["SUCCESS", "COMPLETED"].includes(status.toUpperCase())) return null;
+  const normalizedType = type.toUpperCase();
+  if (["ESCROWRELEASE", "REFUNDCREDIT", "WITHDRAWALREVERSAL", "TRANSFERIN", "ADJUSTMENTCREDIT", "TOPUPVNPAY"].includes(normalizedType)) return "credit";
+  if (["WITHDRAWALDEBIT", "PURCHASEDEBIT", "DIRECTGATEWAYPAYMENT", "TRANSFEROUT", "ADJUSTMENTDEBIT"].includes(normalizedType)) return "debit";
+  return null;
+}
+
+function SellerTransactionAmount({ type, status, amount }: { type: string; status: string; amount: number }) {
+  const direction = sellerTransactionDirection(type, status, amount);
+  return <span className={`seller-money-amount${direction ? ` seller-money-${direction}` : ""}`}>
+    {direction === "credit" ? "+" : direction === "debit" ? "−" : ""}{formatMoney(Math.abs(amount))}
+  </span>;
+}
+
+function sellerTransactionDate(value: string): string {
+  const date = new Date(value);
+  return Number.isFinite(date.getTime())
+    ? new Intl.DateTimeFormat("vi-VN", { dateStyle: "medium", timeStyle: "short" }).format(date)
+    : "Chưa có dữ liệu";
+}
+
 
 export function BuyerTopUpScreen() {
   return <>
@@ -16,126 +49,42 @@ export function BuyerTopUpScreen() {
   </>;
 }
 
-function SellerTransactionAmount({ type, status, amount }: { type: string; status: string; amount: number }) {
-  const normalizedType = type.replace(/[^a-z]/gi, "").toUpperCase();
-  const successful = ["SUCCESS", "COMPLETED"].includes(status.toUpperCase());
-  const credit = successful && ["ESCROWRELEASE", "REFUNDCREDIT", "REFUND", "DEPOSIT", "TOPUPVNPAY"].includes(normalizedType);
-  const debit = successful && ["PURCHASEDEBIT", "PAYMENT", "WITHDRAWALDEBIT"].includes(normalizedType);
-
-  return <strong style={{ color: credit ? "#166534" : debit ? "#b91c1c" : undefined }}>
-    {credit ? "+" : debit ? "−" : ""}{formatMoney(amount)}
-  </strong>;
-}
 export function SellerWalletScreen() {
   const balance = useApiResource("seller-wallet-balance", (signal) => walletService.getBalance(signal));
   const transactions = useApiResource("seller-wallet-transactions", (signal) =>
-    walletService.getTransactions(signal).then((response) => response.items),
-  );
-  const isReady = balance.data?.status?.toUpperCase() === "ACTIVE";
 
-  return (
-    <>
-      <PageHeading
-        overline="Kênh người bán"
-        title="Doanh thu & ví"
-        description="Theo dõi số dư khả dụng, tiền đang giữ và lịch sử nhận tiền sau khi người mua xác nhận nhận hàng."
-      />
-      {balance.error && <p className="notice" role="alert">Không tải được ví người bán: {balance.error.message}</p>}
-      <div className="grid-3">
-        <Card className="card-pad">
-          <h2>Số dư khả dụng</h2>
-          {balance.loading ? (
-            <NoData title="Đang tải số dư…" />
-          ) : balance.data ? (
-            <>
-              <strong className="seller-wallet-balance-amount" style={{ color: "var(--sky-dark)" }}>
-                {formatMoney(balance.data.availableBalance ?? balance.data.balance)}
-              </strong>
-              <p className="status-note">
-                Tiền đơn hàng được cộng tự động khi người mua xác nhận đã nhận hàng.
-              </p>
-            </>
-          ) : (
-            <NoData title="Chưa có dữ liệu" />
-          )}
-        </Card>
-        <Card className="card-pad">
-          <h2>Đang giữ</h2>
-          {balance.loading ? (
-            <NoData title="Đang tải…" />
-          ) : balance.data ? (
-            <>
-              <strong className="seller-wallet-balance-amount">{formatMoney(balance.data.lockedBalance ?? 0)}</strong>
-              <p className="status-note">Số tiền đang được ví tạm giữ.</p>
-            </>
-          ) : (
-            <NoData title="Chưa có dữ liệu" />
-          )}
-        </Card>
-        <Card className="card-pad">
-          <h2>Trạng thái ví</h2>
-          {balance.loading ? (
-            <NoData title="Đang tải…" />
-          ) : balance.data ? (
-            <>
-              <Badge>{isReady ? "Đang hoạt động" : balance.data.status}</Badge>
-              <p className="status-note">Mã ví: {balance.data.walletId}</p>
-            </>
-          ) : (
-            <NoData title="Chưa có dữ liệu" />
-          )}
-        </Card>
-      </div>
-      <SectionHeading title="Lịch sử doanh thu & giao dịch ví" />
-      {transactions.error && <p className="notice" role="alert">Không tải được lịch sử: {transactions.error.message}</p>}
-      <Card>
-        {transactions.loading ? (
-          <NoData title="Đang tải lịch sử doanh thu…" />
-        ) : transactions.data?.length ? (
-          <div className="table-scroll">
-            <table className="data-table seller-wallet-table">
-              <thead>
-                <tr>
-                  <th>Thời gian</th>
-                  <th>Loại giao dịch</th>
-                  <th>Nội dung</th>
-                  <th>Số tiền</th>
-                  <th>Trạng thái</th>
-                </tr>
-              </thead>
-              <tbody>
-                {transactions.data.map((tx) => (
-                  <tr key={tx.id}>
-                    <td>{transactionDate(tx.createdAt)}</td>
-                    <td>{transactionType(tx.type)}</td>
-                    <td>{tx.note || "—"}</td>
-                    <td>
-                      <SellerTransactionAmount type={tx.type} status={tx.status} amount={tx.amount} />
-                    </td>
-                    <td>
-                      <Badge>{transactionStatus(tx.status)}</Badge>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <NoData title="Chưa có giao dịch doanh thu" />
-        )}
-      </Card>
-      <p className="status-note">
-        Khi người mua bấm &ldquo;Đã nhận được hàng&rdquo;, toàn bộ tiền của đơn hàng được giải ngân trực tiếp vào ví Seller.{" "}
-        <Link href={ROUTES.seller.withdrawals}>Xem yêu cầu rút tiền</Link>
-      </p>
-    </>
-  );
+    walletService.getTransactions(signal).then((response) => response.items));
+  return <><PageHeading overline="Kênh người bán" title="Doanh thu & ví" description="Theo dõi số dư khả dụng, tiền đang giữ và doanh thu sau khi người mua xác nhận nhận hàng." />
+    {balance.error && <p className="notice" role="alert">Không tải được số dư ví: {balance.error.message}</p>}
+    <div className="grid-3 seller-wallet-balances">
+      <Card className="card-pad"><h2>Có thể rút</h2>{balance.data ? <strong>{formatMoney(balance.data.availableBalance)}</strong> : <NoData title={balance.loading ? "Đang tải số dư…" : "Chưa có dữ liệu"} />}</Card>
+      <Card className="card-pad"><h2>Đang giữ</h2>{balance.data ? <strong>{formatMoney(balance.data.lockedBalance)}</strong> : <NoData title={balance.loading ? "Đang tải số dư…" : "Chưa có dữ liệu"} />}</Card>
+      <Card className="card-pad"><h2>Tổng số dư</h2>{balance.data ? <strong>{formatMoney(balance.data.balance)}</strong> : <NoData title={balance.loading ? "Đang tải số dư…" : "Chưa có dữ liệu"} />}</Card>
+    </div>
+    {balance.data && <p className="status-note">Trạng thái ví: <Badge>{balance.data.status?.toUpperCase() === "ACTIVE" ? "Đang hoạt động" : balance.data.status}</Badge></p>}
+    <SectionHeading title="Lịch sử doanh thu & giao dịch ví" />
+    {transactions.error && <p className="notice" role="alert">Không tải được giao dịch: {transactions.error.message}</p>}
+    {transactions.data?.length ? <Card><div className="table-scroll"><table className="data-table seller-money-table"><thead><tr><th scope="col">Thời gian</th><th scope="col">Loại</th><th scope="col">Nội dung</th><th scope="col" className="seller-money-cell">Số tiền</th><th scope="col">Trạng thái</th></tr></thead><tbody>{transactions.data.map((item) =>
+      <tr key={item.id}><td>{sellerTransactionDate(item.createdAt)}</td><td>{sellerTransactionType(item.type)}</td><td>{item.note || "—"}</td><td className="seller-money-cell"><SellerTransactionAmount type={item.type} status={item.status} amount={item.amount} /></td><td>{sellerTransactionStatus(item.status)}</td></tr>)}</tbody></table></div></Card>
+      : !transactions.error && <Card><NoData title={transactions.loading ? "Đang tải giao dịch…" : "Chưa có giao dịch"} /></Card>}
+    <p className="status-note">Khi người mua xác nhận đã nhận hàng, tiền đơn hàng được giải ngân vào ví Seller. <Link href={ROUTES.seller.withdrawals}>Xem yêu cầu rút tiền</Link></p>
+  </>;
+
 }
 
 export function SellerWithdrawalsScreen() {
+  const balance = useApiResource("seller-withdrawal-balance", (signal) => walletService.getBalance(signal));
+  const transactions = useApiResource("seller-withdrawal-transactions", (signal) =>
+    walletService.getTransactions(signal).then((response) => response.items.filter((item) => item.type.toUpperCase().includes("WITHDRAW"))));
   return <>
     <PageHeading overline="Kênh người bán" title="Yêu cầu rút tiền" description="Khoản rút tối thiểu 50.000 ₫. Yêu cầu cần được xác minh Seller và duyệt trước khi chuyển khoản." />
-    <div className="split"><Card className="card-pad"><SectionHeading title="Tài khoản nhận tiền" /><div className="form-grid"><label className="field-wrap">Số tiền<input className="field" type="number" min="50000" step="1000" placeholder="Tối thiểu 50.000 ₫" disabled /></label><label className="field-wrap">Ngân hàng<input className="field" placeholder="Mã ngân hàng" disabled /></label><label className="field-wrap">Số tài khoản<input className="field" inputMode="numeric" disabled /></label><label className="field-wrap">Tên chủ tài khoản<input className="field" disabled /></label></div><button className="button button-disabled" disabled>Gửi yêu cầu rút</button><p className="status-note">Luồng rút tiền Seller chưa được kiểm chứng và thuộc đợt tiếp theo.</p></Card>
-      <Card className="card-pad"><h2>Lịch sử yêu cầu</h2><NoData title="Chưa có dữ liệu yêu cầu rút" /></Card></div>
+    <div className="split"><Card className="card-pad"><SectionHeading title="Tài khoản nhận tiền" /><div className="form-grid"><label className="field-wrap">Số tiền<input className="field seller-money-input" type="number" min="50000" step="1000" placeholder="Tối thiểu 50.000 ₫" disabled /></label><label className="field-wrap">Ngân hàng<input className="field" placeholder="Mã ngân hàng" disabled /></label><label className="field-wrap">Số tài khoản<input className="field" inputMode="numeric" disabled /></label><label className="field-wrap">Tên chủ tài khoản<input className="field" disabled /></label></div><button className="button button-disabled" disabled>Gửi yêu cầu rút</button><p className="status-note">Chưa thể gửi yêu cầu rút tiền qua API hiện tại.</p></Card>
+      <Card className="card-pad seller-withdrawal-balance"><h2>Số dư có thể rút</h2>{balance.error && <p className="notice" role="alert">Không tải được số dư: {balance.error.message}</p>}{balance.data ? <strong>{formatMoney(balance.data.availableBalance)}</strong> : !balance.error && <NoData title={balance.loading ? "Đang tải số dư…" : "Chưa có dữ liệu"} />}</Card></div>
+    <SectionHeading title="Giao dịch rút tiền gần đây" />
+    {transactions.error && <p className="notice" role="alert">Không tải được giao dịch rút tiền: {transactions.error.message}</p>}
+    {transactions.data?.length ? <Card><div className="table-scroll"><table className="data-table seller-money-table"><thead><tr><th scope="col">Thời gian</th><th scope="col" className="seller-money-cell">Số tiền</th><th scope="col">Trạng thái</th></tr></thead><tbody>{transactions.data.map((item) =>
+      <tr key={item.id}><td>{sellerTransactionDate(item.createdAt)}</td><td className="seller-money-cell"><SellerTransactionAmount type={item.type} status={item.status} amount={item.amount} /></td><td>{sellerTransactionStatus(item.status)}</td></tr>)}</tbody></table></div></Card>
+      : !transactions.error && <Card><NoData title={transactions.loading ? "Đang tải giao dịch…" : "Chưa có giao dịch rút tiền"} /></Card>}
+    <p className="status-note">Danh sách này chỉ gồm giao dịch rút đã ghi vào ví; yêu cầu đang chờ duyệt cần API lịch sử riêng từ BE.</p>
   </>;
 }

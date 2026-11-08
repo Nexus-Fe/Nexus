@@ -148,7 +148,6 @@ export const sellerCatalogService = {
     }
     return categories;
   },
-
   async list(page: number, keyword: string, signal?: AbortSignal, pageSize = 20) {
     const query = new URLSearchParams({ page: String(page), pageSize: String(pageSize), saleType: "REGULAR" });
     if (keyword) query.set("keyword", keyword);
@@ -204,6 +203,16 @@ export const sellerCatalogService = {
     }
     const stockedProductIds = new Set(variants.filter((variant) => stockedSkuIds.has(variant.skuId)).map((variant) => variant.productId));
     return products.filter((product) => stockedProductIds.has(product.productId));
+  },
+  async listAll(signal?: AbortSignal): Promise<SellerProduct[]> {
+    const products: SellerProduct[] = [];
+    let page = 1;
+    while (true) {
+      const response = await sellerCatalogService.list(page, "", signal, 100);
+      products.push(...response.items);
+      if (!response.pagination.hasNextPage) return products;
+      page += 1;
+    }
   },
   async detail(id: string, signal?: AbortSignal): Promise<SellerProductDetail> {
     const product = unwrap(
