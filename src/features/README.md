@@ -1,4 +1,4 @@
-# Features
+﻿# Features
 
 Mỗi thư mục feature giữ interface nghiệp vụ công khai, types và service gọi API. Caller bên ngoài feature chỉ import từ `index.ts`; không import sâu vào implementation của feature khác. Khi một màn hình cần ghép nhiều feature, đặt phần ghép trong `widgets/`.
 

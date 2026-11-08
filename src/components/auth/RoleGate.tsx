@@ -17,8 +17,7 @@ export function RoleGate({ allowedRoles, children }: { allowedRoles: string[]; c
   const { user, ready, restoreError, refreshUser } = useSession();
   const router = useRouter();
 
-  const userRoles = user?.roles?.length ? user.roles : (user?.role ? [user.role] : []);
-  const roles = userRoles;
+const roles = user?.roles?.length ? user.roles : (user?.role ? [user.role] : []);
   const hasAccess = roles.some((role) => allowedRoles.some((allowed) => normalizeRole(role) === normalizeRole(allowed)));
   const isAdmin = roles.some((r) => normalizeRole(r) === "admin");
   const isStaff = roles.some((r) => normalizeRole(r) === "supportstaff");

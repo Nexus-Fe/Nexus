@@ -39,8 +39,6 @@ export const adminNavigation: NavigationItem[] = [
   { label: "Danh sách vai trò", href: ROUTES.admin.roles, icon: "shield" },
   { label: "Danh mục", href: ROUTES.admin.categories, icon: "grid" },
   { label: "Sổ giao dịch", href: ROUTES.admin.ledger, icon: "orders" },
-  { label: "Audit Log", href: ROUTES.admin.auditLog, icon: "flag" },
   { label: "Cấu hình hệ thống", href: ROUTES.admin.configs, icon: "shield" },
   { label: "Mã giảm giá", href: ROUTES.admin.coupons, icon: "orders" },
-  { label: "Tình trạng hệ thống", href: ROUTES.admin.systemHealth, icon: "shield" },
 ];

@@ -46,8 +46,11 @@ export type ApiRequestOptions = Omit<RequestInit, "body" | "method"> & {
 const SESSION_ACCESS_KEY = "nexus_access_token";
 const SESSION_REFRESH_KEY = "nexus_refresh_token";
 const SESSION_ROLES_KEY = "nexus_session_roles";
+const ACCOUNT_CHECK_TTL_MS = 30_000;
 let refreshInFlight: { token: string; promise: Promise<string | null> } | null = null;
 let accountCheckInFlight: { token: string; promise: Promise<void> } | null = null;
+let meGetInFlight: { token: string | null; promise: Promise<{ data: unknown; headers: Headers }> } | null = null;
+let lastAccountVerified: { token: string; verifiedAt: number } | null = null;
 export const SESSION_INVALIDATED_EVENT = "nexus:session-invalidated";
 
 function getStoredToken(key: string): string | null {
@@ -90,12 +93,16 @@ export function extractRolesFromToken(token?: string | null): string[] {
   }
 }
 
+
 export function saveSessionTokens(accessToken: string, refreshToken: string, _roles?: string[]): void {
+  lastAccountVerified = null;
+  meGetInFlight = null;
   if (typeof window === "undefined") return;
   window.localStorage.setItem(SESSION_ACCESS_KEY, accessToken);
   window.localStorage.setItem(SESSION_REFRESH_KEY, refreshToken);
   // Remove legacy role data. UI permissions come from the authenticated /me response.
   window.localStorage.removeItem(SESSION_ROLES_KEY);
+
 }
 
 export function saveSessionRoles(_roles: string[]): void {
@@ -109,10 +116,17 @@ export function getStoredRoles(): string[] {
 }
 
 export function clearSessionTokens(): void {
+  lastAccountVerified = null;
+  meGetInFlight = null;
   if (typeof window === "undefined") return;
   window.localStorage.removeItem(SESSION_ACCESS_KEY);
   window.localStorage.removeItem(SESSION_REFRESH_KEY);
   window.localStorage.removeItem(SESSION_ROLES_KEY);
+  try {
+    window.sessionStorage?.clear();
+  } catch {
+    // Ignore sessionStorage errors
+  }
 }
 
 function invalidateSession(): void {
@@ -215,20 +229,52 @@ function requestBody(options: ApiRequestOptions): BodyInit | null | undefined {
 }
 
 async function sendWithMetadata<T>(path: string, method: string, options: ApiRequestOptions): Promise<{ data: T; headers: Headers }> {
-  const requestOptions = { ...options } as RequestInit;
-  delete (requestOptions as ApiRequestOptions).skipRefresh;
-  const response = await fetch(makeUrl(path), {
-    ...requestOptions,
-    method,
-    headers: requestHeaders(options),
-    body: requestBody(options),
-    cache: "no-store",
-  });
-  const payload = await readPayload(response);
+  const isMeGet = path === "/api/v1/me" && method === "GET" && !options.signal;
+  const activeToken = isMeGet ? getStoredToken(SESSION_ACCESS_KEY) : null;
+  if (isMeGet && meGetInFlight && meGetInFlight.token === activeToken) {
+    return meGetInFlight.promise as Promise<{ data: T; headers: Headers }>;
+  }
 
-  if (!response.ok) throw toError(response, payload);
-  if (response.status === 204) return { data: undefined as T, headers: response.headers };
-  return { data: payload as T, headers: response.headers };
+  const execute = async (): Promise<{ data: T; headers: Headers }> => {
+    const requestOptions = { ...options } as RequestInit;
+    delete (requestOptions as ApiRequestOptions).skipRefresh;
+    const response = await fetch(makeUrl(path), {
+      ...requestOptions,
+      method,
+      headers: requestHeaders(options),
+      body: requestBody(options),
+      cache: "no-store",
+    });
+    const payload = await readPayload(response);
+
+    if (!response.ok) throw toError(response, payload);
+    if (response.status === 204) return { data: undefined as T, headers: response.headers };
+    if (isMeGet && activeToken && getStoredToken(SESSION_ACCESS_KEY) === activeToken) {
+      const profile =
+        payload && typeof payload === "object" && "data" in payload
+          ? (payload as ApiResponse<{ status?: string }>).data
+          : (payload as { status?: string } | null);
+      const status =
+        profile && typeof profile === "object" ? (profile.status?.toUpperCase() ?? "") : "";
+      if (!["BANNED", "DELETED"].includes(status)) {
+        lastAccountVerified = { token: activeToken, verifiedAt: Date.now() };
+      }
+    }
+    return { data: payload as T, headers: response.headers };
+  };
+
+  if (!isMeGet) {
+    return execute();
+  }
+
+  const current = {
+    token: activeToken,
+    promise: execute().finally(() => {
+      if (meGetInFlight === current) meGetInFlight = null;
+    }),
+  };
+  meGetInFlight = current;
+  return current.promise as Promise<{ data: T; headers: Headers }>;
 }
 
 async function send<T>(path: string, method: string, options: ApiRequestOptions): Promise<T> {
@@ -261,7 +307,9 @@ async function refreshAccessToken(): Promise<string | null> {
         return null;
       }
       if (getStoredToken(SESSION_REFRESH_KEY) !== refreshToken) return null;
+
       saveSessionTokens(access, refresh);
+
       return access;
     } catch {
       return null;
@@ -277,6 +325,13 @@ async function ensureAccountActive(path: string): Promise<void> {
   if (path === "/api/v1/me" || path.startsWith("/api/v1/auth/")) return;
   const accessToken = getStoredToken(SESSION_ACCESS_KEY);
   if (!accessToken) return;
+  if (
+    lastAccountVerified &&
+    lastAccountVerified.token === accessToken &&
+    Date.now() - lastAccountVerified.verifiedAt < ACCOUNT_CHECK_TTL_MS
+  ) {
+    return;
+  }
   if (accountCheckInFlight?.token !== accessToken) {
     const check = { token: accessToken, promise: Promise.resolve() };
     check.promise = (async () => {
@@ -287,6 +342,7 @@ async function ensureAccountActive(path: string): Promise<void> {
         if (["BANNED", "DELETED"].includes(profile.status?.toUpperCase() ?? "")) {
           throw new ApiError("Tài khoản đã bị khóa hoặc xóa. Vui lòng đăng nhập lại.", 403, response, "ACCOUNT_BANNED");
         }
+        lastAccountVerified = { token: accessToken, verifiedAt: Date.now() };
       } catch (error) {
         if (getStoredToken(SESSION_ACCESS_KEY) !== accessToken) return;
         if (error instanceof ApiError && (["ACCOUNT_BANNED", "USER_BANNED"].includes(error.errorCode ?? "") || (error.status === 401 && !hasRefreshToken()))) {
