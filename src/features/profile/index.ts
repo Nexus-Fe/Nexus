@@ -1,2 +1,2 @@
 export { profileService } from "./services/profile.service";
-export type { UserProfile } from "./types";
+export type { UpdateUserProfile, UserProfile } from "./types";

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Card, SectionHeading } from "@/components/ui/Primitives";
+import { ghnPresets } from "../ghn-presets";
 
 export type ShopRegistrationFields = {
   identityCardNumber: string;
@@ -26,13 +27,6 @@ export const emptyShopRegistrationFields: ShopRegistrationFields = {
 };
 
 export type ShopRegistrationErrors = Partial<Record<keyof ShopRegistrationFields, string>>;
-
-const ghnPresets = [
-  { label: "TP. Hồ Chí Minh — Quận 1 — Phường Bến Nghé", provinceId: "202", districtId: "1442", wardCode: "20101" },
-  { label: "TP. Hồ Chí Minh — TP. Thủ Đức — Phường Hiệp Bình Chánh", provinceId: "202", districtId: "3695", wardCode: "90737" },
-  { label: "Hà Nội — Quận Cầu Giấy — Phường Dịch Vọng Hậu", provinceId: "201", districtId: "1485", wardCode: "1A0601" },
-  { label: "Đà Nẵng — Quận Hải Châu — Phường Thạch Thang", provinceId: "203", districtId: "1526", wardCode: "40101" },
-];
 
 export function validateShopRegistrationFields(value: ShopRegistrationFields): ShopRegistrationErrors {
   const errors: ShopRegistrationErrors = {};

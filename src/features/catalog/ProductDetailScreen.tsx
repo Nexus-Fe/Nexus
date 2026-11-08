@@ -11,6 +11,7 @@ import { commerceService } from "@/features/commerce";
 import { ApiError, api, unwrap, type ApiResponse } from "@/lib/api/client";
 import { useApiResource } from "@/lib/api/use-api-resource";
 import { formatMoney, resolveImageUrl } from "@/lib/presentation";
+import type { ProductSpecification } from "./types/product-specification";
 
 type ProductImage = {
   url: string;
@@ -40,7 +41,7 @@ type ProductDetail = {
   brand?: string | null;
   saleType?: string;
   status?: string;
-  specifications?: string | null;
+  specifications?: ProductSpecification[] | null;
   category?: { categoryId: string; name: string } | null;
   variants: ProductVariant[];
   images: ProductImage[];
@@ -115,26 +116,11 @@ const specificationLabels: Record<string, string> = {
   weight: "Trọng lượng", pages: "Số trang", publisher: "Nhà xuất bản", language: "Ngôn ngữ",
 };
 
-function readSpecifications(value: string | null | undefined): { entries: Array<[string, string]>; text: string } {
-  const text = value?.trim() ?? "";
-  if (!text) return { entries: [], text: "" };
-  try {
-    const parsed: unknown = JSON.parse(text);
-    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-      const fields = Object.entries(parsed);
-      if (!fields.every(([key, item]) => key.trim() && (typeof item === "string" || typeof item === "number"))) {
-        return { entries: [], text: JSON.stringify(parsed, null, 2) };
-      }
-      return {
-        entries: fields
-          .map(([key, item]) => [specificationLabels[key.toLowerCase()] ?? key, String(item)]),
-        text: "",
-      };
-    }
-  } catch {
-    // Free-form specifications remain readable as plain text.
-  }
-  return { entries: [], text };
+function readSpecifications(value: ProductSpecification[] | null | undefined): { entries: Array<[string, string]>; text: string } {
+  return {
+    entries: (value ?? []).map(({ name, value: item }) => [specificationLabels[name.toLowerCase()] ?? name, item]),
+    text: "",
+  };
 }
 
 export function ProductDetailScreen() {
