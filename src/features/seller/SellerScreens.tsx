@@ -1310,7 +1310,7 @@ export function SellerInventoryScreen() {
       />
 
       {/* Warehouse Bar */}
-      <Card className="card-pad" style={{ marginBottom: 20 }}>
+      <Card className="card-pad seller-inventory-warehouse-bar" style={{ marginBottom: 20 }}>
         <div
           style={{
             display: "flex",
@@ -2158,6 +2158,12 @@ export function SellerShopScreen() {
   const [saved, setSaved] = useState("");
   const [busy, setBusy] = useState(false);
 
+  useEffect(() => {
+    if (!saved) return;
+    const timeout = window.setTimeout(() => setSaved(""), 4000);
+    return () => window.clearTimeout(timeout);
+  }, [saved]);
+
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const values = new FormData(event.currentTarget);
@@ -2208,8 +2214,7 @@ export function SellerShopScreen() {
     <>
       <PageHeading
         overline="Kênh người bán"
-        title="Hồ sơ gian hàng & Kho GHN"
-        description="Xem hồ sơ shop và địa chỉ lấy hàng từ UserService."
+        title="Hồ sơ gian hàng"
       />
       {shop.error && (
         <p role="alert" className="notice">
@@ -2217,56 +2222,18 @@ export function SellerShopScreen() {
         </p>
       )}
 
-      <Card className="card-pad" style={{ marginBottom: 22 }}>
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            flexWrap: "wrap",
-            gap: 10,
-            marginBottom: 14,
-          }}
-        >
-          <h2 style={{ margin: 0, fontSize: 18 }}>Thông tin lấy hàng đã khai báo</h2>
-          <Badge>{String(data.status ?? "Chưa xác nhận")}</Badge>
-        </div>
-        <div className="grid-2">
-          <div>
-            <div className="info-row">
-              <span>Mã gian hàng (Shop ID)</span>
-              <strong>{String(data.shopId ?? data.sellerId ?? draft?.registrationId ?? "—")}</strong>
-            </div>
-            <div className="info-row">
-              <span>Tên gian hàng</span>
-              <strong>{resolvedShopName || "—"}</strong>
-            </div>
-          </div>
-          <div>
-            <div className="info-row">
-              <span>Hotline kho</span>
-              <strong>{resolvedHotline || "—"}</strong>
-            </div>
-            <div className="info-row">
-              <span>Địa chỉ kho lấy hàng</span>
-              <strong>{resolvedStreetAddress || "—"}</strong>
-            </div>
-            <div className="info-row">
-              <span>Mã vùng GHN</span>
-              <strong>
-                Tỉnh: {resolvedProvinceId || "—"} · Quận: {resolvedDistrictId || "—"} · Phường:{" "}
-                {resolvedWardCode || "—"}
-              </strong>
-            </div>
-          </div>
-        </div>
-        <p className="status-note">
-          Trạng thái hồ sơ UserService không chứng minh kho đã được tạo ở Fulfillment. Chỉ xác nhận đồng bộ khi backend
-          cung cấp mã kho hoặc truy vấn kho theo Seller.
-        </p>
-      </Card>
+      <div className="seller-shop-columns">
+        <Card className="card-pad seller-shop-summary">
+          <h2>Thông tin đã lưu</h2>
+          <dl className="seller-shop-facts">
+            <div><dt>Tên gian hàng</dt><dd>{resolvedShopName || "—"}</dd></div>
+            <div><dt>Hotline</dt><dd>{resolvedHotline || "—"}</dd></div>
+            <div><dt>Địa chỉ lấy hàng</dt><dd>{resolvedStreetAddress || "—"}</dd></div>
+          </dl>
+        </Card>
 
-      <Card className="card-pad">
+        <Card className="card-pad seller-shop-editor">
+        <h2>Chỉnh sửa gian hàng</h2>
         <form
           className="auth-fields"
           key={JSON.stringify([
@@ -2315,16 +2282,19 @@ export function SellerShopScreen() {
               {error}
             </p>
           )}
-          {saved && (
-            <p role="status" className="form-success">
-              {saved}
-            </p>
-          )}
           <button className="button button-primary" disabled={busy || shop.loading}>
             {busy ? "Đang lưu…" : "Lưu hồ sơ shop"}
           </button>
         </form>
-      </Card>
+        </Card>
+      </div>
+      {saved && (
+        <div className="app-notification" role="status" aria-live="polite" aria-atomic="true">
+          <span className="app-notification-mark" aria-hidden="true">✓</span>
+          <span className="app-notification-message">{saved}</span>
+          <button type="button" className="app-notification-close" aria-label="Đóng thông báo" onClick={() => setSaved("")}>×</button>
+        </div>
+      )}
     </>
   );
 }
