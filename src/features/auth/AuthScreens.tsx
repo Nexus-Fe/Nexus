@@ -9,6 +9,7 @@ import { Card, NoData } from "@/components/ui/Primitives";
 import { useApiResource } from "@/lib/api/use-api-resource";
 import { authService } from "./services/auth.service";
 import { ApiError } from "@/lib/api/client";
+import { profileService } from "@/features/profile";
 import type { AuthUser } from "./types";
 import { ShopRegistrationForm, ShopRegistrationReview, emptyShopRegistrationFields, validateShopRegistrationFields, type ShopRegistrationFields } from "@/features/seller/components/ShopRegistrationForm";
 import { keepSellerRegistrationHandoff } from "@/features/seller/services/seller-registration-handoff";
@@ -322,27 +323,56 @@ export function ChangePasswordScreen() {
 }
 
 export function AccountProfileScreen() {
-  const { user } = useSession();
-  const [revision,setRevision]=useState(0);const [error,setError]=useState("");const [saved,setSaved]=useState("");const [busy,setBusy]=useState(false);
-  const profile=useApiResource(`/api/v1/me:${revision}`,async()=>{const {api}=await import("@/lib/api/client");return api.get<{data:Record<string,unknown>}>('/api/v1/me').then(response=>response.data);});
-  const reputation=useApiResource(`/api/v1/me/reputation:${revision}`,async()=>{const {api}=await import("@/lib/api/client");return api.get<{data:Record<string,unknown>}>('/api/v1/me/reputation').then(response=>response.data);});
-  const penalties=useApiResource(`/api/v1/me/penalties:${revision}`,async()=>{const {api}=await import("@/lib/api/client");return api.get<{data:{items?:Record<string,unknown>[]}}>('/api/v1/me/penalties?page=1&limit=20').then(response=>response.data.items??[]);});
-  async function save(event:FormEvent<HTMLFormElement>){event.preventDefault();setBusy(true);setError("");setSaved("");const values=new FormData(event.currentTarget);try{const {api}=await import("@/lib/api/client");await api.patch('/api/v1/me',{username:String(values.get("username")??"")||null,firstName:String(values.get("firstName")??""),lastName:String(values.get("lastName")??""),phoneNumber:String(values.get("phoneNumber")??""),address:String(values.get("address")??"").trim()});setSaved("Đã cập nhật hồ sơ.");setRevision(v=>v+1);}catch(reason){setError(reason instanceof Error?reason.message:"Không thể cập nhật hồ sơ.");}finally{setBusy(false);}}
-  const p=profile.data??{};const r=reputation.data??{};
-  const displayName=[p.firstName,p.lastName].filter(Boolean).join(" ") || user?.displayName || user?.username || "Tài khoản Nexus";
-  const email=String(p.email??user?.email??"");
-  const isSeller=Boolean(user?.roles?.some(role=>role.toLowerCase()==="seller")||user?.role?.toLowerCase()==="seller"||p.isSeller===true);
+  const { user, setAuthenticatedUser } = useSession();
+  const [revision, setRevision] = useState(0);
+  const [error, setError] = useState("");
+  const [saved, setSaved] = useState("");
+  const [busy, setBusy] = useState(false);
+  const profile = useApiResource("account-profile:" + revision, (signal) => profileService.getProfile(signal));
+
+  useEffect(() => {
+    if (!saved) return;
+    const timeout = window.setTimeout(() => setSaved(""), 4000);
+    return () => window.clearTimeout(timeout);
+  }, [saved]);
+
+  async function save(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const values = new FormData(event.currentTarget);
+    setBusy(true);
+    setError("");
+    setSaved("");
+    try {
+      const updated = await profileService.updateProfile({
+        username: String(values.get("username") ?? "").trim() || undefined,
+        firstName: String(values.get("firstName") ?? "").trim(),
+        lastName: String(values.get("lastName") ?? "").trim(),
+        phoneNumber: String(values.get("phoneNumber") ?? "").trim(),
+        address: String(values.get("address") ?? "").trim(),
+      });
+      setAuthenticatedUser({ ...user, ...updated });
+      setSaved("Đã cập nhật hồ sơ.");
+      setRevision((value) => value + 1);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Không thể cập nhật hồ sơ.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const p = profile.data ?? { firstName: "", lastName: "", email: "", username: null, phoneNumber: null, address: null, reputationScore: null, trustLevel: "", isSeller: false };
+  const displayName = [p?.firstName, p?.lastName].filter(Boolean).join(" ") || user?.displayName || user?.username || "Tài khoản Nexus";
+  const email = p?.email ?? user?.email ?? "";
+  const isSeller = Boolean(p?.isSeller || user?.roles?.some((role) => role.toLowerCase() === "seller") || user?.role?.toLowerCase() === "seller");
   return <div className="profile-page">
     <div className="profile-layout">
       <aside className="profile-sidebar">
         <div className="profile-identity"><span className="profile-avatar" aria-hidden="true">{String(displayName).charAt(0).toLocaleUpperCase("vi-VN")}</span><strong>{displayName}</strong>{email&&<small>{email}</small>}</div>
         <nav className="profile-nav" aria-label="Điều hướng tài khoản">
+          <a href="#profile-information" aria-current="page">Hồ sơ cá nhân</a>
           <Link href={ROUTES.auth.changePassword}>Đổi mật khẩu &amp; bảo mật</Link>
           {isSeller ? (
-            <>
-              <Link href={ROUTES.seller.products}>Kênh người bán</Link>
-              <Link href={ROUTES.seller.shop}>Hồ sơ gian hàng &amp; Kho GHN</Link>
-            </>
+            <Link className="profile-nav-seller" href={ROUTES.seller.products}>Kênh người bán</Link>
           ) : (
             <Link href={ROUTES.buyer.becomeSeller}>Đăng ký bán hàng (Become Seller)</Link>
           )}
@@ -350,31 +380,18 @@ export function AccountProfileScreen() {
       </aside>
       <div className="profile-content">
         <section id="profile-information" className="profile-panel"><div className="profile-panel-heading"><div><h1>Hồ sơ cá nhân</h1><p>Cập nhật thông tin cá nhân và phương thức liên hệ.</p></div></div>
-          {profile.error&&<p role="alert" className="notice">{profile.error.message}</p>}
+          {profile.error&&<div className="profile-load-error"><p role="alert" className="notice">{profile.error.message}</p><button type="button" className="button button-secondary" onClick={() => profile.reload()}>Thử tải lại</button></div>}
           {profile.loading?<NoData title="Đang tải hồ sơ…"/>:profile.error?null:<form className="profile-form" key={revision} onSubmit={e=>void save(e)}>
-            <div className="profile-form-grid"><label className="field-wrap">Họ<input className="field" name="firstName" required defaultValue={String(p.firstName??"")}/></label><label className="field-wrap">Tên<input className="field" name="lastName" required defaultValue={String(p.lastName??"")}/></label></div>
-            <div className="profile-form-grid"><label className="field-wrap">Email<input className="field" type="email" value={email} readOnly aria-readonly="true" /></label><label className="field-wrap">Số điện thoại liên hệ<input className="field" name="phoneNumber" required defaultValue={String(p.phoneNumber??"")}/></label></div>
-            <label className="field-wrap">Tên đăng nhập<input className="field" name="username" defaultValue={String(p.username??"")} maxLength={100}/></label>
-            <div id="profile-address" className="profile-form-section"><h2>Địa chỉ liên hệ</h2><label className="field-wrap">Địa chỉ<textarea className="textarea-field" name="address" maxLength={255} defaultValue={String(p.address??"")}/></label></div>
-            {error&&<p role="alert" className="notice">{error}</p>}{saved&&<p role="status" className="form-success">{saved}</p>}
+            <div className="profile-form-grid"><label className="field-wrap">Họ<input className="field" name="firstName" required maxLength={100} autoComplete="family-name" defaultValue={p.firstName}/></label><label className="field-wrap">Tên<input className="field" name="lastName" required maxLength={100} autoComplete="given-name" defaultValue={p.lastName}/></label></div>
+            <div className="profile-form-grid"><label className="field-wrap">Email<input className="field" type="email" value={email} readOnly aria-readonly="true" /></label><label className="field-wrap">Số điện thoại liên hệ<input className="field" name="phoneNumber" type="tel" maxLength={20} autoComplete="tel" defaultValue={p.phoneNumber??""}/></label></div>
+            <label className="field-wrap">Tên đăng nhập<input className="field" name="username" minLength={3} maxLength={50} autoComplete="username" defaultValue={p.username??""}/></label>
+            <label id="profile-address" className="field-wrap">Địa chỉ liên hệ<textarea className="textarea-field" name="address" maxLength={255} autoComplete="street-address" defaultValue={p.address??""}/></label>
+            {error&&<p role="alert" className="notice">{error}</p>}
             <div className="profile-actions"><button type="reset" className="button button-secondary" disabled={busy}>Hủy thao tác</button><button type="submit" className="button button-primary" disabled={busy||profile.loading}>{busy?"Đang lưu…":"Lưu thay đổi"}</button></div>
           </form>}
         </section>
-        <section id="profile-reputation" className="profile-panel"><div className="profile-panel-heading"><div><h2>Điểm uy tín &amp; quyền hạn</h2><p>Thông tin được cập nhật từ tài khoản của bạn.</p></div></div><div className="profile-stats"><div><span>Điểm uy tín</span><strong>{String(r.reputationScore??p.reputationScore??"—")}</strong><small>{String(r.trustLevel??p.trustLevel??"")}</small></div><div><span>Đấu giá</span><strong>{r.canBid===true?"Đủ điều kiện đặt giá":r.canBid===false?"Chưa đủ điều kiện":"Chưa có dữ liệu"}</strong></div><div><span>Bán hàng</span><strong>{r.canSell===true?"Đủ điều kiện bán":r.canSell===false?"Chưa đủ điều kiện":"Chưa có dữ liệu"}</strong></div></div>{reputation.error&&<p role="alert" className="notice">{reputation.error.message}</p>}</section>
-        {isSeller ? (
-          <section id="profile-selling" className="profile-panel">
-            <div className="profile-panel-heading">
-              <div>
-                <h2>Kênh bán hàng</h2>
-                <p>Tài khoản của bạn đã có quyền Seller. Quản lý sản phẩm, kho GHN và phiên đấu giá của gian hàng.</p>
-              </div>
-              <div className="action-row" style={{ marginTop: 0 }}>
-                <Link className="button button-primary" href={ROUTES.seller.products}>Truy cập Seller Center</Link>
-                <Link className="button button-secondary" href={ROUTES.seller.shop}>Hồ sơ gian hàng &amp; Kho GHN</Link>
-              </div>
-            </div>
-          </section>
-        ) : (
+        {profile.data&&<section id="profile-reputation" className="profile-panel profile-reputation"><div><h2>Điểm uy tín</h2><p>Điểm hiện tại của tài khoản</p></div><div className="profile-reputation-value"><strong>{p.reputationScore}</strong><span>{p.trustLevel}</span></div></section>}
+        {!isSeller && (
           <section id="profile-selling" className="profile-panel">
             <div className="profile-panel-heading">
               <div>
@@ -385,8 +402,14 @@ export function AccountProfileScreen() {
             </div>
           </section>
         )}
-        <section className="profile-panel"><div className="profile-panel-heading"><div><h2>Lịch sử vi phạm</h2><p>Các ghi nhận liên quan đến tài khoản.</p></div></div>{penalties.error&&<p role="alert" className="notice">{penalties.error.message}</p>}{penalties.data?.length?penalties.data.map((item,index)=><div className="info-row" key={String(item.id??index)}><span><strong>{String(item.violationType??"Vi phạm")}</strong><br/>{String(item.reason??"")}<br/>{String(item.issuedAt??"")}</span><span>{String(item.status??"")}</span></div>):<NoData title={penalties.loading?"Đang tải lịch sử…":penalties.error?"Không tải được lịch sử":"Chưa có vi phạm"}/>}</section>
       </div>
     </div>
+    {saved && (
+      <div className="app-notification" role="status" aria-live="polite" aria-atomic="true">
+        <span className="app-notification-mark" aria-hidden="true">✓</span>
+        <span className="app-notification-message">{saved}</span>
+        <button type="button" className="app-notification-close" aria-label="Đóng thông báo" onClick={() => setSaved("")}>×</button>
+      </div>
+    )}
   </div>;
 }
