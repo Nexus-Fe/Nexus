@@ -157,7 +157,7 @@ export function RegisterScreen() {
         const session = await authService.login({ identifier: fields.email.trim(), password: fields.password });
         setAuthenticatedUser(session.user);
         setFields((current) => ({ ...current, password: "", confirmPassword: "" }));
-        router.replace(ROUTES.home);
+        router.replace(choice === "seller" ? ROUTES.buyer.becomeSeller : ROUTES.home);
       } catch {
         setFields((current) => ({ ...current, password: "", confirmPassword: "" }));
         setStep("complete");
@@ -200,7 +200,7 @@ export function RegisterScreen() {
       <fieldset className="registration-choice">
         <legend>Bạn muốn bắt đầu với</legend>
         <label><input type="radio" name="registration-choice" checked={choice === "buyer"} onChange={() => setChoice("buyer")} /><span><strong>Mua hàng</strong><small>Tài khoản Buyer để khám phá và đặt hàng.</small></span></label>
-        <label><input type="radio" name="registration-choice" disabled checked={false} /><span><strong>Mở gian hàng</strong><small>Đăng ký Buyer trước, sau đó chọn “Đăng ký bán hàng” trong hồ sơ.</small></span></label>
+        <label><input type="radio" name="registration-choice" checked={choice === "seller"} onChange={() => setChoice("seller")} /><span><strong>Mở gian hàng</strong><small>Nhập thông tin gian hàng ngay và hoàn tất đăng ký bán hàng sau khi xác thực OTP.</small></span></label>
       </fieldset>
       <label className="field-wrap" htmlFor="register-username">Tên đăng nhập<input id="register-username" className="field" autoComplete="username" minLength={3} maxLength={50} required value={fields.username} onChange={(event) => updateField("username", event.target.value)} /></label>
       <div className="form-grid">
