@@ -311,10 +311,8 @@ export function RegisterScreen() {
   const currentStepsList = roleConfig[choice].steps;
   const currentStep = step === "account" ? 1 : step === "shop" ? 2 : step === "review" ? 3 : currentStepsList.length;
 
-  const backAction = step === "shop" ? () => setStep("account") : step === "review" ? () => setStep("shop") : step === "verify" ? () => setStep("account") : undefined;
-
   return (
-    <AuthSplitLayout backAction={backAction} wide>
+    <AuthSplitLayout wide>
       <div className="auth-form-brand">
         <Link href={ROUTES.home} aria-label="NEXUS Trang chủ">
           <Brand />
