@@ -17,8 +17,8 @@ import administrativeUnits from "@/data/vietnam-administrative-units.json";
 
 type CartItem = { id: string; productId: string; skuId: string; sellerId: string; productName: string; quantity: number; unitPriceSnapshot: number };
 type Cart = { id: string; buyerId: string; status: string; itemCount: number; subtotalAmount: number; items: CartItem[] };
-type SubOrderItem = { itemId: string; productId: string; skuId: string; productName: string; skuCode?: string | null; quantity: number; unitPrice: number; lineTotal: number };
-type ShippingAddressSnapshot = { receiverName: string; receiverPhone: string; street: string; ward: string; district: string; province: string; fullAddress?: string | null };
+type SubOrderItem = { orderItemId?: string; itemId?: string; productId: string; skuId: string; productName: string; skuCode?: string | null; quantity: number; unitPrice: number; lineTotal: number };
+type ShippingAddressSnapshot = { receiverName: string; receiverPhone: string; street: string; ward: string; district?: string | null; province: string; fullAddress?: string | null };
 type SubOrderDetail = {
   subOrderId: string;
   subOrderNo: string;
@@ -95,6 +95,30 @@ function isSellerConfirmedOrDelivering(status: string): boolean {
 
 function isSubOrderCompleted(status: string): boolean {
   return status.replace(/[^a-z]/gi, "").toUpperCase() === "COMPLETED";
+}
+
+function isOrderCancelled(status: string): boolean {
+  const key = status.replace(/[^a-z]/gi, "").toUpperCase();
+  return key === "CANCELLED" || key === "REFUNDED";
+}
+
+function canBuyerCancelOrder(orderStatus: string, subOrders: SubOrderDetail[]): boolean {
+  const orderKey = orderStatus.replace(/[^a-z]/gi, "").toUpperCase();
+  if (["CANCELLED", "REFUNDED", "COMPLETED", "DELIVERED", "SHIPPING", "SHIPPED"].includes(orderKey)) {
+    return false;
+  }
+  if (subOrders.length === 0) {
+    return ["PENDINGPAYMENT", "PAID", "PENDINGCONFIRMATION", "CONFIRMED"].includes(orderKey);
+  }
+  const hasBlockedSubOrder = subOrders.some((sub) => {
+    const key = sub.status.replace(/[^a-z]/gi, "").toUpperCase();
+    return ["SHIPPING", "SHIPPED", "DELIVERED", "COMPLETED"].includes(key);
+  });
+  const allCancelledOrRejected = subOrders.every((sub) => {
+    const key = sub.status.replace(/[^a-z]/gi, "").toUpperCase();
+    return ["CANCELLED", "SELLERREJECTED", "REFUNDED"].includes(key);
+  });
+  return !hasBlockedSubOrder && !allCancelledOrRejected;
 }
 
 function useCart() {
@@ -439,7 +463,7 @@ export function CheckoutScreen() {
             contactPhone: form.phone.trim(),
             street: form.address.trim(),
             ward: wardName,
-            district: "",
+            district: wardName || provinceName,
             province: provinceName,
           },
           contactPhone: form.phone.trim(),
@@ -661,6 +685,7 @@ export function OrderDetailScreen() {
   const order = useApiResource(orderId ? `buyer-order:${orderId}` : null, (signal) => api.get<ApiResponse<Order> | Order>(`/api/v1/orders/${encodeURIComponent(orderId)}`, { signal }).then(unwrap));
   const shipment = useApiResource(orderId ? `buyer-shipment:${orderId}` : null, (signal) => fulfillmentService.getShipmentByOrderId(orderId, signal));
   const [confirmingSubOrderId, setConfirmingSubOrderId] = useState<string | null>(null);
+  const [cancellingOrder, setCancellingOrder] = useState(false);
   const [confirmMessage, setConfirmMessage] = useState("");
   const [confirmError, setConfirmError] = useState("");
 
@@ -679,11 +704,52 @@ export function OrderDetailScreen() {
     }
   }
 
+  async function handleCancelOrder() {
+    if (!orderId || cancellingOrder) return;
+    setCancellingOrder(true);
+    setConfirmMessage("");
+    setConfirmError("");
+    const payload = {
+      reasonCode: "BuyerChangedMind",
+      reasonText: "Người mua chủ động hủy đơn hàng trước khi giao",
+    };
+    try {
+      try {
+        await api.put(`/api/v1/orders/${encodeURIComponent(orderId)}/cancel`, payload);
+      } catch {
+        await api.post(`/api/v1/orders/${encodeURIComponent(orderId)}/cancel`, payload);
+      }
+      setConfirmMessage("Đã hủy đơn hàng thành công! Tồn kho tạm giữ (Reserved) đã được nhả lại vào khả dụng (Available) và tiền đơn hàng (nếu đã thanh toán qua Ví) đã được hoàn trả.");
+      order.reload();
+      shipment.reload();
+    } catch (reason) {
+      setConfirmError((reason as Error).message || "Không thể hủy đơn hàng này.");
+    } finally {
+      setCancellingOrder(false);
+    }
+  }
+
   const subOrders = order.data?.subOrders ?? [];
   const primaryStatus = subOrders[0]?.status ?? order.data?.status ?? "—";
+  const canCancel = Boolean(order.data && canBuyerCancelOrder(order.data.status, subOrders));
 
   return <>
-    <PageHeading title="Chi tiết đơn mua" />
+    <PageHeading
+      title="Chi tiết đơn mua"
+      action={
+        canCancel ? (
+          <button
+            type="button"
+            className="button button-secondary"
+            style={{ borderColor: "var(--danger, #dc2626)", color: "var(--danger, #dc2626)" }}
+            disabled={cancellingOrder}
+            onClick={() => void handleCancelOrder()}
+          >
+            {cancellingOrder ? "Đang hủy đơn…" : "Hủy đơn hàng"}
+          </button>
+        ) : undefined
+      }
+    />
     {(order.error || confirmError) && <p className="notice" role="alert">{confirmError || order.error?.message}</p>}
     {confirmMessage && <p className="form-success" role="status">{confirmMessage}</p>}
     <div className="order-detail-layout">
@@ -692,6 +758,7 @@ export function OrderDetailScreen() {
         const canConfirmReceipt = ["SHIPPED", "DELIVERED"].includes(sub.status.replace(/[^a-z]/gi, "").toUpperCase());
         const completed = isSubOrderCompleted(sub.status);
         const rejected = isSellerRejected(sub.status);
+        const cancelled = isOrderCancelled(sub.status);
         return (
           <Card className="card-pad" key={sub.subOrderId}>
             {sellerAccepted && (
@@ -717,6 +784,11 @@ export function OrderDetailScreen() {
             {rejected && (
               <div className="notice" role="alert" style={{ marginBottom: 16 }}>
                 <strong>Đơn hàng đã bị người bán từ chối.</strong> Vui lòng kiểm tra lịch sử <strong>Ví Nexus</strong> để xác nhận khoản hoàn tiền của đơn này.
+              </div>
+            )}
+            {cancelled && !rejected && (
+              <div className="notice" role="status" style={{ marginBottom: 16 }}>
+                <strong>Đơn hàng đã hủy.</strong> Tồn kho giữ chỗ của đơn đã được nhả lại vào kho khả dụng và khoản thanh toán Ví (nếu có) đã được hoàn trả.
               </div>
             )}
             {completed && (
@@ -751,8 +823,8 @@ export function OrderDetailScreen() {
                   </tr>
                 </thead>
                 <tbody>
-                  {sub.items.map((item) => (
-                    <tr key={item.itemId}>
+                  {sub.items.map((item, idx) => (
+                    <tr key={item.orderItemId ?? item.itemId ?? `${item.skuId}-${idx}`}>
                       <td><strong>{item.productName}</strong></td>
                       <td>{item.quantity}</td>
                       <td>{formatMoney(item.unitPrice)}</td>

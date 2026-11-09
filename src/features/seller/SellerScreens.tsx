@@ -12,7 +12,7 @@ import { api, unwrap, type ApiResponse } from "@/lib/api/client";
 import { useApiResource } from "@/lib/api/use-api-resource";
 import { formatMoney, resolveImageUrl } from "@/lib/presentation";
 import { fulfillmentService } from "@/features/fulfillment";
-import { loadSafeRegistrationDraft } from "./services/seller.service";
+import { loadSafeRegistrationDraft, sellerService } from "./services/seller.service";
 import { SellerShopAddressFields } from "./components/SellerShopAddressFields";
 import { ghnPresets } from "./ghn-presets";
 import { sellerCatalogService, type InventoryBalance, type ProductVariant, type SellerProductDetail } from "./services/catalog.service";
@@ -254,9 +254,27 @@ export function SellerProductEditorScreen({ initialProduct }: { initialProduct?:
   const [busy, setBusy] = useState(false);
 
   const categories = useApiResource("seller-product-categories", sellerCatalogService.categories);
+  const sellerProfile = useApiResource(
+    user?.id ? `seller-editor-profile:${user.id}` : null,
+    async (signal) => unwrap(await sellerService.getProfile(signal)),
+  );
+  const sellerProfileId = sellerProfile.data?.sellerId ?? sellerProfile.data?.shopId;
+  const shopName = sellerProfile.data?.shopName;
+  const rawPickupAddress = sellerProfile.data?.pickupAddress;
+  const pickupAddress =
+    typeof rawPickupAddress === "string"
+      ? rawPickupAddress
+      : rawPickupAddress?.streetAddress ?? sellerProfile.data?.streetAddress ?? "";
   const warehouses = useApiResource(
-    user?.id ? `seller-warehouses:${user.id}` : "seller-warehouses:anon",
-    (signal) => sellerCatalogService.listWarehouses(user?.id, signal),
+    user?.id && !sellerProfile.loading
+      ? `seller-warehouses:${user.id}:${sellerProfileId ?? ""}:${shopName ?? ""}`
+      : null,
+    (signal) =>
+      sellerCatalogService.listWarehouses(user?.id, signal, {
+        sellerId: sellerProfileId,
+        shopName,
+        pickupAddress,
+      }),
   );
 
 
@@ -1226,67 +1244,163 @@ export function SellerProductEditorScreen({ initialProduct }: { initialProduct?:
 
 export function SellerInventoryScreen() {
   const { user } = useSession();
-  const warehouses = useApiResource(
-    user?.id ? `seller-inv-warehouses:${user.id}` : "seller-inv-warehouses:anon",
-    (signal) => sellerCatalogService.listWarehouses(user?.id, signal),
+  const sellerProfile = useApiResource(
+    user?.id ? `seller-inventory-profile:${user.id}` : null,
+    async (signal) => unwrap(await sellerService.getProfile(signal)),
   );
-  const personalWarehouses = warehouses.data ?? [];
-  const activeWarehouseId = personalWarehouses[0]?.id ?? "";
-  const products = useApiResource(
-    activeWarehouseId ? `seller-inventory-products:${user?.id}:${activeWarehouseId}` : null,
-    (signal) => sellerCatalogService.listProductsInWarehouse(activeWarehouseId, signal),
+  const sellerId = sellerProfile.data?.sellerId ?? sellerProfile.data?.shopId;
+  const shopName = sellerProfile.data?.shopName;
+  const rawPickupAddress = sellerProfile.data?.pickupAddress;
+  const pickupAddress =
+    typeof rawPickupAddress === "string"
+      ? rawPickupAddress
+      : rawPickupAddress?.streetAddress ?? sellerProfile.data?.streetAddress ?? "";
+  const warehouses = useApiResource(
+    user?.id && !sellerProfile.loading
+      ? `seller-inv-warehouses:${user.id}:${sellerId ?? ""}:${shopName ?? ""}`
+      : null,
+    (signal) =>
+      sellerCatalogService.listWarehouses(user?.id, signal, {
+        sellerId,
+        shopName,
+        pickupAddress,
+      }),
+  );
+  const personalWarehouse = warehouses.data?.[0] ?? null;
+  const activeWarehouseId = personalWarehouse?.id ?? "";
+
+  // Load ALL products and their SKU variants belonging to the seller
+  const allProductDetails = useApiResource(
+    user?.id && !sellerProfile.loading ? `seller-inventory-all-details:${user.id}:${sellerId ?? ""}` : null,
+    (signal) => sellerCatalogService.listAllProductDetails(signal),
   );
 
   const [productId, setProductId] = useState("");
-  const activeProductId = products.data?.some((product) => product.productId === productId)
-    ? productId
-    : (products.data?.[0]?.productId ?? "");
-  const detail = useApiResource(
-    activeProductId ? `seller-inventory-product:${activeProductId}` : null,
-    (signal) => sellerCatalogService.detail(activeProductId, signal),
-  );
+  const [searchKeyword, setSearchKeyword] = useState("");
+  const [stockFilter, setStockFilter] = useState<"ALL" | "IN_STOCK" | "OUT_OF_STOCK" | "UNDECLARED">("ALL");
   const [skuId, setSkuId] = useState("");
   const [detailsOpen, setDetailsOpen] = useState(false);
+  const [intakeModalOpen, setIntakeModalOpen] = useState(false);
   const [variantDrafts, setVariantDrafts] = useState<Record<string, { name: string; price: string; totalQuantity: string }>>({});
   const [savingVariantId, setSavingVariantId] = useState<string | null>(null);
   const [detailsMessage, setDetailsMessage] = useState("");
   const [detailsError, setDetailsError] = useState("");
+  const [intakeQuantity, setIntakeQuantity] = useState("");
+  const [intakeNote, setIntakeNote] = useState("");
+  const [intakeBusy, setIntakeBusy] = useState(false);
+  const [intakeError, setIntakeError] = useState("");
+  const [intakeSuccess, setIntakeSuccess] = useState("");
 
-  const variantIdsKey = detail.data?.variants.map((v) => v.variantId).join(",") ?? "";
+  const allVariantRows = (allProductDetails.data ?? []).flatMap((product) =>
+    (product.variants ?? []).map((variant) => ({
+      product,
+      variant,
+    })),
+  );
+
+  const allVariantIdsKey = allVariantRows.map((row) => row.variant.variantId).join(",");
   const batchBalances = useApiResource(
-    variantIdsKey ? `seller-inventory-batch:${variantIdsKey}` : null,
-    (signal) => sellerCatalogService.inventoryBatch(detail.data?.variants.map((v) => v.variantId) ?? [], signal),
+    allVariantIdsKey ? `seller-inventory-batch-all:${allVariantIdsKey}` : null,
+    (signal) => sellerCatalogService.inventoryBatch(allVariantRows.map((row) => row.variant.variantId), signal),
   );
 
   const balanceMap = new Map<string, InventoryBalance[]>();
   for (const item of batchBalances.data ?? []) {
     balanceMap.set(item.skuId, [...(balanceMap.get(item.skuId) ?? []), item]);
   }
-  const visibleVariants = detail.data?.variants.filter((variant) =>
-    balanceMap.get(variant.variantId)?.some((balance) => balance.warehouseId === activeWarehouseId),
-  ) ?? [];
-  const activeSkuId = visibleVariants.some((variant) => variant.variantId === skuId)
+
+  function resolveSellerWarehouseBalance(targetSkuId: string): InventoryBalance | undefined {
+    const items = balanceMap.get(targetSkuId) ?? [];
+    if (!items.length) return undefined;
+    if (activeWarehouseId) {
+      const exact = items.find((balance) => balance.warehouseId === activeWarehouseId);
+      if (exact) return exact;
+    }
+    return items[0];
+  }
+
+  const filteredRows = allVariantRows.filter(({ product, variant }) => {
+    if (productId && product.productId !== productId) return false;
+    if (searchKeyword.trim()) {
+      const q = searchKeyword.trim().toLowerCase();
+      const matched =
+        product.name.toLowerCase().includes(q) ||
+        variant.skuCode.toLowerCase().includes(q) ||
+        variant.name.toLowerCase().includes(q);
+      if (!matched) return false;
+    }
+    const inv = resolveSellerWarehouseBalance(variant.variantId);
+    if (stockFilter === "IN_STOCK") return Boolean(inv && inv.availableQuantity > 0);
+    if (stockFilter === "OUT_OF_STOCK") return Boolean(inv && inv.availableQuantity <= 0);
+    if (stockFilter === "UNDECLARED") return !inv;
+    return true;
+  });
+
+  const activeSkuId = allVariantRows.some((row) => row.variant.variantId === skuId)
     ? skuId
-    : (visibleVariants[0]?.variantId ?? "");
-  const warehouseName = (warehouseId: string) => {
-    const warehouse = warehouses.data?.find((item) => item.id === warehouseId);
-    return warehouse ? `[${warehouse.code}] ${warehouse.name}` : `Kho ${warehouseId}`;
-  };
+    : (filteredRows[0]?.variant.variantId ?? allVariantRows[0]?.variant.variantId ?? "");
+  const activeRow = allVariantRows.find((row) => row.variant.variantId === activeSkuId) ?? null;
+  const selectedBalance = activeSkuId ? resolveSellerWarehouseBalance(activeSkuId) : undefined;
+  const isOwnWarehouse = Boolean(personalWarehouse?.id);
+  const currentTotalQuantity = selectedBalance?.totalQuantity ?? 0;
+  const intakeQuantityNumber = Number(intakeQuantity);
+  const projectedTotal =
+    intakeQuantity.trim() &&
+    Number.isSafeInteger(intakeQuantityNumber) &&
+    intakeQuantityNumber > 0 &&
+    intakeQuantityNumber <= MAX_INVENTORY_QUANTITY - currentTotalQuantity
+      ? currentTotalQuantity + intakeQuantityNumber
+      : null;
+
+  const totalProductsCount = allProductDetails.data?.length ?? 0;
+  const totalSkusCount = allVariantRows.length;
+  const totalPhysicalStock = allVariantRows.reduce(
+    (sum, row) => sum + (resolveSellerWarehouseBalance(row.variant.variantId)?.totalQuantity ?? 0),
+    0,
+  );
+  const totalAvailableStock = allVariantRows.reduce(
+    (sum, row) => sum + (resolveSellerWarehouseBalance(row.variant.variantId)?.availableQuantity ?? 0),
+    0,
+  );
+  const totalReservedStock = allVariantRows.reduce(
+    (sum, row) => sum + (resolveSellerWarehouseBalance(row.variant.variantId)?.reservedQuantity ?? 0),
+    0,
+  );
+
+  const warehouseDisplayLabel = personalWarehouse
+    ? `[${personalWarehouse.code}] ${personalWarehouse.name}`
+    : "Kho riêng của Shop";
 
   useEffect(() => {
-    if (!detailsOpen) return;
+    if (!detailsOpen && !intakeModalOpen) return;
     const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setDetailsOpen(false);
+      if (event.key === "Escape") {
+        setDetailsOpen(false);
+        setIntakeModalOpen(false);
+      }
     };
     document.addEventListener("keydown", closeOnEscape);
     return () => document.removeEventListener("keydown", closeOnEscape);
-  }, [detailsOpen]);
+  }, [detailsOpen, intakeModalOpen]);
+
+  function openIntakeModal(targetSkuId?: string) {
+    if (targetSkuId) {
+      setSkuId(targetSkuId);
+    } else if (!skuId && (filteredRows[0]?.variant.variantId || allVariantRows[0]?.variant.variantId)) {
+      setSkuId(filteredRows[0]?.variant.variantId ?? allVariantRows[0]?.variant.variantId ?? "");
+    }
+    setIntakeQuantity("");
+    setIntakeNote("");
+    setIntakeError("");
+    setIntakeSuccess("");
+    setIntakeModalOpen(true);
+  }
 
   function openProductDetails(variant: ProductVariant) {
     setSkuId(variant.variantId);
     setDetailsError("");
     setDetailsMessage("");
-    const inventory = balanceMap.get(variant.variantId)?.find((balance) => balance.warehouseId === activeWarehouseId);
+    const inventory = resolveSellerWarehouseBalance(variant.variantId);
     setVariantDrafts({
       [variant.variantId]: {
         name: variant.name,
@@ -1299,7 +1413,7 @@ export function SellerInventoryScreen() {
 
   async function saveVariantDetails(variant: ProductVariant) {
     const draft = variantDrafts[variant.variantId];
-    const inventories = balanceMap.get(variant.variantId) ?? [];
+    const inventory = resolveSellerWarehouseBalance(variant.variantId);
     if (!draft) {
       setDetailsError("Không có thay đổi để lưu.");
       return;
@@ -1321,24 +1435,24 @@ export function SellerInventoryScreen() {
     setDetailsMessage("");
     try {
       await sellerCatalogService.updateVariant(variant.variantId, {
-          name: draft.name.trim(),
-          price: nextPrice,
-          currency: variant.currency || "VND",
-          attributes: variant.attributes,
+        name: draft.name.trim(),
+        price: nextPrice,
+        currency: variant.currency || "VND",
+        attributes: variant.attributes,
       });
-      detail.reload();
+      allProductDetails.reload();
       batchBalances.reload();
       setVariantDrafts((current) => ({
         ...current,
         [variant.variantId]: {
           name: draft.name.trim(),
           price: String(nextPrice),
-          totalQuantity: inventories[0] ? String(inventories[0].totalQuantity) : "",
+          totalQuantity: inventory ? String(inventory.totalQuantity) : "",
         },
       }));
       setDetailsMessage("Đã lưu tên biến thể và giá bán.");
     } catch (cause) {
-      detail.reload();
+      allProductDetails.reload();
       batchBalances.reload();
       const failure = cause instanceof Error ? cause.message : "Không lưu được thay đổi.";
       setDetailsError(failure);
@@ -1347,171 +1461,423 @@ export function SellerInventoryScreen() {
     }
   }
 
+  async function submitIntake() {
+    const quantity = Number(intakeQuantity);
+    setIntakeError("");
+    setIntakeSuccess("");
+    if (!isOwnWarehouse || !activeWarehouseId || !activeSkuId) {
+      setIntakeError("Vui lòng chọn biến thể SKU trong kho riêng của bạn để nhập hàng.");
+      return;
+    }
+    if (!Number.isSafeInteger(quantity) || quantity <= 0 || quantity > MAX_INVENTORY_QUANTITY) {
+      setIntakeError(`Nhập số nguyên từ 1 đến ${MAX_INVENTORY_QUANTITY.toLocaleString("vi-VN")}.`);
+      return;
+    }
+    if (quantity > MAX_INVENTORY_QUANTITY - currentTotalQuantity) {
+      setIntakeError("Tổng tồn sau nhập vượt giới hạn số lượng cho phép.");
+      return;
+    }
+    setIntakeBusy(true);
+    try {
+      const noteText = intakeNote.trim() || "Seller nhập thêm hàng vào kho riêng";
+      if (!selectedBalance || selectedBalance.warehouseId !== activeWarehouseId) {
+        await sellerCatalogService.declareInventory({
+          skuId: activeSkuId,
+          warehouseId: activeWarehouseId,
+          quantity,
+          note: noteText,
+        });
+      } else {
+        await sellerCatalogService.adjustInventory({
+          skuId: activeSkuId,
+          warehouseId: activeWarehouseId,
+          type: "Intake",
+          quantity,
+          note: noteText,
+        });
+      }
+      setIntakeSuccess(`Đã nhập thêm ${quantity.toLocaleString("vi-VN")} sản phẩm vào ${warehouseDisplayLabel}.`);
+      setIntakeQuantity("");
+      setIntakeNote("");
+      setIntakeModalOpen(false);
+      batchBalances.reload();
+    } catch (cause) {
+      setIntakeError(cause instanceof Error ? cause.message : "Không nhập thêm được hàng. Vui lòng thử lại.");
+      batchBalances.reload();
+    } finally {
+      setIntakeBusy(false);
+    }
+  }
+
   return (
     <>
-      <PageHeading
-        overline="Kênh người bán"
-        title="Quản lý kho"
-        description="Tra cứu tổng tồn, có thể bán và đang giữ theo từng SKU từ Fulfillment."
-      />
-
-      {/* Warehouse Bar */}
-      <Card className="card-pad seller-inventory-warehouse-bar" style={{ marginBottom: 20 }}>
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            flexWrap: "wrap",
-            gap: 12,
-          }}
-        >
-          <div>
-            <h2 style={{ margin: "0 0 4px", fontSize: 17 }}>Kho của gian hàng</h2>
-            <p style={{ margin: 0, fontSize: 12, color: "var(--muted)" }}>
-              Mỗi gian hàng có một kho riêng để quản lý tồn sản phẩm.
-            </p>
-          </div>
-          <div className="action-row">
-            {personalWarehouses.length ? (
-              <button type="button" className="button button-disabled" disabled title="Mỗi seller chỉ có một kho riêng">Tạo kho riêng</button>
-            ) : (
-              <ButtonLink href={`${ROUTES.seller.newProduct}#create-warehouse`}>Tạo kho riêng</ButtonLink>
+      <div className="seller-inventory-top-header">
+        <div>
+          <h1>Quản lý kho</h1>
+          <div className="seller-inventory-warehouse-meta">
+            <span className="seller-inventory-warehouse-name">
+              {warehouses.loading || sellerProfile.loading ? "Đang tải thông tin kho…" : warehouseDisplayLabel}
+            </span>
+            {(personalWarehouse?.address || pickupAddress) && (
+              <span>Địa chỉ lấy hàng: {personalWarehouse?.address || pickupAddress}</span>
             )}
           </div>
         </div>
+      </div>
 
-        {personalWarehouses.length ? (
-          <div className="grid-2" style={{ marginTop: 14 }}>
-            {personalWarehouses.slice(0, 1).map((wh) => (
-              <button
-                key={wh.id}
-                type="button"
-                className={`mini-item seller-warehouse-choice${activeWarehouseId === wh.id ? " is-selected" : ""}`}
-                aria-pressed={activeWarehouseId === wh.id}
-                onClick={() => { setProductId(""); setSkuId(""); setDetailsOpen(false); }}
-              >
-                <div>
-                  <strong>
-                    [{wh.code}] {wh.name}
-                  </strong>
-                  <p>{wh.address || "Kho tiêu chuẩn trên hệ thống Fulfillment"}</p>
-                </div>
-                <Badge>Kho của gian hàng</Badge>
-              </button>
-            ))}
-          </div>
-        ) : (
-          <p className="status-note">{warehouses.loading ? "Đang tải danh sách kho…" : warehouses.error ? `Không tải được danh sách kho: ${warehouses.error.message}` : "Chưa có kho nào khả dụng."}</p>
-        )}
-      </Card>
+      {sellerProfile.error && (
+        <p className="notice" role="alert" style={{ marginBottom: 16 }}>
+          Không tải được hồ sơ Seller: {sellerProfile.error.message}
+        </p>
+      )}
+      {!warehouses.loading && !sellerProfile.loading && !sellerProfile.error && !personalWarehouse && (
+        <p className="notice" role="status" style={{ marginBottom: 16 }}>
+          Kho riêng chưa được đồng bộ sau khi duyệt hồ sơ. Vui lòng tải lại trang hoặc kiểm tra hồ sơ Shop.
+        </p>
+      )}
+      {intakeSuccess && !intakeModalOpen && (
+        <p className="form-success" role="status" style={{ marginBottom: 16 }}>
+          {intakeSuccess}
+        </p>
+      )}
 
-      {/* Product & Variant Selector */}
+      {/* KPI Summary Cards */}
+      <div className="grid-4" style={{ marginBottom: 20 }}>
+        <Card className="card-pad">
+          <span style={{ fontSize: 12, color: "var(--muted)" }}>Sản phẩm trong kho</span>
+          <strong style={{ display: "block", fontSize: 22, marginTop: 4 }}>
+            {totalProductsCount.toLocaleString("vi-VN")}
+          </strong>
+        </Card>
+        <Card className="card-pad">
+          <span style={{ fontSize: 12, color: "var(--muted)" }}>Tổng biến thể (SKU)</span>
+          <strong style={{ display: "block", fontSize: 22, marginTop: 4 }}>
+            {totalSkusCount.toLocaleString("vi-VN")}
+          </strong>
+        </Card>
+        <Card className="card-pad">
+          <span style={{ fontSize: 12, color: "var(--muted)" }}>Tổng tồn vật lý (Total)</span>
+          <strong style={{ display: "block", fontSize: 22, marginTop: 4 }}>
+            {totalPhysicalStock.toLocaleString("vi-VN")}
+          </strong>
+        </Card>
+        <Card className="card-pad">
+          <span style={{ fontSize: 12, color: "var(--muted)" }}>Khả dụng / Đang giữ</span>
+          <strong style={{ display: "block", fontSize: 22, marginTop: 4, color: "#059669" }}>
+            {totalAvailableStock.toLocaleString("vi-VN")}{" "}
+            <span style={{ fontSize: 13, color: "#b45309", fontWeight: 600 }}>
+              (Giữ: {totalReservedStock.toLocaleString("vi-VN")})
+            </span>
+          </strong>
+        </Card>
+      </div>
+
+      {/* Full Warehouse Product & SKU Inventory Management */}
       <Card className="card-pad seller-inventory-selector" style={{ marginBottom: 20 }}>
-        <SectionHeading title="Chọn Sản phẩm & Biến thể SKU" />
-        <div className="form-grid">
+        <SectionHeading
+          title={`Danh sách toàn bộ Sản phẩm & SKU trong kho (${filteredRows.length}/${totalSkusCount} SKU)`}
+        />
+
+        {/* Filter & Search Bar */}
+        <div className="seller-inventory-filter-grid">
           <label className="field-wrap">
-            Sản phẩm
+            Lọc theo sản phẩm
             <select
               className="select-field"
-              value={activeProductId}
+              value={productId}
               onChange={(event) => {
                 setProductId(event.target.value);
-                setSkuId("");
+                setIntakeError("");
+                setIntakeSuccess("");
               }}
             >
-              <option value="">Chọn sản phẩm</option>
-              {products.data?.map((item) => (
+              <option value="">Tất cả sản phẩm trong kho ({totalProductsCount})</option>
+              {(allProductDetails.data ?? []).map((item) => (
                 <option key={item.productId} value={item.productId}>
-                  {item.name} ({item.status})
+                  {item.name} ({item.variants?.length ?? item.variantCount ?? 0} SKU · {item.status})
                 </option>
               ))}
             </select>
           </label>
+
           <label className="field-wrap">
-            Biến thể (SKU)
+            Tìm kiếm tên sản phẩm / Mã SKU
+            <input
+              className="field"
+              value={searchKeyword}
+              onChange={(event) => setSearchKeyword(event.target.value)}
+              placeholder="Nhập tên sản phẩm, mã SKU hoặc tên phân loại…"
+            />
+          </label>
+
+          <label className="field-wrap">
+            Trạng thái tồn kho
             <select
               className="select-field"
-              value={activeSkuId}
-              onChange={(event) => {
-                setSkuId(event.target.value);
-              }}
-              disabled={!detail.data}
+              value={stockFilter}
+              onChange={(event) => setStockFilter(event.target.value as typeof stockFilter)}
             >
-              <option value="">Chọn biến thể SKU</option>
-              {visibleVariants.map((variant) => (
-                <option key={variant.variantId} value={variant.variantId}>
-                  {variant.skuCode} · {variant.name} ({formatMoney(variant.price)})
-                </option>
-              ))}
+              <option value="ALL">Tất cả biến thể SKU ({totalSkusCount})</option>
+              <option value="IN_STOCK">Còn hàng khả dụng (&gt; 0)</option>
+              <option value="OUT_OF_STOCK">Hết hàng khả dụng (0)</option>
+              <option value="UNDECLARED">Chưa đồng bộ bản ghi tồn</option>
             </select>
           </label>
         </div>
 
-        {products.loading && <p className="status-note">Đang tìm sản phẩm của bạn trong kho đã chọn…</p>}
-        {products.error && <p className="notice" role="alert">Không tải được sản phẩm trong kho: {products.error.message}</p>}
-        {products.data?.length === 0 && <p className="status-note">Bạn chưa có sản phẩm nào trong kho này.</p>}
+        {allProductDetails.loading && <p className="status-note">Đang tải danh sách toàn bộ sản phẩm và biến thể trong kho…</p>}
+        {allProductDetails.error && <p className="notice" role="alert">Không tải được sản phẩm: {allProductDetails.error.message}</p>}
+        {!allProductDetails.loading && totalProductsCount === 0 && (
+          <p className="status-note">Kho của bạn chưa có sản phẩm nào. Hãy tạo sản phẩm mới để khai báo tồn kho.</p>
+        )}
 
-        {/* Batch overview of all variants in the selected product */}
-        {detail.data && visibleVariants.length > 0 && (
+        {/* Comprehensive Table of ALL Products & Variants in Seller's Personal Warehouse */}
+        {filteredRows.length > 0 ? (
           <div className="table-scroll" style={{ marginTop: 18 }}>
-            <table className="data-table">
+            <table className="data-table seller-inventory-table">
               <thead>
                 <tr>
+                  <th>Sản phẩm</th>
                   <th>Mã SKU</th>
-                  <th>Tên biến thể</th>
-                    <th>Kho</th>
+                  <th>Phân loại biến thể</th>
                   <th>Giá bán</th>
-                  <th>Tổng tồn (Total)</th>
-                  <th>Khả dụng (Available)</th>
-                  <th>Đang giữ (Reserved)</th>
+                  <th>Tổng tồn</th>
+                  <th>Khả dụng</th>
+                  <th>Đang giữ</th>
                   <th>Thao tác</th>
                 </tr>
               </thead>
               <tbody>
-                {visibleVariants.flatMap((v) => {
-                  const inventories = (balanceMap.get(v.variantId) ?? []).filter((balance) => balance.warehouseId === activeWarehouseId);
-                  const isSelected = v.variantId === activeSkuId;
-                  return (inventories.length ? inventories : [null]).map((inv) => (
+                {filteredRows.map(({ product, variant }) => {
+                  const inv = resolveSellerWarehouseBalance(variant.variantId);
+                  const isSelected = variant.variantId === activeSkuId;
+                  const attrSummary =
+                    variant.attributes?.length > 0
+                      ? variant.attributes.map((a) => `${a.attrName}: ${a.attrValue}`).join(" · ")
+                      : "";
+                  return (
                     <tr
-                      key={`${v.variantId}:${inv?.warehouseId ?? "empty"}`}
+                      key={variant.variantId}
                       style={isSelected ? { background: "#f0f9ff" } : undefined}
                     >
                       <td>
-                        <strong>{v.skuCode}</strong>
+                        <strong>{product.name}</strong>
+                        <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 2 }}>
+                          Trạng thái SP: {product.status}
+                        </div>
                       </td>
-                      <td>{v.name}</td>
-                      <td>{inv ? warehouseName(inv.warehouseId) : "Chưa có kho"}</td>
-                      <td>{formatMoney(v.price)}</td>
                       <td>
-                        <strong>{inv ? inv.totalQuantity : "—"}</strong>
+                        <strong>{variant.skuCode}</strong>
+                      </td>
+                      <td>
+                        <div>{variant.name}</div>
+                        {attrSummary && (
+                          <small style={{ color: "var(--muted)", display: "block", marginTop: 2 }}>
+                            {attrSummary}
+                          </small>
+                        )}
+                      </td>
+                      <td style={{ fontWeight: 600 }}>{formatMoney(variant.price)}</td>
+                      <td>
+                        <strong>{inv ? inv.totalQuantity.toLocaleString("vi-VN") : "0"}</strong>
                       </td>
                       <td style={{ color: "#059669", fontWeight: 700 }}>
-                        {inv ? inv.availableQuantity : "—"}
+                        {inv ? inv.availableQuantity.toLocaleString("vi-VN") : "0"}
                       </td>
                       <td style={{ color: "#b45309", fontWeight: 700 }}>
-                        {inv ? inv.reservedQuantity : "—"}
+                        {inv ? inv.reservedQuantity.toLocaleString("vi-VN") : "0"}
                       </td>
                       <td>
-                        <button
-                          type="button"
-                          className={`button button-small ${isSelected ? "button-primary" : "button-secondary"}`}
-                          disabled={batchBalances.loading}
-                          onClick={() => openProductDetails(v)}
-                        >
-                          Chi tiết
-                        </button>
+                        <div className="seller-inventory-row-actions">
+                          <button
+                            type="button"
+                            className="button button-small button-primary"
+                            disabled={!isOwnWarehouse || batchBalances.loading}
+                            onClick={() => openIntakeModal(variant.variantId)}
+                          >
+                            + Nhập hàng
+                          </button>
+                          <button
+                            type="button"
+                            className="button button-small button-secondary"
+                            disabled={batchBalances.loading}
+                            onClick={() => openProductDetails(variant)}
+                          >
+                            Sửa / Chi tiết
+                          </button>
+                        </div>
                       </td>
                     </tr>
-                  ));
+                  );
                 })}
               </tbody>
             </table>
           </div>
+        ) : (
+          !allProductDetails.loading &&
+          totalSkusCount > 0 && (
+            <p className="status-note" style={{ marginTop: 16 }}>
+              Không tìm thấy biến thể SKU nào khớp với bộ lọc hiện tại.
+            </p>
+          )
         )}
       </Card>
 
-      {detailsOpen && detail.data && (
+      {/* Stock Intake Modal */}
+      {intakeModalOpen && (
+        <div
+          className="seller-inventory-modal-backdrop"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setIntakeModalOpen(false);
+          }}
+        >
+          <section
+            className="seller-inventory-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="seller-inventory-intake-modal-title"
+            style={{ maxWidth: 620 }}
+          >
+            <header className="seller-inventory-modal-header">
+              <div>
+                <h2 id="seller-inventory-intake-modal-title">Nhập thêm hàng vào Kho riêng</h2>
+                <p>{personalWarehouse ? warehouseDisplayLabel : "Kho riêng của Shop"}</p>
+              </div>
+              <button
+                type="button"
+                className="seller-inventory-modal-close"
+                aria-label="Đóng hộp thoại nhập hàng"
+                onClick={() => setIntakeModalOpen(false)}
+              >
+                ×
+              </button>
+            </header>
+
+            <div className="auth-fields" style={{ marginTop: 12 }}>
+              <label className="field-wrap">
+                <span>Chọn biến thể SKU cần nhập hàng</span>
+                <select
+                  className="select-field"
+                  value={activeSkuId}
+                  onChange={(event) => {
+                    setSkuId(event.target.value);
+                    setIntakeQuantity("");
+                    setIntakeError("");
+                    setIntakeSuccess("");
+                  }}
+                  disabled={allVariantRows.length === 0 || intakeBusy}
+                >
+                  <option value="">Chọn biến thể SKU</option>
+                  {allVariantRows.map(({ product, variant }) => (
+                    <option key={variant.variantId} value={variant.variantId}>
+                      [{variant.skuCode}] {product.name} — {variant.name} ({formatMoney(variant.price)})
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              {activeRow && (
+                <div
+                  className="mini-item"
+                  style={{
+                    background: "#f8fafc",
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    flexWrap: "wrap",
+                    gap: 12,
+                  }}
+                >
+                  <div>
+                    <strong>
+                      [{activeRow.variant.skuCode}] {activeRow.product.name} ({activeRow.variant.name})
+                    </strong>
+                    <p style={{ margin: "4px 0 0", fontSize: 13 }}>
+                      Tồn hiện tại: <strong>{currentTotalQuantity.toLocaleString("vi-VN")}</strong>
+                      {projectedTotal !== null && (
+                        <>
+                          {" "}
+                          · Dự kiến sau khi nhập:{" "}
+                          <strong style={{ color: "#059669" }}>
+                            {projectedTotal.toLocaleString("vi-VN")}
+                          </strong>
+                        </>
+                      )}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              <label className="field-wrap">
+                <span>Số lượng nhập thêm</span>
+                <input
+                  className="field"
+                  type="number"
+                  min="1"
+                  max={Math.max(1, MAX_INVENTORY_QUANTITY - currentTotalQuantity)}
+                  step="1"
+                  value={intakeQuantity}
+                  placeholder="Nhập số lượng cần cộng thêm vào kho"
+                  disabled={!isOwnWarehouse || !activeSkuId || intakeBusy}
+                  onChange={(event) => {
+                    setIntakeQuantity(event.target.value);
+                    setIntakeError("");
+                    setIntakeSuccess("");
+                  }}
+                />
+              </label>
+
+              <label className="field-wrap">
+                <span>Ghi chú phiếu nhập</span>
+                <input
+                  className="field"
+                  value={intakeNote}
+                  placeholder="Ví dụ: Nhập bổ sung hàng đợt mới vào kho riêng"
+                  disabled={!isOwnWarehouse || !activeSkuId || intakeBusy}
+                  onChange={(event) => {
+                    setIntakeNote(event.target.value);
+                    setIntakeError("");
+                    setIntakeSuccess("");
+                  }}
+                />
+              </label>
+
+              {intakeError && (
+                <p className="notice" role="alert">
+                  {intakeError}
+                </p>
+              )}
+              {intakeSuccess && (
+                <p className="form-success" role="status">
+                  {intakeSuccess}
+                </p>
+              )}
+            </div>
+
+            <footer className="seller-inventory-modal-footer" style={{ gap: 10 }}>
+              <button
+                type="button"
+                className="button button-secondary"
+                disabled={intakeBusy}
+                onClick={() => setIntakeModalOpen(false)}
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                className="button button-primary"
+                disabled={!isOwnWarehouse || !activeSkuId || intakeBusy}
+                onClick={() => void submitIntake()}
+              >
+                {intakeBusy ? "Đang nhập…" : "+ Xác nhận nhập kho"}
+              </button>
+            </footer>
+          </section>
+        </div>
+      )}
+
+      {detailsOpen && activeRow && (
         <div
           className="seller-inventory-modal-backdrop"
           role="presentation"
@@ -1527,8 +1893,10 @@ export function SellerInventoryScreen() {
           >
             <header className="seller-inventory-modal-header">
               <div>
-                <h2 id="seller-inventory-modal-title">Chi tiết sản phẩm & tồn kho</h2>
-                <p>{detail.data.name}</p>
+                <h2 id="seller-inventory-modal-title">Chi tiết biến thể & tồn kho</h2>
+                <p>
+                  {activeRow.product.name} · Mã SKU: {activeRow.variant.skuCode}
+                </p>
               </div>
               <button
                 type="button"
@@ -1541,7 +1909,7 @@ export function SellerInventoryScreen() {
             </header>
 
             <p className="seller-inventory-modal-help">
-              Bạn có thể sửa tên và giá bán. Tồn kho được hiển thị riêng theo từng kho; điều chỉnh tồn cần API chỉ rõ kho.
+              Bạn có thể sửa tên biến thể và giá bán tại đây. Để cộng thêm số lượng hàng mới, hãy dùng nút &quot;+ Nhập hàng&quot;.
             </p>
 
             {detailsError && <p className="notice" role="alert">{detailsError}</p>}
@@ -1552,7 +1920,7 @@ export function SellerInventoryScreen() {
                 <thead>
                   <tr>
                     <th>Tên biến thể</th>
-                  <th>Kho</th>
+                    <th>Kho riêng</th>
                     <th>Giá bán</th>
                     <th>Tổng tồn (Total)</th>
                     <th>Khả dụng (Available)</th>
@@ -1561,16 +1929,16 @@ export function SellerInventoryScreen() {
                   </tr>
                 </thead>
                 <tbody>
-                  {visibleVariants.filter((variant) => variant.variantId === activeSkuId).map((variant) => {
+                  {[activeRow.variant].map((variant) => {
                     const draft = variantDrafts[variant.variantId];
-                    const inventories = (balanceMap.get(variant.variantId) ?? []).filter((balance) => balance.warehouseId === activeWarehouseId);
-                    const isSelected = variant.variantId === activeSkuId;
-                    const hasChanges = Boolean(draft && (
-                      draft.name.trim() !== variant.name ||
-                      Number(draft.price) !== Number(variant.price)
-                    ));
+                    const inv = resolveSellerWarehouseBalance(variant.variantId);
+                    const hasChanges = Boolean(
+                      draft &&
+                        (draft.name.trim() !== variant.name ||
+                          Number(draft.price) !== Number(variant.price)),
+                    );
                     return (
-                      <tr key={variant.variantId} className={isSelected ? "is-selected" : undefined}>
+                      <tr key={variant.variantId} className="is-selected">
                         <td>
                           <label className="seller-inventory-modal-name">
                             <span>{variant.skuCode}</span>
@@ -1578,14 +1946,19 @@ export function SellerInventoryScreen() {
                               className="field"
                               value={draft?.name ?? variant.name}
                               aria-label={`Tên biến thể ${variant.skuCode}`}
-                              onChange={(event) => setVariantDrafts((current) => ({
-                                ...current,
-                                [variant.variantId]: { ...current[variant.variantId], name: event.target.value },
-                              }))}
+                              onChange={(event) =>
+                                setVariantDrafts((current) => ({
+                                  ...current,
+                                  [variant.variantId]: {
+                                    ...current[variant.variantId],
+                                    name: event.target.value,
+                                  },
+                                }))
+                              }
                             />
                           </label>
                         </td>
-                        <td>{inventories.length ? inventories.map((item) => <div key={item.warehouseId}>{warehouseName(item.warehouseId)}</div>) : "Chưa có kho"}</td>
+                        <td>{warehouseDisplayLabel}</td>
                         <td>
                           <input
                             className="field seller-inventory-modal-number"
@@ -1594,18 +1967,25 @@ export function SellerInventoryScreen() {
                             step="1"
                             value={draft?.price ?? String(variant.price ?? "")}
                             aria-label={`Giá bán ${variant.skuCode}`}
-                            onChange={(event) => setVariantDrafts((current) => ({
-                              ...current,
-                              [variant.variantId]: { ...current[variant.variantId], price: event.target.value },
-                            }))}
+                            onChange={(event) =>
+                              setVariantDrafts((current) => ({
+                                ...current,
+                                [variant.variantId]: {
+                                  ...current[variant.variantId],
+                                  price: event.target.value,
+                                },
+                              }))
+                            }
                           />
                         </td>
-                        <td className="seller-inventory-modal-readonly">{inventories.length ? inventories.map((item) => <div key={item.warehouseId}>{item.totalQuantity.toLocaleString("vi-VN")}</div>) : "—"}</td>
                         <td className="seller-inventory-modal-readonly">
-                          {inventories.length ? inventories.map((item) => <div key={item.warehouseId}>{item.availableQuantity.toLocaleString("vi-VN")}</div>) : "—"}
+                          {inv ? inv.totalQuantity.toLocaleString("vi-VN") : "0"}
                         </td>
                         <td className="seller-inventory-modal-readonly">
-                          {inventories.length ? inventories.map((item) => <div key={item.warehouseId}>{item.reservedQuantity.toLocaleString("vi-VN")}</div>) : "—"}
+                          {inv ? inv.availableQuantity.toLocaleString("vi-VN") : "0"}
+                        </td>
+                        <td className="seller-inventory-modal-readonly">
+                          {inv ? inv.reservedQuantity.toLocaleString("vi-VN") : "0"}
                         </td>
                         <td>
                           <button
@@ -1681,7 +2061,8 @@ export function SellerShipmentsScreen() {
 }
 
 type SellerSubOrderItem = {
-  itemId: string;
+  orderItemId?: string;
+  itemId?: string;
   productId: string;
   skuId: string;
   productName: string;
@@ -2058,10 +2439,15 @@ export function SellerOrderDetailScreen() {
                   </tr>
                 </thead>
                 <tbody>
-                  {sub.items.map((item) => (
-                    <tr key={item.itemId}>
+                  {sub.items.map((item, index) => (
+                    <tr key={item.orderItemId ?? item.itemId ?? `${item.skuId}-${index}`}>
                       <td>
                         <strong>{item.productName}</strong>
+                        {item.skuCode && (
+                          <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 2 }}>
+                            SKU: {item.skuCode}
+                          </div>
+                        )}
                       </td>
                       <td>{item.quantity}</td>
                       <td>{formatMoney(item.unitPrice)}</td>

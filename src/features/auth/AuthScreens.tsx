@@ -277,7 +277,7 @@ export function RegisterScreen() {
         const session = await authService.login({ identifier: fields.email.trim(), password: fields.password });
         setAuthenticatedUser(session.user);
         setFields((current) => ({ ...current, password: "", confirmPassword: "" }));
-        router.replace(ROUTES.home);
+        router.replace(choice === "seller" ? ROUTES.buyer.becomeSeller : ROUTES.home);
       } catch {
         setFields((current) => ({ ...current, password: "", confirmPassword: "" }));
         setStep("complete");
