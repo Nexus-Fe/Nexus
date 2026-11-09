@@ -96,8 +96,8 @@ function AccountNavigation() {
           <Link className="account-login" href={ROUTES.auth.login}>
             Đăng nhập
           </Link>
-          <Link className="button button-small button-secondary" href={ROUTES.auth.register + "?role=seller"}>
-            Đăng ký bán hàng
+          <Link className="button button-small button-secondary" href={ROUTES.auth.register}>
+            Đăng ký
           </Link>
         </div>
       )}
@@ -164,6 +164,21 @@ export function BuyerShell({ children }: { children: ReactNode }) {
   const userRoles = user?.roles ?? (user?.role ? [user.role] : []);
   const dashboardLinks = dashboardsForRoles(userRoles);
   const hasPrivilegedRole = dashboardLinks.length > 0;
+  const isSeller = userRoles.some(
+    (role) => role.toLocaleLowerCase("en-US").replace(/^role_/, "") === "seller",
+  );
+
+  const dynamicBuyerNav = buyerNavigation.map((item) => {
+    if (item.href === ROUTES.buyer.becomeSeller) {
+      if (isSeller) {
+        return { label: "Kênh người bán", href: ROUTES.seller.products, icon: "grid" as const };
+      }
+      if (!user) {
+        return { label: "Đăng ký bán hàng", href: ROUTES.auth.register + "?role=seller", icon: "warehouse" as const };
+      }
+    }
+    return item;
+  });
 
   return (
     <div className="site-shell">
@@ -214,7 +229,7 @@ export function BuyerShell({ children }: { children: ReactNode }) {
         </div>
         <div className="buyer-nav-wrap">
           <Suspense fallback={null}>
-            <NavLinks items={buyerNavigation} variant="top" />
+            <NavLinks items={dynamicBuyerNav} variant="top" />
           </Suspense>
         </div>
       </header>
