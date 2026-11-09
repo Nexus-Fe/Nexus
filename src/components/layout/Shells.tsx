@@ -10,7 +10,7 @@ import { useSession } from "@/components/auth/SessionProvider";
 import { authService } from "@/features/auth";
 import { NavLinks } from "./NavLinks";
 import { Breadcrumbs } from "./Breadcrumbs";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 
 const roleDashboardLinks = [
   { role: "admin", label: "Quản trị hệ thống", href: ROUTES.admin.overview, icon: "shield" },
@@ -28,8 +28,8 @@ function dashboardsForRoles(roles: string[]) {
   return roleDashboardLinks.filter((entry) => normalizedRoles.has(entry.role));
 }
 
-export function Brand({ compact = false }: { compact?: boolean }) {
-  return <span className={"brand" + (compact ? " brand-compact" : "")}>NEXUS<span className="brand-mark">●</span></span>;
+export function Brand({ compact = false, light = false }: { compact?: boolean; light?: boolean }) {
+  return <span className={"brand" + (compact ? " brand-compact" : "") + (light ? " brand-light" : "")}>NEXUS<span className="brand-mark brand-mark-sky">●</span></span>;
 }
 
 function AccountNavigation() {
@@ -62,7 +62,10 @@ function AccountNavigation() {
         </div>
       </details>
     ) : (
-      <Link className="account-login" href={ROUTES.auth.login}>Đăng nhập</Link>
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <Link className="account-login" href={ROUTES.auth.login}>Đăng nhập</Link>
+        <Link className="button button-small button-secondary" href={ROUTES.auth.register + "?role=seller"}>Đăng ký bán hàng</Link>
+      </div>
     )}
   </div>;
 }
@@ -184,7 +187,18 @@ export function PortalShell({ children, role, subtitle, items }: { children: Rea
 }
 
 export function AuthShell({ children }: { children: ReactNode }) {
+  const pathname = usePathname();
   const { user } = useSession();
+
+  const isFullScreenAuth =
+    pathname === ROUTES.auth.login ||
+    pathname === ROUTES.auth.register ||
+    Boolean(pathname?.startsWith(ROUTES.auth.forgotPassword)) ||
+    Boolean(pathname?.startsWith(ROUTES.auth.resetPassword));
+
+  if (isFullScreenAuth) {
+    return <>{children}</>;
+  }
   const userRoles = user?.roles ?? (user?.role ? [user.role] : []);
   const normalizedRoles = userRoles.map((r) => {
     const n = r.toLocaleLowerCase("en-US").replace(/^role_/, "");
