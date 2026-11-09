@@ -214,6 +214,22 @@ export const sellerCatalogService = {
       page += 1;
     }
   },
+  async listAllProductDetails(signal?: AbortSignal): Promise<SellerProductDetail[]> {
+    const products = await this.listAll(signal);
+    if (products.length === 0) return [];
+    const details: SellerProductDetail[] = [];
+    for (let index = 0; index < products.length; index += 5) {
+      const chunk = await Promise.allSettled(
+        products.slice(index, index + 5).map((product) => this.detail(product.productId, signal)),
+      );
+      for (const res of chunk) {
+        if (res.status === "fulfilled" && res.value) {
+          details.push(res.value);
+        }
+      }
+    }
+    return details;
+  },
   async detail(id: string, signal?: AbortSignal): Promise<SellerProductDetail> {
     const product = unwrap(
       await api.get<ApiResponse<SellerProductDetail> | SellerProductDetail>(
@@ -359,8 +375,28 @@ export const sellerCatalogService = {
     );
   },
 
+  async declareInventory(input: {
+    skuId: string;
+    warehouseId?: string;
+    quantity: number;
+    note?: string;
+  }) {
+    return unwrap(
+      await api.post<ApiResponse<InventoryAdjustmentResponse> | InventoryAdjustmentResponse>(
+        "/api/v1/inventories",
+        {
+          skuId: input.skuId,
+          ...(input.warehouseId ? { warehouseId: input.warehouseId } : {}),
+          quantity: input.quantity,
+          note: input.note ?? "Khai báo tồn kho tại kho riêng của Seller",
+        },
+      ),
+    );
+  },
+
   async adjustInventory(input: {
     skuId: string;
+    warehouseId?: string;
     type: "Intake" | "Adjust";
     quantity: number;
     note: string;
@@ -373,22 +409,58 @@ export const sellerCatalogService = {
     );
   },
 
-  async listWarehouses(sellerId?: string, signal?: AbortSignal): Promise<WarehouseInfo[]> {
-    if (!sellerId) return [];
+  async listWarehouses(
+    userId?: string,
+    signal?: AbortSignal,
+    options?: { sellerId?: string; shopName?: string; pickupAddress?: string },
+  ): Promise<WarehouseInfo[]> {
+    const candidateIds = Array.from(
+      new Set([userId, options?.sellerId].filter((id): id is string => Boolean(id && id.trim()))),
+    );
+    if (candidateIds.length === 0) return [];
+
+    // 1. Primary: GET /api/v1/warehouses/me
     try {
-      const result = unwrap(
-        await api.get<ApiResponse<WarehouseInfo | WarehouseInfo[]> | WarehouseInfo | WarehouseInfo[]>(
-          `/api/v1/warehouses/seller/${encodeURIComponent(sellerId)}`,
+      const query = new URLSearchParams();
+      if (options?.sellerId) query.set("sellerId", options.sellerId);
+      if (options?.shopName) query.set("shopName", options.shopName);
+      if (options?.pickupAddress) query.set("address", options.pickupAddress);
+      const qs = query.toString();
+      const meResult = unwrap(
+        await api.get<ApiResponse<WarehouseInfo> | WarehouseInfo>(
+          `/api/v1/warehouses/me${qs ? `?${qs}` : ""}`,
           { signal },
         ),
       );
-      const warehouses = Array.isArray(result) ? result : result ? [result] : [];
-      return warehouses.filter((warehouse) => !isPlatformWarehouse(warehouse))
-        .slice(0, 1).map((warehouse) => ({ ...warehouse, type: "SellerWarehouse" }));
-    } catch (error) {
-      if (error instanceof Error && /404|not found/i.test(error.message)) return [];
-      throw error;
+      if (meResult?.id && !isPlatformWarehouse(meResult)) {
+        return [{ ...meResult, type: "SellerWarehouse" }];
+      }
+    } catch {
+      // Fallback to seller endpoint lookup
     }
+
+    // 2. Fallback: GET /api/v1/warehouses/seller/{id}
+    for (const id of candidateIds) {
+      try {
+        const result = unwrap(
+          await api.get<ApiResponse<WarehouseInfo | WarehouseInfo[]> | WarehouseInfo | WarehouseInfo[]>(
+            `/api/v1/warehouses/seller/${encodeURIComponent(id)}`,
+            { signal },
+          ),
+        );
+        const warehouses = Array.isArray(result) ? result : result ? [result] : [];
+        const personal = warehouses
+          .filter((warehouse) => warehouse?.id && !isPlatformWarehouse(warehouse))
+          .slice(0, 1)
+          .map((warehouse) => ({ ...warehouse, type: "SellerWarehouse" }));
+        if (personal.length > 0) return personal;
+      } catch (error) {
+        if (error instanceof Error && /404|not found/i.test(error.message)) continue;
+        throw error;
+      }
+    }
+
+    return [];
   },
 
   async createWarehouse(input: { code: string; name: string; address: string; sellerId?: string }) {

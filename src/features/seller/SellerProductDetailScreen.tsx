@@ -5,9 +5,12 @@ import { useParams, useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { Badge, Card, NoData, PageHeading, SectionHeading } from "@/components/ui/Primitives";
 import { BackendImage } from "@/components/ui/BackendImage";
+import { useSession } from "@/components/auth/SessionProvider";
 import { ROUTES } from "@/constants/routes";
+import { unwrap } from "@/lib/api/client";
 import { useApiResource } from "@/lib/api/use-api-resource";
 import { formatMoney, resolveImageUrl } from "@/lib/presentation";
+import { sellerService } from "./services/seller.service";
 import {
   sellerCatalogService,
   type InventoryBalance,
@@ -159,9 +162,33 @@ function ProductDetailsForm({ product, onSaved }: { product: SellerProductDetail
 }
 
 export function SellerProductDetailScreen() {
+  const { user } = useSession();
   const params = useParams<{ id: string }>();
   const router = useRouter();
   const id = String(params.id ?? "");
+  const sellerProfile = useApiResource(
+    user?.id ? `seller-detail-profile:${user.id}` : null,
+    async (signal) => unwrap(await sellerService.getProfile(signal)),
+  );
+  const sellerId = sellerProfile.data?.sellerId ?? sellerProfile.data?.shopId;
+  const shopName = sellerProfile.data?.shopName;
+  const rawPickupAddress = sellerProfile.data?.pickupAddress;
+  const pickupAddress =
+    typeof rawPickupAddress === "string"
+      ? rawPickupAddress
+      : rawPickupAddress?.streetAddress ?? sellerProfile.data?.streetAddress ?? "";
+  const warehouses = useApiResource(
+    user?.id && !sellerProfile.loading
+      ? `seller-detail-warehouses:${user.id}:${sellerId ?? ""}:${shopName ?? ""}`
+      : null,
+    (signal) =>
+      sellerCatalogService.listWarehouses(user?.id, signal, {
+        sellerId,
+        shopName,
+        pickupAddress,
+      }),
+  );
+  const personalWarehouseId = warehouses.data?.[0]?.id ?? "";
   const product = useApiResource(
     id ? `seller-product:${id}` : null,
     (signal) => sellerCatalogService.detail(id, signal),
@@ -211,7 +238,10 @@ export function SellerProductDetailScreen() {
 
   const stockMap = new Map<string, InventoryBalance>();
   for (const item of batchInventory.data ?? []) {
-    stockMap.set(item.skuId, item);
+    const existing = stockMap.get(item.skuId);
+    if (!existing || (personalWarehouseId && item.warehouseId === personalWarehouseId)) {
+      stockMap.set(item.skuId, item);
+    }
   }
 
   const defaultStock = defaultVariant ? stockMap.get(defaultVariant.variantId) : undefined;
@@ -230,6 +260,7 @@ export function SellerProductDetailScreen() {
         price: Number(price),
         currency: "VND",
         quantity: initialQuantity,
+        warehouseId: personalWarehouseId || null,
         attributes: [
           color.trim() && { attrName: "Màu sắc", attrValue: color.trim() },
           size.trim() && { attrName: "Kích cỡ", attrValue: size.trim() },
