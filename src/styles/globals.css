@@ -2638,6 +2638,63 @@ h1,h2,h3 { letter-spacing: -.025em; }
   box-shadow: none;
 }
 
+/* =========================================================================
+   AUTH ACTION ROWS & UNIFIED SECONDARY BUTTONS
+   ========================================================================= */
+
+.auth-action-row,
+.auth-fields .action-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 20px;
+  width: 100%;
+}
+
+.auth-action-row .auth-submit-btn,
+.auth-fields .action-row .auth-submit-btn {
+  margin-top: 0 !important;
+  height: 48px;
+  flex: 1;
+}
+
+.auth-secondary-btn,
+.auth-fields .action-row .button-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 48px;
+  min-height: 48px;
+  padding: 0 22px;
+  border-radius: 12px;
+  background: #ffffff;
+  border: 1.5px solid #cbd5e1;
+  color: #334155;
+  font-size: 14.5px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  box-sizing: border-box;
+  margin: 0 !important;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.auth-secondary-btn:hover,
+.auth-fields .action-row .button-secondary:hover {
+  background: #f8fafc;
+  border-color: #94a3b8;
+  color: #0f172a;
+}
+
+.auth-secondary-btn:disabled,
+.auth-fields .action-row .button-secondary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  border-color: #e2e8f0;
+  background: #f8fafc;
+}
+
 .auth-single-footnote {
   margin-top: 24px;
   text-align: center;

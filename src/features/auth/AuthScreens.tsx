@@ -515,11 +515,11 @@ export function RegisterScreen() {
         <form className="auth-fields" onSubmit={reviewShop}>
           <ShopRegistrationForm idPrefix="new-seller" value={shop} onChange={setShop} />
           {error && <p className="form-error" role="alert">{error}</p>}
-          <div className="action-row">
-            <button className="button button-secondary" type="button" onClick={() => setStep("account")}>
+          <div className="action-row auth-action-row">
+            <button className="auth-secondary-btn" type="button" onClick={() => setStep("account")}>
               Quay lại
             </button>
-            <button className="auth-submit-btn" style={{ flex: 1 }} type="submit">
+            <button className="auth-submit-btn" type="submit">
               <span>Kiểm tra thông tin shop</span>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <line x1="5" y1="12" x2="19" y2="12" />
@@ -541,11 +541,11 @@ export function RegisterScreen() {
             Nhấn Tiếp tục sẽ tạo tài khoản và gửi mã OTP kích hoạt tới email {fields.email.trim()}. Hồ sơ shop sẽ được đồng bộ tự động.
           </p>
           {error && <p className="form-error" role="alert">{error}</p>}
-          <div className="action-row">
-            <button className="button button-secondary" type="button" onClick={() => setStep("shop")}>
+          <div className="action-row auth-action-row">
+            <button className="auth-secondary-btn" type="button" onClick={() => setStep("shop")}>
               Sửa thông tin shop
             </button>
-            <button className="auth-submit-btn" style={{ flex: 1 }} type="button" disabled={submitting} onClick={() => void sendAccountOtp()}>
+            <button className="auth-submit-btn" type="button" disabled={submitting} onClick={() => void sendAccountOtp()}>
               {submitting ? "Đang gửi OTP…" : "Xác nhận & Gửi OTP"}
             </button>
           </div>
