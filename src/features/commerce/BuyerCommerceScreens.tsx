@@ -463,6 +463,7 @@ export function CheckoutScreen() {
             contactPhone: form.phone.trim(),
             street: form.address.trim(),
             ward: wardName,
+            district: wardName || provinceName,
             province: provinceName,
           },
           contactPhone: form.phone.trim(),
