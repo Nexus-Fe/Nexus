@@ -30,6 +30,7 @@ export const ROUTES = {
     auctionResult: (id: string) => "/seller/auctions/" + encodeURIComponent(id) + "/result",
     products: "/seller/products",
     product: (id: string) => "/seller/products/" + encodeURIComponent(id),
+    editProduct: (id: string) => "/seller/products/" + encodeURIComponent(id) + "/edit",
     shop: "/seller/shop",
     newProduct: "/seller/products/new",
     inventory: "/seller/inventory",

@@ -94,11 +94,13 @@ test("public login request does not require an existing session check", async ()
   assert.deepEqual(paths, ["/api/gateway/api/v1/auth/login"]);
 });
 
-test("roles are stored during login and cleared on sign out", () => {
+test("browser role edits cannot grant UI access", () => {
   const browser = browserSession();
+  browser.localStorage.setItem("nexus_session_roles", JSON.stringify(["ADMIN"]));
   saveSessionTokens("access-token", "refresh-token", ["ADMIN", "SELLER"]);
-  assert.equal(browser.localStorage.getItem("nexus_session_roles"), JSON.stringify(["ADMIN", "SELLER"]));
-  assert.deepEqual(getStoredRoles(), ["ADMIN", "SELLER"]);
+  assert.equal(browser.localStorage.getItem("nexus_session_roles"), null);
+  browser.localStorage.setItem("nexus_session_roles", JSON.stringify(["ADMIN"]));
+  assert.deepEqual(getStoredRoles(), []);
 
   clearSessionTokens();
   assert.equal(browser.localStorage.getItem("nexus_session_roles"), null);
@@ -163,7 +165,7 @@ test("direct /api/v1/me call from SessionProvider warms the 30s TTL cache and de
   ]);
 });
 
-test("token refresh overwrites tampered nexus_session_roles in localStorage with new JWT claims", async () => {
+test("token refresh removes tampered browser role cache and relies on /me", async () => {
   const browser = browserSession();
   saveSessionTokens("expired-access", "valid-refresh", ["Buyer"]);
   browser.localStorage.setItem("nexus_session_roles", JSON.stringify(["Admin"]));
@@ -184,8 +186,8 @@ test("token refresh overwrites tampered nexus_session_roles in localStorage with
 
   const result = await api.get("/api/v1/orders/1");
   assert.equal(result.id, "order-ok");
-  assert.deepEqual(getStoredRoles(), ["Buyer"]);
-  assert.equal(browser.localStorage.getItem("nexus_session_roles"), JSON.stringify(["Buyer"]));
+  assert.deepEqual(getStoredRoles(), []);
+  assert.equal(browser.localStorage.getItem("nexus_session_roles"), null);
 });
 
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Badge, Card, NoData, PageHeading, SectionHeading } from "@/components/ui/Primitives";
 import { useApiResource } from "@/lib/api/use-api-resource";
 import {
@@ -23,6 +23,7 @@ export function AdminCategoriesScreen() {
   const categories = useApiResource("admin-categories", adminCategoriesService.list);
   const [editing, setEditing] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
+  const confirmDialog = useRef<HTMLDialogElement>(null);
   const [form, setForm] = useState<FormState>(emptyForm);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -30,6 +31,14 @@ export function AdminCategoriesScreen() {
 
   const records = categories.data ?? [];
   const categoryNames = new Map(records.map((category) => [category.categoryId, category.name]));
+  const categoryToDelete = records.find((category) => category.categoryId === deleting);
+
+  useEffect(() => {
+    const dialog = confirmDialog.current;
+    if (!dialog) return;
+    if (deleting && !dialog.open) dialog.showModal();
+    if (!deleting && dialog.open) dialog.close();
+  }, [deleting]);
 
   function selectCategory(category: AdminCategory) {
     setEditing(category.categoryId);
@@ -272,35 +281,14 @@ export function AdminCategoriesScreen() {
                         >
                           Sửa
                         </button>
-                        {deleting === category.categoryId ? (
-                          <>
-                            <button
-                              type="button"
-                              className="button button-danger button-small"
-                              disabled={busy}
-                              onClick={() => void removeCategory(category.categoryId)}
-                            >
-                              Xác nhận xóa
-                            </button>
-                            <button
-                              type="button"
-                              className="button button-secondary button-small"
-                              disabled={busy}
-                              onClick={() => setDeleting(null)}
-                            >
-                              Hủy
-                            </button>
-                          </>
-                        ) : (
-                          <button
-                            type="button"
-                            className="button button-secondary button-small"
-                            disabled={busy}
-                            onClick={() => setDeleting(category.categoryId)}
-                          >
-                            Xóa
-                          </button>
-                        )}
+                        <button
+                          type="button"
+                          className="button button-danger button-small"
+                          disabled={busy}
+                          onClick={() => setDeleting(category.categoryId)}
+                        >
+                          Xóa
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -320,6 +308,33 @@ export function AdminCategoriesScreen() {
           />
         )}
       </Card>
+      <dialog
+        ref={confirmDialog}
+        className="admin-modal-dialog admin-category-confirm"
+        aria-labelledby="delete-category-title"
+        aria-describedby="delete-category-description"
+        onCancel={(event) => {
+          if (busy) event.preventDefault();
+          else setDeleting(null);
+        }}
+        onClick={(event) => {
+          if (event.target === event.currentTarget && !busy) setDeleting(null);
+        }}
+      >
+        <h2 id="delete-category-title">Xóa danh mục?</h2>
+        <p id="delete-category-description">
+          Bạn có chắc muốn xóa danh mục <strong>{categoryToDelete?.name}</strong>? Thao tác này có thể ảnh hưởng đến các sản phẩm đang thuộc danh mục.
+        </p>
+        {error && <p className="notice" role="alert">{error}</p>}
+        <div className="action-row">
+          <button type="button" className="button button-danger" disabled={busy || !deleting} onClick={() => deleting && void removeCategory(deleting)}>
+            {busy ? "Đang xóa…" : "Xác nhận xóa"}
+          </button>
+          <button type="button" className="button button-secondary" disabled={busy} onClick={() => setDeleting(null)}>
+            Hủy
+          </button>
+        </div>
+      </dialog>
     </>
   );
 }
