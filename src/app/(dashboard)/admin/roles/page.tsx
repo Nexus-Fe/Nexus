@@ -1,3 +1,4 @@
-import { AdminRolesScreenClient } from "@/components/client/ClientScreens";
+import { redirect } from "next/navigation";
+import { ROUTES } from "@/constants/routes";
 
-export default function AdminRolesPage() { return <AdminRolesScreenClient />; }
+export default function AdminRolesPage() { redirect(ROUTES.admin.users); }

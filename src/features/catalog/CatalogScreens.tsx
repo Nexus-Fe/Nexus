@@ -13,12 +13,46 @@ import { formatMoney, resolveImageUrl } from "@/lib/presentation";
 import { AuctionTile, auctionService } from "@/features/auction";
 
 type Product = { id: string; productId?: string; name: string; description?: string; price: number; minPrice?: number | null; maxPrice?: number | null; primaryImageUrl?: string | null; imageUrl?: string; brand?: string; status?: string; categoryId?: string; categoryName?: string; variantCount?: number; variants?: Array<{ id: string; skuId?: string; name?: string; sku?: string; price?: number | null; status?: string; stock?: number }> };
-type Category = { id: string; categoryId?: string; name: string; parentId?: string | null };
-type List<T> = T[] | { items?: T[]; data?: T[]; results?: T[]; categories?: T[] };
+type Category = { id: string; categoryId?: string; name: string; parentId?: string | null; children?: Category[] | null };
+type List<T> = T[] | { items?: T[]; data?: T[]; results?: T[]; categories?: T[]; pagination?: { hasNextPage?: boolean } };
 type ProductPage = { items: Product[]; pagination: { pageIndex: number; pageSize: number; totalCount: number; totalPages: number; hasPreviousPage: boolean; hasNextPage: boolean } };
 const rows = <T,>(value: List<T> | null): T[] => Array.isArray(value) ? value : value?.items ?? value?.data ?? value?.results ?? value?.categories ?? [];
 const problem = (error: Error | null) => error?.message ?? "";
 const pageSizes = [10, 30, 50] as const;
+
+function normalizeCategories(list: Category[], parentId: string | null = null): Category[] {
+  return list.flatMap((category) => {
+    const id = category.id ?? category.categoryId ?? "";
+    return [
+      { ...category, id, parentId: category.parentId ?? parentId },
+      ...normalizeCategories(category.children ?? [], id),
+    ];
+  }).filter((category) => Boolean(category.id));
+}
+
+async function loadCategories(signal?: AbortSignal): Promise<Category[]> {
+  const all: Category[] = [];
+  for (let page = 1; page <= 20; page += 1) {
+    const result = unwrap(await api.get<ApiResponse<List<Category>>>(`/api/v1/categories?page=${page}&pageSize=100`, { signal }));
+    all.push(...rows(result));
+    if (Array.isArray(result) || !result.pagination?.hasNextPage) break;
+  }
+  return [...new Map(normalizeCategories(all).map((category) => [category.id, category])).values()];
+}
+
+function categoryGroups(categories: Category[]) {
+  const ids = new Set(categories.map((category) => category.id));
+  const roots = categories.filter((category) => !category.parentId || !ids.has(category.parentId));
+  const descendants = (id: string, seen = new Set<string>()): Category[] => {
+    if (seen.has(id)) return [];
+    const visited = new Set([...seen, id]);
+    return categories.filter((category) => category.parentId === id).flatMap((child) => [
+      child,
+      ...descendants(child.id, visited),
+    ]);
+  };
+  return roots.map((parent) => ({ parent, children: descendants(parent.id) }));
+}
 
 function catalogHref(keyword: string, categoryId: string, page: number, pageSize: number): string {
   const params = new URLSearchParams();
@@ -62,7 +96,7 @@ function useProducts(search = "", categoryId = "", page = 1, pageSize = 10) {
 export function HomeScreen() {
   const products = useProducts();
   const auctions = useApiResource("/api/v1/auctions?page=1&pageSize=3", async (signal) => (await auctionService.list(1, 3, undefined, signal)).data.items);
-  const categories = useApiResource("/api/v1/categories", async () => rows(unwrap(await api.get<ApiResponse<List<Category>>>("/api/v1/categories"))).map((category) => ({ ...category, id: category.id ?? category.categoryId ?? "" })));
+  const categories = useApiResource("/api/v1/categories", loadCategories);
   return <>
     <div className="hero">
       <div className="hero-copy">
@@ -89,7 +123,7 @@ export function HomeScreen() {
 
     <section className="home-section home-categories" aria-labelledby="home-categories-title">
       <SectionHeading id="home-categories-title" title="Danh mục khám phá" hint="Tìm nhanh theo danh mục sản phẩm." action={<Link href={ROUTES.catalog.index}>Mở danh mục <Icon name="arrow" size={15}/></Link>} />
-      {categories.error ? <p role="alert" className="notice">{problem(categories.error)}</p> : categories.data?.length ? <div className="category-rail">{categories.data.map((category) => <Link className="category-tile" key={category.id} href={`${ROUTES.catalog.index}?categoryId=${encodeURIComponent(category.id)}`}><span className="category-tile-mark"><Icon name="grid" size={20}/></span><strong>{category.name}</strong><Icon name="arrow" size={15}/></Link>)}</div> : <NoData className="empty-grid" title={categories.loading ? "Đang tải danh mục…" : "Chưa có danh mục"} />}
+      {categories.error ? <p role="alert" className="notice">{problem(categories.error)}</p> : categories.data?.length ? <div className="category-rail">{categoryGroups(categories.data).map(({ parent, children }) => <div className="category-tile" key={parent.id}><span className="category-tile-mark"><Icon name="grid" size={20}/></span>{children.length ? <><strong>{parent.name}</strong><div className="category-tile-children">{children.map((child) => <Link key={child.id} href={`${ROUTES.catalog.index}?categoryId=${encodeURIComponent(child.id)}`}>{child.name}</Link>)}</div></> : <Link href={`${ROUTES.catalog.index}?categoryId=${encodeURIComponent(parent.id)}`}><strong>{parent.name}</strong></Link>}</div>)}</div> : <NoData className="empty-grid" title={categories.loading ? "Đang tải danh mục…" : "Chưa có danh mục"} />}
     </section>
   </>;
 }
@@ -115,7 +149,7 @@ function CatalogFilters({ initialSearch, initialCategoryId, pageSize, categories
     router.push(catalogHref("", "", 1, pageSize), { scroll: false });
   };
 
-  return <Card className="card-pad catalog-filters"><h2 style={{fontSize:16}}>Bộ lọc tìm kiếm</h2><form onSubmit={(e) => { e.preventDefault(); applyFilters(); }}><div className="field-wrap"><label htmlFor="catalog-search">Tìm sản phẩm</label><input id="catalog-search" value={search} onChange={(e) => setSearch(e.target.value)} type="search" className="field" placeholder="Tên hoặc từ khóa" maxLength={100} /></div><div className="field-wrap" style={{marginTop:18}}><label htmlFor="catalog-category">Danh mục sản phẩm</label><select id="catalog-category" className="select-field" value={categoryId} onChange={(e) => setCategoryId(e.target.value)}><option value="">Tất cả danh mục</option>{categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select>{categoriesError && <small role="alert">{problem(categoriesError)}</small>}</div><div className="action-row"><button className="button button-primary" type="submit">Tìm kiếm</button><button className="button button-secondary" type="button" onClick={clearFilters}>Xóa lọc</button></div></form></Card>;
+  return <Card className="card-pad catalog-filters"><h2 style={{fontSize:16}}>Bộ lọc tìm kiếm</h2><form onSubmit={(e) => { e.preventDefault(); applyFilters(); }}><div className="field-wrap"><label htmlFor="catalog-search">Tìm sản phẩm</label><input id="catalog-search" value={search} onChange={(e) => setSearch(e.target.value)} type="search" className="field" placeholder="Tên hoặc từ khóa" maxLength={100} /></div><div className="field-wrap" style={{marginTop:18}}><label htmlFor="catalog-category">Danh mục sản phẩm</label><select id="catalog-category" className="select-field" value={categoryId} onChange={(e) => setCategoryId(e.target.value)}><option value="">Tất cả danh mục</option>{categoryGroups(categories).map(({ parent, children }) => children.length ? <optgroup key={parent.id} label={parent.name}>{children.map((child) => <option key={child.id} value={child.id}>{child.name}</option>)}</optgroup> : <option key={parent.id} value={parent.id}>{parent.name}</option>)}</select>{categoriesError && <small role="alert">{problem(categoriesError)}</small>}</div><div className="action-row"><button className="button button-primary" type="submit">Tìm kiếm</button><button className="button button-secondary" type="button" onClick={clearFilters}>Xóa lọc</button></div></form></Card>;
 }
 
 export function CatalogScreen() {
@@ -127,10 +161,12 @@ export function CatalogScreen() {
   const page = Number.isSafeInteger(requestedPage) && requestedPage > 0 ? requestedPage : 1;
   const requestedPageSize = Number(searchParams.get("pageSize"));
   const pageSize = pageSizes.find((size) => size === requestedPageSize) ?? 10;
-  const categories = useApiResource("/api/v1/categories", async () => rows(unwrap(await api.get<ApiResponse<List<Category>>>("/api/v1/categories"))).map((category) => ({ ...category, id: category.id ?? category.categoryId ?? "" })));
+  const categories = useApiResource("/api/v1/categories", loadCategories);
   const products = useProducts(query, categoryId, page, pageSize);
   const categoryRows = categories.data ?? []; const productRows = products.data?.items ?? [];
-  const categoryName = categoryRows.find((item) => item.id === categoryId)?.name;
+  const selectedCategory = categoryRows.find((item) => item.id === categoryId);
+  const parentName = categoryRows.find((item) => item.id === selectedCategory?.parentId)?.name;
+  const categoryName = selectedCategory ? [parentName, selectedCategory.name].filter(Boolean).join(" / ") : "";
   const pagination = products.data?.pagination;
   const totalPages = pagination?.totalPages ?? 0;
   const pageIndex = pagination?.pageIndex ?? page;

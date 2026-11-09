@@ -12,10 +12,11 @@ import {
   userStatusLabel,
   userStatusTone,
   getPrimaryRole,
+  canonicalRoleCode,
   roleTone,
 } from "./services/admin-helpers";
 
-type Action = "ban" | "unban" | "delete" | "editProfile" | "reputation";
+type Action = "ban" | "unban" | "delete" | "editProfile" | "reputation" | "roles";
 
 export function AdminUsersScreen() {
   const [keyword, setKeyword] = useState("");
@@ -46,6 +47,7 @@ export function AdminUsersScreen() {
     scoreDelta: "5",
     reason: "",
   });
+  const [roleForm, setRoleForm] = useState({ roleCode: "Buyer", reason: "" });
 
   // Create internal user modal state
   const [createOpen, setCreateOpen] = useState(false);
@@ -157,6 +159,17 @@ export function AdminUsersScreen() {
     setSaved("");
   }
 
+  function openRolesAction() {
+    if (!detail.data) return;
+    setAction("roles");
+    setRoleForm({
+      roleCode: canonicalRoleCode(getPrimaryRole(detail.data)),
+      reason: "",
+    });
+    setError(null);
+    setSaved("");
+  }
+
   function applySearch(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setPage(1);
@@ -220,6 +233,18 @@ export function AdminUsersScreen() {
         } else {
           setReputationLogs([]);
         }
+      } else if (action === "roles") {
+        const currentRole = canonicalRoleCode(getPrimaryRole(detail.data!));
+        if (roleForm.roleCode === "Seller" && currentRole !== "Seller") {
+          setError({ message: "Không thể gán trực tiếp vai trò Seller. Tài khoản phải được duyệt hồ sơ người bán." });
+          return;
+        }
+        if (!roleForm.reason.trim()) {
+          setError({ message: "Vui lòng nhập lý do thay đổi vai trò." });
+          return;
+        }
+        await adminUsersService.updateRoles(selected, [roleForm.roleCode], roleForm.reason.trim());
+        setSaved("Đã cập nhật vai trò chính của tài khoản.");
       }
 
       if (action === "delete") {
@@ -713,6 +738,14 @@ export function AdminUsersScreen() {
                     type="button"
                     className="button button-secondary button-small"
                     disabled={busy}
+                    onClick={openRolesAction}
+                  >
+                    Quản lý vai trò
+                  </button>
+                  <button
+                    type="button"
+                    className="button button-secondary button-small"
+                    disabled={busy}
                     onClick={openEditProfileAction}
                   >
                     Cập nhật hồ sơ
@@ -776,6 +809,44 @@ export function AdminUsersScreen() {
                     </button>
                   )}
                 </div>
+
+                {action === "roles" && (
+                  <form className="auth-fields" onSubmit={(event) => void submitAction(event)} style={{ marginTop: "14px" }}>
+                    <label className="field-wrap">
+                      Vai trò chính
+                      <select
+                        className="select-field"
+                        value={roleForm.roleCode}
+                        onChange={(event) => setRoleForm((value) => ({ ...value, roleCode: event.target.value }))}
+                      >
+                        <option value="Buyer">Buyer (Người mua)</option>
+                        <option value="SupportStaff">SupportStaff (Nhân viên vận hành)</option>
+                        <option value="Admin">Admin (Quản trị viên)</option>
+                        {canonicalRoleCode(getPrimaryRole(detail.data)) === "Seller" && (
+                          <option value="Seller">Seller (Người bán)</option>
+                        )}
+                      </select>
+                    </label>
+                    <p className="status-note">Vai trò Seller chỉ được cấp qua quy trình duyệt hồ sơ người bán.</p>
+                    <label className="field-wrap">
+                      Lý do thay đổi vai trò
+                      <textarea
+                        className="textarea-field"
+                        required
+                        value={roleForm.reason}
+                        onChange={(event) => setRoleForm((value) => ({ ...value, reason: event.target.value }))}
+                      />
+                    </label>
+                    <div className="action-row">
+                      <button className="button button-primary" disabled={busy || !roleForm.reason.trim() || roleForm.roleCode === canonicalRoleCode(getPrimaryRole(detail.data))}>
+                        {busy ? "Đang lưu…" : "Lưu vai trò"}
+                      </button>
+                      <button type="button" className="button button-secondary" disabled={busy} onClick={() => setAction(null)}>
+                        Hủy
+                      </button>
+                    </div>
+                  </form>
+                )}
 
                 {/* Form for Ban / Unban / Delete */}
                 {(action === "ban" || action === "unban" || action === "delete") && (
