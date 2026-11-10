@@ -36,7 +36,6 @@ export const adminNavigation: NavigationItem[] = [
   { label: "Tổng quan", href: ROUTES.admin.overview, icon: "home" },
   { label: "Quản lý đấu giá", href: ROUTES.admin.auctions, icon: "gavel" },
   { label: "Quản lý tài khoản", href: ROUTES.admin.users, icon: "users" },
-  { label: "Phân quyền", href: ROUTES.admin.roles, icon: "shield" },
   { label: "Sổ bộ án phạt", href: ROUTES.admin.penalties, icon: "gavel" },
   { label: "Báo cáo vi phạm", href: ROUTES.admin.reports, icon: "flag" },
   { label: "Danh mục", href: ROUTES.admin.categories, icon: "grid" },

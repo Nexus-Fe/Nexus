@@ -22,7 +22,6 @@ export {
 
 const adminWorkspaces = [
   ["Tài khoản người dùng", "Quản lý hồ sơ, tạo tài khoản nội bộ, điểm uy tín và khóa/mở khóa", ROUTES.admin.users],
-  ["Phân quyền & Vai trò", "Quản lý danh mục vai trò và ma trận quyền hạn toàn hệ thống", ROUTES.admin.roles],
   ["Sổ bộ án phạt", "Tra cứu và thu hồi các quyết định xử phạt tài khoản, gian hàng", ROUTES.admin.penalties],
   ["Báo cáo vi phạm", "Tiếp nhận và xử lý khiếu nại, tố cáo vi phạm từ cộng đồng", ROUTES.admin.reports],
   ["Danh mục sản phẩm", "Cấu trúc cây danh mục toàn sàn (bao gồm cả danh mục đang ẩn)", ROUTES.admin.categories],
