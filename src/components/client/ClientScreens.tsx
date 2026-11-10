@@ -137,6 +137,14 @@ export const AdminUsersScreenClient = dynamic(
   () => import("@/features/admin").then((module) => module.AdminUsersScreen),
   { ssr: false, loading: ScreenLoading },
 );
+export const AdminPenaltiesScreenClient = dynamic(
+  () => import("@/features/admin").then((module) => module.AdminPenaltiesScreen),
+  { ssr: false, loading: ScreenLoading },
+);
+export const AdminReportsScreenClient = dynamic(
+  () => import("@/features/admin").then((module) => module.AdminReportsScreen),
+  { ssr: false, loading: ScreenLoading },
+);
 export const AdminRolesScreenClient = dynamic(
   () => import("@/features/admin").then((module) => module.AdminRolesScreen),
   { ssr: false, loading: ScreenLoading },

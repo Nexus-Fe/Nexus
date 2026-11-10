@@ -60,6 +60,8 @@ export const ROUTES = {
     auctionConfigs: "/admin/auction-configs",
     users: "/admin/users",
     roles: "/admin/roles",
+    penalties: "/admin/penalties",
+    reports: "/admin/reports",
     configs: "/admin/configs",
     ledger: "/admin/ledger",
     categories: "/admin/categories",

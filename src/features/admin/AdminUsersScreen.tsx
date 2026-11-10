@@ -16,7 +16,24 @@ import {
   roleTone,
 } from "./services/admin-helpers";
 
-type Action = "ban" | "unban" | "delete" | "editProfile" | "reputation" | "roles";
+type Action = "ban" | "unban" | "delete" | "editProfile" | "reputation" | "roles" | "suspendShop" | "reactivateShop";
+
+function sellerShopStatusTone(status?: string | null): "amber" | "green" | "sky" | "slate" {
+  const s = (status ?? "").toUpperCase();
+  if (s === "SUSPENDED") return "amber";
+  if (s === "PENDING") return "sky";
+  if (s === "REJECTED") return "slate";
+  return "green";
+}
+
+function sellerShopStatusLabel(status?: string | null): string {
+  const s = (status ?? "").toUpperCase();
+  if (s === "SUSPENDED") return "Tạm đình chỉ (Shop)";
+  if (s === "PENDING") return "Chờ duyệt KYC (Shop)";
+  if (s === "REJECTED") return "Bị từ chối KYC (Shop)";
+  if (s === "APPROVED") return "Đang hoạt động (Shop)";
+  return status || "Đang hoạt động (Shop)";
+}
 
 export function AdminUsersScreen() {
   const [keyword, setKeyword] = useState("");
@@ -27,6 +44,13 @@ export function AdminUsersScreen() {
   const [selected, setSelected] = useState("");
   const [action, setAction] = useState<Action | null>(null);
   const [reason, setReason] = useState("");
+  const [banPolicyClauseCode, setBanPolicyClauseCode] = useState("");
+  const [banEvidenceUrls, setBanEvidenceUrls] = useState("");
+  const [suspendReason, setSuspendReason] = useState("");
+  const [suspendDurationDays, setSuspendDurationDays] = useState("7");
+  const [suspendPolicyClauseCode, setSuspendPolicyClauseCode] = useState("");
+  const [suspendEvidenceUrls, setSuspendEvidenceUrls] = useState("");
+  const [reactivateReason, setReactivateReason] = useState("");
   const [showFullCccd, setShowFullCccd] = useState(false);
   const [showReputationHistory, setShowReputationHistory] = useState(false);
   const [reputationLogs, setReputationLogs] = useState<AdminUserReputationLog[]>([]);
@@ -95,25 +119,34 @@ export function AdminUsersScreen() {
     }
   }
 
-  function select(id: string) {
-    setSelected(id);
+  function resetActionState() {
     setAction(null);
     setReason("");
+    setBanPolicyClauseCode("");
+    setBanEvidenceUrls("");
+    setSuspendReason("");
+    setSuspendDurationDays("7");
+    setSuspendPolicyClauseCode("");
+    setSuspendEvidenceUrls("");
+    setReactivateReason("");
+    setError(null);
+  }
+
+  function select(id: string) {
+    setSelected(id);
+    resetActionState();
     setShowFullCccd(false);
     setShowReputationHistory(false);
     setReputationLogs([]);
-    setError(null);
     setSaved("");
   }
 
   function close() {
     setSelected("");
-    setAction(null);
-    setReason("");
+    resetActionState();
     setShowFullCccd(false);
     setShowReputationHistory(false);
     setReputationLogs([]);
-    setError(null);
     setSaved("");
   }
 
@@ -186,8 +219,39 @@ export function AdminUsersScreen() {
     try {
       if (action === "ban") {
         if (!reason.trim()) return;
-        await adminUsersService.ban(selected, reason.trim());
+        const evidenceList = banEvidenceUrls
+          .split(/[\n,]+/)
+          .map((u) => u.trim())
+          .filter(Boolean);
+        await adminUsersService.ban(selected, {
+          reason: reason.trim(),
+          policyClauseCode: banPolicyClauseCode.trim() || undefined,
+          evidenceUrls: evidenceList.length > 0 ? evidenceList : undefined,
+        });
         setSaved("Đã khóa tài khoản bằng Ban.");
+      } else if (action === "suspendShop") {
+        if (!suspendReason.trim()) {
+          setError({ message: "Vui lòng nhập lý do đình chỉ gian hàng." });
+          setBusy(false);
+          return;
+        }
+        const duration = suspendDurationDays ? parseInt(suspendDurationDays, 10) : undefined;
+        const evidenceList = suspendEvidenceUrls
+          .split(/[\n,]+/)
+          .map((u) => u.trim())
+          .filter(Boolean);
+        await adminUsersService.suspendSeller(selected, {
+          reason: suspendReason.trim(),
+          durationDays: duration && duration > 0 ? duration : undefined,
+          policyClauseCode: suspendPolicyClauseCode.trim() || undefined,
+          evidenceUrls: evidenceList.length > 0 ? evidenceList : undefined,
+        });
+        setSaved("Đã đình chỉ hoạt động gian hàng thành công.");
+      } else if (action === "reactivateShop") {
+        await adminUsersService.reactivateSeller(selected, {
+          reason: reactivateReason.trim() || undefined,
+        });
+        setSaved("Đã mở lại hoạt động gian hàng thành công.");
       } else if (action === "unban") {
         if (!reason.trim()) return;
         await adminUsersService.unban(selected, reason.trim());
@@ -253,8 +317,7 @@ export function AdminUsersScreen() {
         detail.reload();
       }
       users.reload();
-      setAction(null);
-      setReason("");
+      resetActionState();
     } catch (cause) {
       handleError(cause, "Không thể cập nhật tài khoản.");
     } finally {
@@ -661,6 +724,39 @@ export function AdminUsersScreen() {
                       <strong>{detail.data.banReason}</strong>
                     </div>
                   )}
+
+                  {Boolean(detail.data.isSeller || detail.data.sellerProfile) && (
+                    <div style={{ borderTop: "1px solid var(--line)", paddingTop: "14px", marginTop: "4px", display: "grid", gap: "10px" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <span style={{ fontSize: "13px", fontWeight: 700, color: "var(--ink)" }}>Hồ sơ & Trạng thái Shop</span>
+                        <Badge tone={sellerShopStatusTone(detail.data.sellerProfile?.status)}>
+                          {sellerShopStatusLabel(detail.data.sellerProfile?.status)}
+                        </Badge>
+                      </div>
+                      <div className="info-row">
+                        <span>Tên gian hàng</span>
+                        <strong>{detail.data.sellerProfile?.shopName || "Gian hàng cá nhân"}</strong>
+                      </div>
+                      {detail.data.sellerProfile?.hotline && (
+                        <div className="info-row">
+                          <span>Hotline shop</span>
+                          <strong>{detail.data.sellerProfile.hotline}</strong>
+                        </div>
+                      )}
+                      {detail.data.sellerProfile?.businessEmail && (
+                        <div className="info-row">
+                          <span>Email doanh nghiệp</span>
+                          <strong>{detail.data.sellerProfile.businessEmail}</strong>
+                        </div>
+                      )}
+                      {detail.data.sellerProfile?.pickupAddress && (
+                        <div className="info-row">
+                          <span>Địa chỉ kho (GHN)</span>
+                          <strong>{detail.data.sellerProfile.pickupAddress}</strong>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 {((detail.data.reputationLogs && detail.data.reputationLogs.length > 0) || showReputationHistory) && (
@@ -808,6 +904,37 @@ export function AdminUsersScreen() {
                       Xóa mềm
                     </button>
                   )}
+
+                  {Boolean(detail.data.isSeller || detail.data.sellerProfile) && (
+                    (detail.data.sellerProfile?.status ?? "").toLowerCase() === "suspended" ? (
+                      <button
+                        type="button"
+                        className="button button-small"
+                        disabled={busy}
+                        onClick={() => {
+                          resetActionState();
+                          setAction("reactivateShop");
+                        }}
+                        style={{ backgroundColor: "#16a34a", borderColor: "#16a34a", color: "#fff" }}
+                      >
+                        Mở lại Shop
+                      </button>
+                    ) : (detail.data.sellerProfile?.status ?? "").toLowerCase() === "pending" ||
+                        (detail.data.sellerProfile?.status ?? "").toLowerCase() === "rejected" ? null : (
+                      <button
+                        type="button"
+                        className="button button-small"
+                        disabled={busy}
+                        onClick={() => {
+                          resetActionState();
+                          setAction("suspendShop");
+                        }}
+                        style={{ backgroundColor: "#d97706", borderColor: "#d97706", color: "#fff" }}
+                      >
+                        Đình chỉ Shop
+                      </button>
+                    )
+                  )}
                 </div>
 
                 {action === "roles" && (
@@ -870,6 +997,33 @@ export function AdminUsersScreen() {
                         onChange={(event) => setReason(event.target.value)}
                       />
                     </label>
+
+                    {action === "ban" && (
+                      <>
+                        <label className="field-wrap">
+                          Mã điều khoản vi phạm (tùy chọn)
+                          <input
+                            type="text"
+                            className="field"
+                            maxLength={100}
+                            placeholder="Ví dụ: CLAUSE_1_FRAUDULENT_ACTIVITY"
+                            value={banPolicyClauseCode}
+                            onChange={(e) => setBanPolicyClauseCode(e.target.value)}
+                          />
+                        </label>
+                        <label className="field-wrap">
+                          URL bằng chứng vi phạm (mỗi dòng một URL)
+                          <textarea
+                            className="textarea-field"
+                            rows={3}
+                            placeholder="https://evidence.example.com/proof1.png&#10;https://evidence.example.com/proof2.pdf"
+                            value={banEvidenceUrls}
+                            onChange={(e) => setBanEvidenceUrls(e.target.value)}
+                          />
+                        </label>
+                      </>
+                    )}
+
                     <div className="action-row">
                       <button className={"button " + (action === "ban" || action === "delete" ? "button-danger" : "button-primary")} disabled={busy || !reason.trim()}>
                         {busy ? "Đang xử lý…" : "Xác nhận"}
@@ -878,7 +1032,123 @@ export function AdminUsersScreen() {
                         type="button"
                         className="button button-secondary"
                         disabled={busy}
-                        onClick={() => setAction(null)}
+                        onClick={() => resetActionState()}
+                      >
+                        Hủy
+                      </button>
+                    </div>
+                  </form>
+                )}
+
+                {/* Form for Suspend Shop */}
+                {action === "suspendShop" && (
+                  <form
+                    className="auth-fields"
+                    onSubmit={(event) => void submitAction(event)}
+                    style={{ marginTop: "14px" }}
+                  >
+                    <div style={{ padding: "10px 12px", background: "#fef3c7", borderRadius: "8px", border: "1px solid #fde68a", fontSize: "13px", color: "#92400e" }}>
+                      Đình chỉ Shop sẽ đóng quyền bán hàng (ShopStatus = Suspended), nhưng vẫn bảo toàn quyền mua sắm cá nhân của người dùng.
+                    </div>
+                    <label className="field-wrap">
+                      Lý do đình chỉ gian hàng <span style={{ color: "var(--red)" }}>*</span>
+                      <textarea
+                        className="textarea-field"
+                        required
+                        maxLength={1000}
+                        placeholder="Nhập lý do chi tiết..."
+                        value={suspendReason}
+                        onChange={(event) => setSuspendReason(event.target.value)}
+                      />
+                    </label>
+                    <label className="field-wrap">
+                      Thời hạn đình chỉ
+                      <select
+                        className="select-field"
+                        value={suspendDurationDays}
+                        onChange={(e) => setSuspendDurationDays(e.target.value)}
+                      >
+                        <option value="3">3 ngày</option>
+                        <option value="7">7 ngày (1 tuần)</option>
+                        <option value="14">14 ngày (2 tuần)</option>
+                        <option value="30">30 ngày (1 tháng)</option>
+                        <option value="90">90 ngày (3 tháng)</option>
+                        <option value="">Không thời hạn (Cho đến khi mở lại)</option>
+                      </select>
+                    </label>
+                    <label className="field-wrap">
+                      Mã điều khoản vi phạm (tùy chọn)
+                      <input
+                        type="text"
+                        className="field"
+                        maxLength={100}
+                        placeholder="Ví dụ: CLAUSE_4_2_DELIVERY_DELAY"
+                        value={suspendPolicyClauseCode}
+                        onChange={(e) => setSuspendPolicyClauseCode(e.target.value)}
+                      />
+                    </label>
+                    <label className="field-wrap">
+                      URL bằng chứng vi phạm (mỗi dòng một URL)
+                      <textarea
+                        className="textarea-field"
+                        rows={2}
+                        placeholder="https://..."
+                        value={suspendEvidenceUrls}
+                        onChange={(e) => setSuspendEvidenceUrls(e.target.value)}
+                      />
+                    </label>
+                    <div className="action-row">
+                      <button
+                        className="button button-danger"
+                        disabled={busy || !suspendReason.trim()}
+                      >
+                        {busy ? "Đang xử lý…" : "Xác nhận đình chỉ Shop"}
+                      </button>
+                      <button
+                        type="button"
+                        className="button button-secondary"
+                        disabled={busy}
+                        onClick={() => resetActionState()}
+                      >
+                        Hủy
+                      </button>
+                    </div>
+                  </form>
+                )}
+
+                {/* Form for Reactivate Shop */}
+                {action === "reactivateShop" && (
+                  <form
+                    className="auth-fields"
+                    onSubmit={(event) => void submitAction(event)}
+                    style={{ marginTop: "14px" }}
+                  >
+                    <div style={{ padding: "10px 12px", background: "#f0fdf4", borderRadius: "8px", border: "1px solid #bbf7d0", fontSize: "13px", color: "#166534" }}>
+                      Mở lại gian hàng sẽ khôi phục trạng thái hoạt động của Shop (ShopStatus = Active) và thu hồi các án phạt hạn chế bán hàng.
+                    </div>
+                    <label className="field-wrap">
+                      Lý do mở lại gian hàng (tùy chọn)
+                      <textarea
+                        className="textarea-field"
+                        maxLength={1000}
+                        placeholder="Gian hàng đã khắc phục đầy đủ vi phạm / khiếu nại thành công..."
+                        value={reactivateReason}
+                        onChange={(event) => setReactivateReason(event.target.value)}
+                      />
+                    </label>
+                    <div className="action-row">
+                      <button
+                        className="button button-primary"
+                        disabled={busy}
+                        style={{ backgroundColor: "#16a34a", borderColor: "#16a34a" }}
+                      >
+                        {busy ? "Đang xử lý…" : "Xác nhận mở lại Shop"}
+                      </button>
+                      <button
+                        type="button"
+                        className="button button-secondary"
+                        disabled={busy}
+                        onClick={() => resetActionState()}
                       >
                         Hủy
                       </button>

@@ -22,6 +22,9 @@ export {
 
 const adminWorkspaces = [
   ["Tài khoản người dùng", "Quản lý hồ sơ, tạo tài khoản nội bộ, điểm uy tín và khóa/mở khóa", ROUTES.admin.users],
+  ["Phân quyền & Vai trò", "Quản lý danh mục vai trò và ma trận quyền hạn toàn hệ thống", ROUTES.admin.roles],
+  ["Sổ bộ án phạt", "Tra cứu và thu hồi các quyết định xử phạt tài khoản, gian hàng", ROUTES.admin.penalties],
+  ["Báo cáo vi phạm", "Tiếp nhận và xử lý khiếu nại, tố cáo vi phạm từ cộng đồng", ROUTES.admin.reports],
   ["Danh mục sản phẩm", "Cấu trúc cây danh mục toàn sàn (bao gồm cả danh mục đang ẩn)", ROUTES.admin.categories],
   ["Giám sát đấu giá", "Theo dõi phiên đấu giá trực tiếp, lịch sử lượt đặt giá (bids)", ROUTES.admin.auctions],
   ["Cấu hình đấu giá", "Quy tắc chống sniping, bước giá và điểm uy tín đấu giá", ROUTES.admin.auctionConfigs],
@@ -145,7 +148,9 @@ export function AdminOverviewScreen() {
           <small style={{ display: "block", color: "var(--muted)", marginBottom: "10px" }}>
             Báo cáo vi phạm đang chờ xem xét
           </small>
-          <span style={{ display: "inline-block", height: "32px" }} />
+          <Link className="button button-secondary button-small" href={ROUTES.admin.reports}>
+            Xử lý báo cáo
+          </Link>
         </Card>
       </div>
 
