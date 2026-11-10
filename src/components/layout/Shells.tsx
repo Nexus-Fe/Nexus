@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { Suspense, useState, type ReactNode } from "react";
 import type { NavigationItem } from "@/constants/navigation";
 import { buyerNavigation } from "@/constants/navigation";
@@ -31,10 +31,10 @@ function dashboardsForRoles(roles: string[]) {
   return roleDashboardLinks.filter((entry) => normalizedRoles.has(entry.role));
 }
 
-export function Brand({ compact = false }: { compact?: boolean }) {
+export function Brand({ compact = false, light = false }: { compact?: boolean; light?: boolean }) {
   return (
-    <span className={"brand" + (compact ? " brand-compact" : "")}>
-      NEXUS<span className="brand-mark">●</span>
+    <span className={"brand" + (compact ? " brand-compact" : "") + (light ? " brand-light" : "")}>
+      NEXUS<span className="brand-mark brand-mark-sky">●</span>
     </span>
   );
 }
@@ -92,9 +92,14 @@ function AccountNavigation() {
           </div>
         </details>
       ) : (
-        <Link className="account-login" href={ROUTES.auth.login}>
-          Đăng nhập
-        </Link>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <Link className="account-login" href={ROUTES.auth.login}>
+            Đăng nhập
+          </Link>
+          <Link className="button button-small button-secondary" href={ROUTES.auth.register}>
+            Đăng ký
+          </Link>
+        </div>
       )}
     </div>
   );
@@ -159,6 +164,21 @@ export function BuyerShell({ children }: { children: ReactNode }) {
   const userRoles = user?.roles ?? (user?.role ? [user.role] : []);
   const dashboardLinks = dashboardsForRoles(userRoles);
   const hasPrivilegedRole = dashboardLinks.length > 0;
+  const isSeller = userRoles.some(
+    (role) => role.toLocaleLowerCase("en-US").replace(/^role_/, "") === "seller",
+  );
+
+  const dynamicBuyerNav = buyerNavigation.map((item) => {
+    if (item.href === ROUTES.buyer.becomeSeller) {
+      if (isSeller) {
+        return { label: "Kênh người bán", href: ROUTES.seller.products, icon: "grid" as const };
+      }
+      if (!user) {
+        return { label: "Đăng ký bán hàng", href: ROUTES.auth.register + "?role=seller", icon: "warehouse" as const };
+      }
+    }
+    return item;
+  });
 
   return (
     <div className="site-shell">
@@ -209,7 +229,7 @@ export function BuyerShell({ children }: { children: ReactNode }) {
         </div>
         <div className="buyer-nav-wrap">
           <Suspense fallback={null}>
-            <NavLinks items={buyerNavigation} variant="top" />
+            <NavLinks items={dynamicBuyerNav} variant="top" />
           </Suspense>
         </div>
       </header>
@@ -280,14 +300,40 @@ export function PortalShell({
 }
 
 export function AuthShell({ children }: { children: ReactNode }) {
+  const pathname = usePathname();
+  const { user } = useSession();
+
+  const isFullScreenAuth =
+    pathname === ROUTES.auth.login ||
+    pathname === ROUTES.auth.register ||
+    Boolean(pathname?.startsWith(ROUTES.auth.forgotPassword)) ||
+    Boolean(pathname?.startsWith(ROUTES.auth.resetPassword));
+
+  if (isFullScreenAuth) {
+    return <>{children}</>;
+  }
+
+  const userRoles = user?.roles ?? (user?.role ? [user.role] : []);
+  const normalizedRoles = userRoles.map((r) => {
+    const n = r.toLocaleLowerCase("en-US").replace(/^role_/, "");
+    if (n === "supportstaff") return "staff";
+    if (n === "administrator") return "admin";
+    return n;
+  });
+  const isAdmin = normalizedRoles.includes("admin");
+  const isStaff = normalizedRoles.includes("staff");
+
+  const homeHref = isAdmin ? ROUTES.admin.overview : isStaff ? ROUTES.staff.auctions : ROUTES.home;
+  const homeLabel = isAdmin ? "Về trang quản trị" : isStaff ? "Về trang vận hành" : "Quay lại trang chủ";
+
   return (
     <div className="auth-shell">
       <header className="auth-header">
-        <Link href={ROUTES.home} aria-label="NEXUS - Trang chủ">
+        <Link href={homeHref} aria-label="NEXUS - Trang chủ">
           <Brand />
         </Link>
-        <Link className="auth-home" href={ROUTES.home}>
-          Quay lại trang chủ
+        <Link className="auth-home" href={homeHref}>
+          {homeLabel}
         </Link>
       </header>
       <main className="auth-main">{children}</main>
