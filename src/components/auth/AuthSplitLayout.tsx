@@ -3,7 +3,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { ROUTES } from "@/constants/routes";
-import { Brand } from "@/components/layout/Shells";
+import { NexusBrandHeader } from "@/components/brand/NexusLogo";
 
 interface AuthSplitLayoutProps {
   children: ReactNode;
@@ -17,7 +17,7 @@ export function AuthSplitLayout({
   children,
   backAction,
   closeHref = ROUTES.home,
-  badgeText = "System Active   |   NEXUS v2.0",
+  badgeText = "NEXUS • Sàn thương mại điện tử & Đấu giá trực tuyến",
   wide = false,
 }: AuthSplitLayoutProps) {
   const closeLabel = closeHref === ROUTES.home ? "Đóng và quay lại trang chủ" : "Quay lại";
@@ -54,114 +54,78 @@ export function AuthSplitLayout({
       )}
 
       {/* =========================================================================
-          CỘT TRÁI (45% DESKTOP ONLY) - BACKGROUND HERO PHOTO & SLOGAN TOÀN DIỆN
+          CỘT TRÁI (45% DESKTOP ONLY) - SÀN THƯƠNG MẠI TRỌNG YẾU & ĐẤU GIÁ
           ========================================================================= */}
       <aside className="auth-split-left" aria-hidden="true">
-        {/* Background Hero Image with dark overlay */}
-        <div className="auth-split-bg-wrap">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/auth_hero.png"
-            alt="NEXUS Platform Hero"
-            className="auth-split-hero-img"
-            loading="eager"
-          />
-          <div className="auth-split-bg-overlay" />
-        </div>
-
-        {/* Ambient Glow Orbs & Subtle Grid */}
-        <div className="auth-glow-orb auth-glow-orb-top" />
-        <div className="auth-glow-orb auth-glow-orb-bottom" />
-        <div className="auth-grid-overlay" />
-
-        {/* Top: Logo Thương Hiệu */}
+        {/* Top: Logo Thương Hiệu với Biểu tượng Búa Đấu Giá */}
         <div className="auth-split-left-header">
           <Link href={ROUTES.home} className="auth-left-brand" tabIndex={-1} aria-label="NEXUS Trang chủ">
-            <Brand light />
+            <NexusBrandHeader light />
           </Link>
         </div>
 
-        {/* Center: Hero Slogan & Giá Trị Cốt Lõi */}
+        {/* Center: Thông Điệp Trọng Tâm Thương Mại & Đấu Giá */}
         <div className="auth-split-hero">
           <div className="auth-hero-pill">
             <span className="auth-pill-dot" />
-            <span>NỀN TẢNG BẢO CHỨNG THƯƠNG MẠI &amp; ĐẤU GIÁ</span>
+            <span>SÀN THƯƠNG MẠI ĐIỆN TỬ</span>
           </div>
 
-          <h1 className="auth-hero-heading">
-            Intelligent flow,<br />
-            <span className="auth-hero-highlight">secured.</span>
+          <h1 className="auth-hero-heading" style={{ fontSize: "32px", lineHeight: 1.25 }}>
+            Mua bán an tâm.<br />
+            <span className="auth-hero-highlight">Đấu giá minh bạch.</span>
           </h1>
 
           <p className="auth-hero-sub">
-            Hệ sinh thái đấu giá trực tuyến thời gian thực &amp; sàn thương mại điện tử bảo chứng an toàn tuyệt đối.
+            Nền tảng mua sắm trực tuyến và đấu giá với cơ chế bảo vệ giao dịch công bằng cho người mua và người bán.
           </p>
 
-          <div className="auth-hero-features">
-            {/* Feature 1 */}
-            <div className="auth-feature-card">
-              <div className="auth-feature-icon-box">
+          <div className="auth-trust-badges">
+            {/* Điểm 1: Mua sắm tiện lợi */}
+            <div className="auth-trust-badge-item">
+              <div className="auth-trust-badge-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
+                  <line x1="3" y1="6" x2="21" y2="6" />
+                  <path d="M16 10a4 4 0 0 1-8 0" />
+                </svg>
+              </div>
+              <div className="auth-trust-badge-content">
+                <strong>Mua sắm tiện lợi</strong>
+                <span>Đặt mua trực tiếp dễ dàng từ các gian hàng uy tín</span>
+              </div>
+            </div>
+
+            {/* Điểm 2: Đấu giá trực tiếp */}
+            <div className="auth-trust-badge-item">
+              <div className="auth-trust-badge-icon">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                   <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
                 </svg>
               </div>
-              <div className="auth-feature-text">
-                <strong>Đấu giá Realtime Mili-giây</strong>
-                <span>Phòng đấu giá trực quan, khớp lệnh tức thì từng bước giá</span>
+              <div className="auth-trust-badge-content">
+                <strong>Đấu giá trực tiếp</strong>
+                <span>Tham gia săn sản phẩm giá trị với từng bước giá công khai</span>
               </div>
             </div>
 
-            {/* Feature 2 */}
-            <div className="auth-feature-card">
-              <div className="auth-feature-icon-box">
+            {/* Điểm 3: Bảo đảm quyền lợi */}
+            <div className="auth-trust-badge-item">
+              <div className="auth-trust-badge-icon">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
                   <path d="m9 12 2 2 4-4" />
                 </svg>
               </div>
-              <div className="auth-feature-text">
-                <strong>Ký quỹ Bảo chứng 100%</strong>
-                <span>Tiền gửi bảo chứng an toàn, bảo vệ người mua và nhà bán</span>
+              <div className="auth-trust-badge-content">
+                <strong>Bảo đảm quyền lợi</strong>
+                <span>Người bán chỉ nhận tiền khi người mua đã nhận đúng hàng</span>
               </div>
-            </div>
-
-            {/* Feature 3 */}
-            <div className="auth-feature-card">
-              <div className="auth-feature-icon-box">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="1" y="3" width="15" height="13" />
-                  <polygon points="16 8 20 8 23 11 23 16 16 16 8" />
-                  <circle cx="5.5" cy="18.5" r="2.5" />
-                  <circle cx="18.5" cy="18.5" r="2.5" />
-                </svg>
-              </div>
-              <div className="auth-feature-text">
-                <strong>Kho Vận GHN Toàn Quốc</strong>
-                <span>Tự động liên kết mạng lưới bưu cục giao nhận chuẩn hóa</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Social Proof Stats */}
-          <div className="auth-hero-stats">
-            <div className="auth-stat-item">
-              <strong>10.000+</strong>
-              <span>Nhà bán uy tín</span>
-            </div>
-            <div className="auth-stat-divider" />
-            <div className="auth-stat-item">
-              <strong>100.000+</strong>
-              <span>Phiên đấu giá</span>
-            </div>
-            <div className="auth-stat-divider" />
-            <div className="auth-stat-item">
-              <strong>99.9%</strong>
-              <span>Hài lòng</span>
             </div>
           </div>
         </div>
 
-        {/* Bottom: Trạng Thái Hệ Thống Nhấp Nháy (System Active) */}
+        {/* Bottom: Trạng Thái Hệ Thống */}
         <div className="auth-split-left-footer">
           <div className="auth-system-status">
             <span className="auth-status-pulse">
@@ -177,9 +141,6 @@ export function AuthSplitLayout({
           CỘT PHẢI (55% DESKTOP / 100% MOBILE) - FORM CHÍNH TOÀN DIỆN
           ========================================================================= */}
       <section className="auth-split-right">
-
-
-        {/* Container Chứa Nội Dung Form Được Căn Giữa Hoàn Hảo */}
         <div className={`auth-split-body ${wide ? "auth-split-body-wide" : ""}`}>
           {children}
         </div>
