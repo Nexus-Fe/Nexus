@@ -1,0 +1,582 @@
+[
+  {
+    "provinceId": 202,
+    "provinceName": "Hồ Chí Minh",
+    "districtId": 1442,
+    "districtName": "Quận 1",
+    "wardCode": "20101",
+    "wardName": "Phường Bến Nghé",
+    "fullName": "Phường Bến Nghé, Quận 1, TP. Hồ Chí Minh",
+    "searchText": "phuong ben nghe quan 1 tp ho chi minh"
+  },
+  {
+    "provinceId": 202,
+    "provinceName": "Hồ Chí Minh",
+    "districtId": 1442,
+    "districtName": "Quận 1",
+    "wardCode": "20102",
+    "wardName": "Phường Bến Thành",
+    "fullName": "Phường Bến Thành, Quận 1, TP. Hồ Chí Minh",
+    "searchText": "phuong ben thanh quan 1 tp ho chi minh"
+  },
+  {
+    "provinceId": 202,
+    "provinceName": "Hồ Chí Minh",
+    "districtId": 1442,
+    "districtName": "Quận 1",
+    "wardCode": "20103",
+    "wardName": "Phường Cô Giang",
+    "fullName": "Phường Cô Giang, Quận 1, TP. Hồ Chí Minh",
+    "searchText": "phuong co giang quan 1 tp ho chi minh"
+  },
+  {
+    "provinceId": 202,
+    "provinceName": "Hồ Chí Minh",
+    "districtId": 1442,
+    "districtName": "Quận 1",
+    "wardCode": "20104",
+    "wardName": "Phường Cầu Kho",
+    "fullName": "Phường Cầu Kho, Quận 1, TP. Hồ Chí Minh",
+    "searchText": "phuong cau kho quan 1 tp ho chi minh"
+  },
+  {
+    "provinceId": 202,
+    "provinceName": "Hồ Chí Minh",
+    "districtId": 1442,
+    "districtName": "Quận 1",
+    "wardCode": "20106",
+    "wardName": "Phường Cầu Ông Lãnh",
+    "fullName": "Phường Cầu Ông Lãnh, Quận 1, TP. Hồ Chí Minh",
+    "searchText": "phuong cau ong lanh quan 1 tp ho chi minh"
+  },
+  {
+    "provinceId": 202,
+    "provinceName": "Hồ Chí Minh",
+    "districtId": 1442,
+    "districtName": "Quận 1",
+    "wardCode": "20107",
+    "wardName": "Phường Đa Kao",
+    "fullName": "Phường Đa Kao, Quận 1, TP. Hồ Chí Minh",
+    "searchText": "phuong da kao quan 1 tp ho chi minh"
+  },
+  {
+    "provinceId": 202,
+    "provinceName": "Hồ Chí Minh",
+    "districtId": 1442,
+    "districtName": "Quận 1",
+    "wardCode": "20108",
+    "wardName": "Phường Nguyễn Cư Trinh",
+    "fullName": "Phường Nguyễn Cư Trinh, Quận 1, TP. Hồ Chí Minh",
+    "searchText": "phuong nguyen cu trinh quan 1 tp ho chi minh"
+  },
+  {
+    "provinceId": 202,
+    "provinceName": "Hồ Chí Minh",
+    "districtId": 1442,
+    "districtName": "Quận 1",
+    "wardCode": "20109",
+    "wardName": "Phường Nguyễn Thái Bình",
+    "fullName": "Phường Nguyễn Thái Bình, Quận 1, TP. Hồ Chí Minh",
+    "searchText": "phuong nguyen thai binh quan 1 tp ho chi minh"
+  },
+  {
+    "provinceId": 202,
+    "provinceName": "Hồ Chí Minh",
+    "districtId": 1442,
+    "districtName": "Quận 1",
+    "wardCode": "20110",
+    "wardName": "Phường Phạm Ngũ Lão",
+    "fullName": "Phường Phạm Ngũ Lão, Quận 1, TP. Hồ Chí Minh",
+    "searchText": "phuong pham ngu lao quan 1 tp ho chi minh"
+  },
+  {
+    "provinceId": 202,
+    "provinceName": "Hồ Chí Minh",
+    "districtId": 1442,
+    "districtName": "Quận 1",
+    "wardCode": "20111",
+    "wardName": "Phường Tân Định",
+    "fullName": "Phường Tân Định, Quận 1, TP. Hồ Chí Minh",
+    "searchText": "phuong tan dinh quan 1 tp ho chi minh"
+  },
+  {
+    "provinceId": 202,
+    "provinceName": "Hồ Chí Minh",
+    "districtId": 3695,
+    "districtName": "TP. Thủ Đức",
+    "wardCode": "90737",
+    "wardName": "Phường Hiệp Bình Chánh",
+    "fullName": "Phường Hiệp Bình Chánh, TP. Thủ Đức, TP. Hồ Chí Minh",
+    "searchText": "phuong hiep binh chanh tp thu duc tp ho chi minh"
+  },
+  {
+    "provinceId": 202,
+    "provinceName": "Hồ Chí Minh",
+    "districtId": 3695,
+    "districtName": "TP. Thủ Đức",
+    "wardCode": "90738",
+    "wardName": "Phường Hiệp Bình Phước",
+    "fullName": "Phường Hiệp Bình Phước, TP. Thủ Đức, TP. Hồ Chí Minh",
+    "searchText": "phuong hiep binh phuoc tp thu duc tp ho chi minh"
+  },
+  {
+    "provinceId": 202,
+    "provinceName": "Hồ Chí Minh",
+    "districtId": 3695,
+    "districtName": "TP. Thủ Đức",
+    "wardCode": "90740",
+    "wardName": "Phường Linh Trung",
+    "fullName": "Phường Linh Trung, TP. Thủ Đức, TP. Hồ Chí Minh",
+    "searchText": "phuong linh trung tp thu duc tp ho chi minh"
+  },
+  {
+    "provinceId": 202,
+    "provinceName": "Hồ Chí Minh",
+    "districtId": 3695,
+    "districtName": "TP. Thủ Đức",
+    "wardCode": "90741",
+    "wardName": "Phường Linh Chiểu",
+    "fullName": "Phường Linh Chiểu, TP. Thủ Đức, TP. Hồ Chí Minh",
+    "searchText": "phuong linh chieu tp thu duc tp ho chi minh"
+  },
+  {
+    "provinceId": 202,
+    "provinceName": "Hồ Chí Minh",
+    "districtId": 3695,
+    "districtName": "TP. Thủ Đức",
+    "wardCode": "90742",
+    "wardName": "Phường Linh Tây",
+    "fullName": "Phường Linh Tây, TP. Thủ Đức, TP. Hồ Chí Minh",
+    "searchText": "phuong linh tay tp thu duc tp ho chi minh"
+  },
+  {
+    "provinceId": 202,
+    "provinceName": "Hồ Chí Minh",
+    "districtId": 3695,
+    "districtName": "TP. Thủ Đức",
+    "wardCode": "90747",
+    "wardName": "Phường Thảo Điền",
+    "fullName": "Phường Thảo Điền, TP. Thủ Đức, TP. Hồ Chí Minh",
+    "searchText": "phuong thao dien tp thu duc tp ho chi minh"
+  },
+  {
+    "provinceId": 202,
+    "provinceName": "Hồ Chí Minh",
+    "districtId": 3695,
+    "districtName": "TP. Thủ Đức",
+    "wardCode": "90748",
+    "wardName": "Phường An Phú",
+    "fullName": "Phường An Phú, TP. Thủ Đức, TP. Hồ Chí Minh",
+    "searchText": "phuong an phu tp thu duc tp ho chi minh"
+  },
+  {
+    "provinceId": 202,
+    "provinceName": "Hồ Chí Minh",
+    "districtId": 1444,
+    "districtName": "Quận 3",
+    "wardCode": "20301",
+    "wardName": "Phường 01",
+    "fullName": "Phường 01, Quận 3, TP. Hồ Chí Minh",
+    "searchText": "phuong 01 quan 3 tp ho chi minh"
+  },
+  {
+    "provinceId": 202,
+    "provinceName": "Hồ Chí Minh",
+    "districtId": 1444,
+    "districtName": "Quận 3",
+    "wardCode": "20302",
+    "wardName": "Phường 02",
+    "fullName": "Phường 02, Quận 3, TP. Hồ Chí Minh",
+    "searchText": "phuong 02 quan 3 tp ho chi minh"
+  },
+  {
+    "provinceId": 202,
+    "provinceName": "Hồ Chí Minh",
+    "districtId": 1444,
+    "districtName": "Quận 3",
+    "wardCode": "20304",
+    "wardName": "Phường Võ Thị Sáu",
+    "fullName": "Phường Võ Thị Sáu, Quận 3, TP. Hồ Chí Minh",
+    "searchText": "phuong vo thi sau quan 3 tp ho chi minh"
+  },
+  {
+    "provinceId": 202,
+    "provinceName": "Hồ Chí Minh",
+    "districtId": 1446,
+    "districtName": "Quận 5",
+    "wardCode": "20501",
+    "wardName": "Phường 01",
+    "fullName": "Phường 01, Quận 5, TP. Hồ Chí Minh",
+    "searchText": "phuong 01 quan 5 tp ho chi minh"
+  },
+  {
+    "provinceId": 202,
+    "provinceName": "Hồ Chí Minh",
+    "districtId": 1447,
+    "districtName": "Quận 7",
+    "wardCode": "20701",
+    "wardName": "Phường Tân Phong",
+    "fullName": "Phường Tân Phong, Quận 7, TP. Hồ Chí Minh",
+    "searchText": "phuong tan phong quan 7 tp ho chi minh"
+  },
+  {
+    "provinceId": 202,
+    "provinceName": "Hồ Chí Minh",
+    "districtId": 1447,
+    "districtName": "Quận 7",
+    "wardCode": "20702",
+    "wardName": "Phường Tân Phú",
+    "fullName": "Phường Tân Phú, Quận 7, TP. Hồ Chí Minh",
+    "searchText": "phuong tan phu quan 7 tp ho chi minh"
+  },
+  {
+    "provinceId": 202,
+    "provinceName": "Hồ Chí Minh",
+    "districtId": 1443,
+    "districtName": "Quận Bình Thạnh",
+    "wardCode": "20201",
+    "wardName": "Phường 01",
+    "fullName": "Phường 01, Quận Bình Thạnh, TP. Hồ Chí Minh",
+    "searchText": "phuong 01 quan binh thanh tp ho chi minh"
+  },
+  {
+    "provinceId": 202,
+    "provinceName": "Hồ Chí Minh",
+    "districtId": 1443,
+    "districtName": "Quận Bình Thạnh",
+    "wardCode": "20225",
+    "wardName": "Phường 25",
+    "fullName": "Phường 25, Quận Bình Thạnh, TP. Hồ Chí Minh",
+    "searchText": "phuong 25 quan binh thanh tp ho chi minh"
+  },
+  {
+    "provinceId": 202,
+    "provinceName": "Hồ Chí Minh",
+    "districtId": 1451,
+    "districtName": "Huyện Bình Chánh",
+    "wardCode": "21601",
+    "wardName": "Thị trấn Tân Túc",
+    "fullName": "Thị trấn Tân Túc, Huyện Bình Chánh, TP. Hồ Chí Minh",
+    "searchText": "thi tran tan tuc huyen binh chanh tp ho chi minh"
+  },
+  {
+    "provinceId": 202,
+    "provinceName": "Hồ Chí Minh",
+    "districtId": 1451,
+    "districtName": "Huyện Bình Chánh",
+    "wardCode": "21602",
+    "wardName": "Xã Tân Nhựt",
+    "fullName": "Xã Tân Nhựt, Huyện Bình Chánh, TP. Hồ Chí Minh",
+    "searchText": "xa tan nhut huyen binh chanh tp ho chi minh"
+  },
+  {
+    "provinceId": 202,
+    "provinceName": "Hồ Chí Minh",
+    "districtId": 1451,
+    "districtName": "Huyện Bình Chánh",
+    "wardCode": "21603",
+    "wardName": "Xã Vĩnh Lộc A",
+    "fullName": "Xã Vĩnh Lộc A, Huyện Bình Chánh, TP. Hồ Chí Minh",
+    "searchText": "xa vinh loc a huyen binh chanh tp ho chi minh"
+  },
+  {
+    "provinceId": 201,
+    "provinceName": "Hà Nội",
+    "districtId": 1485,
+    "districtName": "Quận Cầu Giấy",
+    "wardCode": "1A0601",
+    "wardName": "Phường Dịch Vọng Hậu",
+    "fullName": "Phường Dịch Vọng Hậu, Quận Cầu Giấy, Hà Nội",
+    "searchText": "phuong dich vong hau quan cau giay ha noi"
+  },
+  {
+    "provinceId": 201,
+    "provinceName": "Hà Nội",
+    "districtId": 1485,
+    "districtName": "Quận Cầu Giấy",
+    "wardCode": "1A0602",
+    "wardName": "Phường Dịch Vọng",
+    "fullName": "Phường Dịch Vọng, Quận Cầu Giấy, Hà Nội",
+    "searchText": "phuong dich vong quan cau giay ha noi"
+  },
+  {
+    "provinceId": 201,
+    "provinceName": "Hà Nội",
+    "districtId": 1485,
+    "districtName": "Quận Cầu Giấy",
+    "wardCode": "1A0603",
+    "wardName": "Phường Nghĩa Tân",
+    "fullName": "Phường Nghĩa Tân, Quận Cầu Giấy, Hà Nội",
+    "searchText": "phuong nghia tan quan cau giay ha noi"
+  },
+  {
+    "provinceId": 201,
+    "provinceName": "Hà Nội",
+    "districtId": 1485,
+    "districtName": "Quận Cầu Giấy",
+    "wardCode": "1A0604",
+    "wardName": "Phường Nghĩa Đô",
+    "fullName": "Phường Nghĩa Đô, Quận Cầu Giấy, Hà Nội",
+    "searchText": "phuong nghia do quan cau giay ha noi"
+  },
+  {
+    "provinceId": 201,
+    "provinceName": "Hà Nội",
+    "districtId": 1485,
+    "districtName": "Quận Cầu Giấy",
+    "wardCode": "1A0605",
+    "wardName": "Phường Yên Hòa",
+    "fullName": "Phường Yên Hòa, Quận Cầu Giấy, Hà Nội",
+    "searchText": "phuong yen hoa quan cau giay ha noi"
+  },
+  {
+    "provinceId": 201,
+    "provinceName": "Hà Nội",
+    "districtId": 1485,
+    "districtName": "Quận Cầu Giấy",
+    "wardCode": "1A0606",
+    "wardName": "Phường Trung Hòa",
+    "fullName": "Phường Trung Hòa, Quận Cầu Giấy, Hà Nội",
+    "searchText": "phuong trung hoa quan cau giay ha noi"
+  },
+  {
+    "provinceId": 201,
+    "provinceName": "Hà Nội",
+    "districtId": 1482,
+    "districtName": "Quận Ba Đình",
+    "wardCode": "1A0101",
+    "wardName": "Phường Cống Vị",
+    "fullName": "Phường Cống Vị, Quận Ba Đình, Hà Nội",
+    "searchText": "phuong cong vi quan ba dinh ha noi"
+  },
+  {
+    "provinceId": 201,
+    "provinceName": "Hà Nội",
+    "districtId": 1482,
+    "districtName": "Quận Ba Đình",
+    "wardCode": "1A0102",
+    "wardName": "Phường Điện Biên",
+    "fullName": "Phường Điện Biên, Quận Ba Đình, Hà Nội",
+    "searchText": "phuong dien bien quan ba dinh ha noi"
+  },
+  {
+    "provinceId": 201,
+    "provinceName": "Hà Nội",
+    "districtId": 1482,
+    "districtName": "Quận Ba Đình",
+    "wardCode": "1A0103",
+    "wardName": "Phường Kim Mã",
+    "fullName": "Phường Kim Mã, Quận Ba Đình, Hà Nội",
+    "searchText": "phuong kim ma quan ba dinh ha noi"
+  },
+  {
+    "provinceId": 201,
+    "provinceName": "Hà Nội",
+    "districtId": 1484,
+    "districtName": "Quận Đống Đa",
+    "wardCode": "1A0301",
+    "wardName": "Phường Cát Linh",
+    "fullName": "Phường Cát Linh, Quận Đống Đa, Hà Nội",
+    "searchText": "phuong cat linh quan dong da ha noi"
+  },
+  {
+    "provinceId": 201,
+    "provinceName": "Hà Nội",
+    "districtId": 1484,
+    "districtName": "Quận Đống Đa",
+    "wardCode": "1A0302",
+    "wardName": "Phường Hàng Bột",
+    "fullName": "Phường Hàng Bột, Quận Đống Đa, Hà Nội",
+    "searchText": "phuong hang bot quan dong da ha noi"
+  },
+  {
+    "provinceId": 201,
+    "provinceName": "Hà Nội",
+    "districtId": 1484,
+    "districtName": "Quận Đống Đa",
+    "wardCode": "1A0303",
+    "wardName": "Phường Láng Hạ",
+    "fullName": "Phường Láng Hạ, Quận Đống Đa, Hà Nội",
+    "searchText": "phuong lang ha quan dong da ha noi"
+  },
+  {
+    "provinceId": 201,
+    "provinceName": "Hà Nội",
+    "districtId": 1486,
+    "districtName": "Quận Hai Bà Trưng",
+    "wardCode": "1A0401",
+    "wardName": "Phường Bạch Đằng",
+    "fullName": "Phường Bạch Đằng, Quận Hai Bà Trưng, Hà Nội",
+    "searchText": "phuong bach dang quan hai ba trung ha noi"
+  },
+  {
+    "provinceId": 201,
+    "provinceName": "Hà Nội",
+    "districtId": 1489,
+    "districtName": "Huyện Đông Anh",
+    "wardCode": "1A1201",
+    "wardName": "Thị trấn Đông Anh",
+    "fullName": "Thị trấn Đông Anh, Huyện Đông Anh, Hà Nội",
+    "searchText": "thi tran dong anh huyen dong anh ha noi"
+  },
+  {
+    "provinceId": 203,
+    "provinceName": "Đà Nẵng",
+    "districtId": 1526,
+    "districtName": "Quận Hải Châu",
+    "wardCode": "40101",
+    "wardName": "Phường Thạch Thang",
+    "fullName": "Phường Thạch Thang, Quận Hải Châu, Đà Nẵng",
+    "searchText": "phuong thach thang quan hai chau da nang"
+  },
+  {
+    "provinceId": 203,
+    "provinceName": "Đà Nẵng",
+    "districtId": 1526,
+    "districtName": "Quận Hải Châu",
+    "wardCode": "40102",
+    "wardName": "Phường Hải Châu I",
+    "fullName": "Phường Hải Châu I, Quận Hải Châu, Đà Nẵng",
+    "searchText": "phuong hai chau i quan hai chau da nang"
+  },
+  {
+    "provinceId": 203,
+    "provinceName": "Đà Nẵng",
+    "districtId": 1526,
+    "districtName": "Quận Hải Châu",
+    "wardCode": "40103",
+    "wardName": "Phường Hải Châu II",
+    "fullName": "Phường Hải Châu II, Quận Hải Châu, Đà Nẵng",
+    "searchText": "phuong hai chau ii quan hai chau da nang"
+  },
+  {
+    "provinceId": 203,
+    "provinceName": "Đà Nẵng",
+    "districtId": 1527,
+    "districtName": "Quận Thanh Khê",
+    "wardCode": "40201",
+    "wardName": "Phường Tam Thuận",
+    "fullName": "Phường Tam Thuận, Quận Thanh Khê, Đà Nẵng",
+    "searchText": "phuong tam thuan quan thanh khe da nang"
+  },
+  {
+    "provinceId": 203,
+    "provinceName": "Đà Nẵng",
+    "districtId": 1528,
+    "districtName": "Quận Sơn Trà",
+    "wardCode": "40301",
+    "wardName": "Phường An Hải Bắc",
+    "fullName": "Phường An Hải Bắc, Quận Sơn Trà, Đà Nẵng",
+    "searchText": "phuong an hai bac quan son tra da nang"
+  },
+  {
+    "provinceId": 203,
+    "provinceName": "Đà Nẵng",
+    "districtId": 1528,
+    "districtName": "Quận Sơn Trà",
+    "wardCode": "40304",
+    "wardName": "Phường Phước Mỹ",
+    "fullName": "Phường Phước Mỹ, Quận Sơn Trà, Đà Nẵng",
+    "searchText": "phuong phuoc my quan son tra da nang"
+  },
+  {
+    "provinceId": 203,
+    "provinceName": "Đà Nẵng",
+    "districtId": 1529,
+    "districtName": "Quận Ngũ Hành Sơn",
+    "wardCode": "40401",
+    "wardName": "Phường Mỹ An",
+    "fullName": "Phường Mỹ An, Quận Ngũ Hành Sơn, Đà Nẵng",
+    "searchText": "phuong my an quan ngu hanh son da nang"
+  },
+  {
+    "provinceId": 204,
+    "provinceName": "Hải Phòng",
+    "districtId": 1540,
+    "districtName": "Quận Hồng Bàng",
+    "wardCode": "30101",
+    "wardName": "Phường Quán Toan",
+    "fullName": "Phường Quán Toan, Quận Hồng Bàng, Hải Phòng",
+    "searchText": "phuong quan toan quan hong bang hai phong"
+  },
+  {
+    "provinceId": 204,
+    "provinceName": "Hải Phòng",
+    "districtId": 1541,
+    "districtName": "Quận Ngô Quyền",
+    "wardCode": "30201",
+    "wardName": "Phường Máy Chai",
+    "fullName": "Phường Máy Chai, Quận Ngô Quyền, Hải Phòng",
+    "searchText": "phuong may chai quan ngo quyen hai phong"
+  },
+  {
+    "provinceId": 205,
+    "provinceName": "Cần Thơ",
+    "districtId": 1550,
+    "districtName": "Quận Ninh Kiều",
+    "wardCode": "50101",
+    "wardName": "Phường Tân An",
+    "fullName": "Phường Tân An, Quận Ninh Kiều, Cần Thơ",
+    "searchText": "phuong tan an quan ninh kieu can tho"
+  },
+  {
+    "provinceId": 205,
+    "provinceName": "Cần Thơ",
+    "districtId": 1550,
+    "districtName": "Quận Ninh Kiều",
+    "wardCode": "50102",
+    "wardName": "Phường An Lạc",
+    "fullName": "Phường An Lạc, Quận Ninh Kiều, Cần Thơ",
+    "searchText": "phuong an lac quan ninh kieu can tho"
+  },
+  {
+    "provinceId": 205,
+    "provinceName": "Cần Thơ",
+    "districtId": 1550,
+    "districtName": "Quận Ninh Kiều",
+    "wardCode": "50103",
+    "wardName": "Phường An Hội",
+    "fullName": "Phường An Hội, Quận Ninh Kiều, Cần Thơ",
+    "searchText": "phuong an hoi quan ninh kieu can tho"
+  },
+  {
+    "provinceId": 206,
+    "provinceName": "Bình Dương",
+    "districtId": 1560,
+    "districtName": "Thành phố Thủ Dầu Một",
+    "wardCode": "60101",
+    "wardName": "Phường Phú Hòa",
+    "fullName": "Phường Phú Hòa, Thành phố Thủ Dầu Một, Bình Dương",
+    "searchText": "phuong phu hoa thanh pho thu dau mot binh duong"
+  },
+  {
+    "provinceId": 206,
+    "provinceName": "Bình Dương",
+    "districtId": 1561,
+    "districtName": "Thành phố Dĩ An",
+    "wardCode": "60201",
+    "wardName": "Phường Dĩ An",
+    "fullName": "Phường Dĩ An, Thành phố Dĩ An, Bình Dương",
+    "searchText": "phuong di an thanh pho di an binh duong"
+  },
+  {
+    "provinceId": 207,
+    "provinceName": "Đồng Nai",
+    "districtId": 1570,
+    "districtName": "Thành phố Biên Hòa",
+    "wardCode": "70101",
+    "wardName": "Phường Trung Dũng",
+    "fullName": "Phường Trung Dũng, Thành phố Biên Hòa, Đồng Nai",
+    "searchText": "phuong trung dung thanh pho bien hoa dong nai"
+  },
+  {
+    "provinceId": 207,
+    "provinceName": "Đồng Nai",
+    "districtId": 1570,
+    "districtName": "Thành phố Biên Hòa",
+    "wardCode": "70102",
+    "wardName": "Phường Quyết Thắng",
+    "fullName": "Phường Quyết Thắng, Thành phố Biên Hòa, Đồng Nai",
+    "searchText": "phuong quyet thang thanh pho bien hoa dong nai"
+  }
+]

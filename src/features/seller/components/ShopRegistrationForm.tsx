@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Card, SectionHeading } from "@/components/ui/Primitives";
-import { ghnPresets } from "../ghn-presets";
+import { WarehouseAddressPicker } from "@/components/address/WarehouseAddressPicker";
 
 export type ShopRegistrationFields = {
   identityCardNumber: string;
@@ -66,78 +66,147 @@ export function ShopRegistrationForm({
   const update = (key: keyof ShopRegistrationFields, fieldValue: string) => onChange({ ...value, [key]: fieldValue });
   const fieldId = (name: keyof ShopRegistrationFields) => `${idPrefix}-${name}`;
 
-  return <div className="seller-registration-fields">
-    <Card className="card-pad">
-      <SectionHeading title="Thông tin định danh" hint="CCCD/CMND dùng để thẩm định hồ sơ và không hiển thị sau khi nộp." />
-      <label className="field-wrap" htmlFor={fieldId("identityCardNumber")}>Số CCCD / CMND *</label>
-      <div className="seller-identity-input">
-        <input id={fieldId("identityCardNumber")} className="field" type={showIdentityCard ? "text" : "password"} inputMode="numeric" autoComplete="off" required minLength={9} maxLength={12} value={value.identityCardNumber} aria-invalid={Boolean(errors.identityCardNumber)} aria-describedby={errors.identityCardNumber ? `${fieldId("identityCardNumber")}-error` : undefined} onChange={(event) => update("identityCardNumber", event.target.value.replace(/\D/g, "").slice(0, 12))} placeholder="Nhập 9 hoặc 12 chữ số" />
-        <button type="button" className="button button-secondary" aria-pressed={showIdentityCard} onClick={() => setShowIdentityCard((visible) => !visible)}>{showIdentityCard ? "Ẩn số" : "Hiện số"}</button>
-      </div>
-      {errors.identityCardNumber && <small id={`${fieldId("identityCardNumber")}-error`} className="field-error" role="alert">{errors.identityCardNumber}</small>}
-    </Card>
+  return (
+    <div className="seller-registration-fields">
+      <Card className="card-pad">
+        <SectionHeading title="Thông tin định danh" hint="CCCD/CMND dùng để thẩm định hồ sơ và không hiển thị sau khi nộp." />
+        <label className="field-wrap" htmlFor={fieldId("identityCardNumber")}>Số CCCD / CMND *</label>
+        <div className="seller-identity-input">
+          <input
+            id={fieldId("identityCardNumber")}
+            className="field"
+            type={showIdentityCard ? "text" : "password"}
+            inputMode="numeric"
+            autoComplete="off"
+            required
+            minLength={9}
+            maxLength={12}
+            value={value.identityCardNumber}
+            aria-invalid={Boolean(errors.identityCardNumber)}
+            aria-describedby={errors.identityCardNumber ? `${fieldId("identityCardNumber")}-error` : undefined}
+            onChange={(event) => update("identityCardNumber", event.target.value.replace(/\D/g, "").slice(0, 12))}
+            placeholder="Nhập 9 hoặc 12 chữ số"
+          />
+          <button
+            type="button"
+            className="button button-secondary"
+            aria-pressed={showIdentityCard}
+            onClick={() => setShowIdentityCard((visible) => !visible)}
+          >
+            {showIdentityCard ? "Ẩn số" : "Hiện số"}
+          </button>
+        </div>
+        {errors.identityCardNumber && (
+          <small id={`${fieldId("identityCardNumber")}-error`} className="field-error" role="alert">
+            {errors.identityCardNumber}
+          </small>
+        )}
+      </Card>
 
-    <Card className="card-pad">
-      <SectionHeading title="Thông tin gian hàng" hint="Email doanh nghiệp bắt buộc để nhận mã xác thực hồ sơ." />
-      <div className="form-grid">
-        <label className="field-wrap" htmlFor={fieldId("shopName")}>Tên shop *
-          <input id={fieldId("shopName")} className="field" required minLength={3} maxLength={100} value={value.shopName} aria-invalid={Boolean(errors.shopName)} aria-describedby={errors.shopName ? `${fieldId("shopName")}-error` : undefined} onChange={(event) => update("shopName", event.target.value)} placeholder="Ví dụ: Nexus Official" />
-          {errors.shopName && <small id={`${fieldId("shopName")}-error`} className="field-error" role="alert">{errors.shopName}</small>}
-        </label>
-        <label className="field-wrap" htmlFor={fieldId("hotline")}>Hotline shop *
-          <input id={fieldId("hotline")} className="field" type="tel" required value={value.hotline} aria-invalid={Boolean(errors.hotline)} aria-describedby={errors.hotline ? `${fieldId("hotline")}-error` : undefined} onChange={(event) => update("hotline", event.target.value)} placeholder="0901234567" />
-          {errors.hotline && <small id={`${fieldId("hotline")}-error`} className="field-error" role="alert">{errors.hotline}</small>}
-        </label>
-      </div>
-      <div className="field-wrap seller-shop-email">
-        <label htmlFor={fieldId("businessEmail")}>Email doanh nghiệp * <span>(nhận OTP mở shop)</span></label>
-        <input id={fieldId("businessEmail")} className="field" type="email" autoComplete="email" required value={value.businessEmail} aria-invalid={Boolean(errors.businessEmail)} aria-describedby={errors.businessEmail ? `${fieldId("businessEmail")}-error` : undefined} onChange={(event) => update("businessEmail", event.target.value)} placeholder="shop-contact@example.com" />
-      </div>
-      {errors.businessEmail && <small id={`${fieldId("businessEmail")}-error`} className="field-error" role="alert">{errors.businessEmail}</small>}
-    </Card>
+      <Card className="card-pad">
+        <SectionHeading title="Thông tin gian hàng" hint="Email doanh nghiệp bắt buộc để nhận mã xác thực hồ sơ." />
+        <div className="form-grid">
+          <label className="field-wrap" htmlFor={fieldId("shopName")}>
+            Tên shop *
+            <input
+              id={fieldId("shopName")}
+              className="field"
+              required
+              minLength={3}
+              maxLength={100}
+              value={value.shopName}
+              aria-invalid={Boolean(errors.shopName)}
+              aria-describedby={errors.shopName ? `${fieldId("shopName")}-error` : undefined}
+              onChange={(event) => update("shopName", event.target.value)}
+              placeholder="Ví dụ: Nexus Official"
+            />
+            {errors.shopName && (
+              <small id={`${fieldId("shopName")}-error`} className="field-error" role="alert">
+                {errors.shopName}
+              </small>
+            )}
+          </label>
+          <label className="field-wrap" htmlFor={fieldId("hotline")}>
+            Hotline shop *
+            <input
+              id={fieldId("hotline")}
+              className="field"
+              type="tel"
+              required
+              value={value.hotline}
+              aria-invalid={Boolean(errors.hotline)}
+              aria-describedby={errors.hotline ? `${fieldId("hotline")}-error` : undefined}
+              onChange={(event) => update("hotline", event.target.value)}
+              placeholder="0901234567"
+            />
+            {errors.hotline && (
+              <small id={`${fieldId("hotline")}-error`} className="field-error" role="alert">
+                {errors.hotline}
+              </small>
+            )}
+          </label>
+        </div>
+        <div className="field-wrap seller-shop-email">
+          <label htmlFor={fieldId("businessEmail")}>
+            Email doanh nghiệp * <span>(nhận OTP mở shop)</span>
+          </label>
+          <input
+            id={fieldId("businessEmail")}
+            className="field"
+            type="email"
+            autoComplete="email"
+            required
+            value={value.businessEmail}
+            aria-invalid={Boolean(errors.businessEmail)}
+            aria-describedby={errors.businessEmail ? `${fieldId("businessEmail")}-error` : undefined}
+            onChange={(event) => update("businessEmail", event.target.value)}
+            placeholder="shop-contact@example.com"
+          />
+        </div>
+        {errors.businessEmail && (
+          <small id={`${fieldId("businessEmail")}-error`} className="field-error" role="alert">
+            {errors.businessEmail}
+          </small>
+        )}
+      </Card>
 
-    <Card className="card-pad">
-      <SectionHeading title="Địa chỉ kho lấy hàng" hint="Nhập mã địa chỉ theo danh mục GHN để dùng khi hồ sơ được tiếp nhận." />
-      <label className="field-wrap" htmlFor={`${idPrefix}-ghn-preset`}>Chọn nhanh khu vực mẫu GHN
-        <select id={`${idPrefix}-ghn-preset`} className="select-field" defaultValue="" onChange={(event) => {
-          if (!event.target.value) return;
-          const preset = ghnPresets[Number(event.target.value)];
-          if (preset) onChange({ ...value, provinceId: preset.provinceId, districtId: preset.districtId, wardCode: preset.wardCode });
-        }}>
-          <option value="">Chọn khu vực mẫu hoặc nhập mã thủ công</option>
-          {ghnPresets.map((preset, index) => <option key={preset.label} value={index}>{preset.label}</option>)}
-        </select>
-      </label>
-      <div className="form-grid seller-ghn-grid">
-        <label className="field-wrap" htmlFor={fieldId("provinceId")}>Mã tỉnh GHN *
-          <input id={fieldId("provinceId")} className="field" type="number" min={1} required value={value.provinceId} aria-invalid={Boolean(errors.provinceId)} aria-describedby={errors.provinceId ? `${fieldId("provinceId")}-error` : undefined} onChange={(event) => update("provinceId", event.target.value)} placeholder="202" />
-          {errors.provinceId && <small id={`${fieldId("provinceId")}-error`} className="field-error" role="alert">{errors.provinceId}</small>}
-        </label>
-        <label className="field-wrap" htmlFor={fieldId("districtId")}>Mã quận/huyện GHN *
-          <input id={fieldId("districtId")} className="field" type="number" min={1} required value={value.districtId} aria-invalid={Boolean(errors.districtId)} aria-describedby={errors.districtId ? `${fieldId("districtId")}-error` : undefined} onChange={(event) => update("districtId", event.target.value)} placeholder="1442" />
-          {errors.districtId && <small id={`${fieldId("districtId")}-error`} className="field-error" role="alert">{errors.districtId}</small>}
-        </label>
-        <label className="field-wrap" htmlFor={fieldId("wardCode")}>Mã phường/xã GHN *
-          <input id={fieldId("wardCode")} className="field" required value={value.wardCode} aria-invalid={Boolean(errors.wardCode)} aria-describedby={errors.wardCode ? `${fieldId("wardCode")}-error` : undefined} onChange={(event) => update("wardCode", event.target.value)} placeholder="20101" />
-          {errors.wardCode && <small id={`${fieldId("wardCode")}-error`} className="field-error" role="alert">{errors.wardCode}</small>}
-        </label>
-        <label className="field-wrap" htmlFor={fieldId("streetAddress")}>Địa chỉ cụ thể *
-          <input id={fieldId("streetAddress")} className="field" required minLength={5} value={value.streetAddress} aria-invalid={Boolean(errors.streetAddress)} aria-describedby={errors.streetAddress ? `${fieldId("streetAddress")}-error` : undefined} onChange={(event) => update("streetAddress", event.target.value)} placeholder="Số nhà, đường, phường/xã" />
-          {errors.streetAddress && <small id={`${fieldId("streetAddress")}-error`} className="field-error" role="alert">{errors.streetAddress}</small>}
-        </label>
-      </div>
-    </Card>
-  </div>;
+      <Card className="card-pad">
+        <SectionHeading
+          title="Địa chỉ kho lấy hàng"
+          hint="Tìm nhanh phường/xã hoặc nhập mã địa chỉ theo danh mục GHN để dùng khi tiếp nhận đơn."
+        />
+        <WarehouseAddressPicker
+          idPrefix={idPrefix}
+          provinceId={value.provinceId}
+          districtId={value.districtId}
+          wardCode={value.wardCode}
+          streetAddress={value.streetAddress}
+          errors={errors}
+          onChange={(codes) => {
+            onChange({
+              ...value,
+              provinceId: codes.provinceId,
+              districtId: codes.districtId,
+              wardCode: codes.wardCode,
+              streetAddress: codes.streetAddress ?? value.streetAddress,
+            });
+          }}
+        />
+      </Card>
+    </div>
+  );
 }
 
 export function ShopRegistrationReview({ value }: { value: ShopRegistrationFields }) {
   const maskedIdentity = value.identityCardNumber ? `••••••••${value.identityCardNumber.slice(-4)}` : "Chưa nhập";
-  return <Card className="card-pad seller-registration-review">
-    <SectionHeading title="Thông tin shop đã nhập" hint="Thông tin sẽ được chuyển sang trang mở shop sau khi đăng nhập. Hồ sơ chưa được gửi." />
-    <div className="info-row"><span>CCCD/CMND</span><strong>{maskedIdentity}</strong></div>
-    <div className="info-row"><span>Tên shop</span><strong>{value.shopName || "—"}</strong></div>
-    <div className="info-row"><span>Email doanh nghiệp</span><strong>{value.businessEmail || "—"}</strong></div>
-    <div className="info-row"><span>Hotline</span><strong>{value.hotline || "—"}</strong></div>
-    <div className="info-row"><span>Kho GHN</span><strong>{value.streetAddress || "—"} · {value.provinceId}/{value.districtId}/{value.wardCode}</strong></div>
-  </Card>;
+  return (
+    <Card className="card-pad seller-registration-review">
+      <SectionHeading title="Thông tin shop đã nhập" hint="Thông tin sẽ được chuyển sang trang mở shop sau khi đăng nhập. Hồ sơ chưa được gửi." />
+      <div className="info-row"><span>CCCD/CMND</span><strong>{maskedIdentity}</strong></div>
+      <div className="info-row"><span>Tên shop</span><strong>{value.shopName || "—"}</strong></div>
+      <div className="info-row"><span>Email doanh nghiệp</span><strong>{value.businessEmail || "—"}</strong></div>
+      <div className="info-row"><span>Hotline</span><strong>{value.hotline || "—"}</strong></div>
+      <div className="info-row"><span>Kho GHN</span><strong>{value.streetAddress || "—"} · {value.provinceId}/{value.districtId}/{value.wardCode}</strong></div>
+    </Card>
+  );
 }

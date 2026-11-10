@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "next typegen && tsc --noEmit",
-    "test:session": "node --experimental-transform-types --test tests/api-client-session.test.mjs"
+    "test:session": "node --experimental-transform-types --test tests/api-client-session.test.mjs",
+    "fetch:address": "tsx scripts/fetch-address.ts"
   },
   "dependencies": {
     "clsx": "^2.1.1",
@@ -27,6 +28,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.4.2",
     "tailwindcss": "^4",
+    "tsx": "^4.19.2",
     "typescript": "^5"
   }
 }
