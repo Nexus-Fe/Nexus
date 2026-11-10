@@ -99,6 +99,7 @@ export function WarehouseAddressPicker({
           <input
             id={`${idPrefix}-search`}
             ref={searchInputRef}
+            role="combobox"
             className="field"
             type="text"
             autoComplete="off"

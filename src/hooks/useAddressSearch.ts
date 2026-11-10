@@ -136,9 +136,11 @@ export function useAddressSearch(maxResults = 10): UseAddressSearchResult {
   useEffect(() => {
     const trimmed = debouncedQuery.trim();
     if (!trimmed) {
-      setResults([]);
-      setIsOpen(false);
-      setSelectedIndex(-1);
+      queueMicrotask(() => {
+        setResults([]);
+        setIsOpen(false);
+        setSelectedIndex(-1);
+      });
       return;
     }
 

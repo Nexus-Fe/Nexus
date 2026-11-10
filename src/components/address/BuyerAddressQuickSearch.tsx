@@ -59,6 +59,7 @@ export function BuyerAddressQuickSearch({
         <input
           id={`${idPrefix}-search`}
           ref={searchInputRef}
+          role="combobox"
           className="field"
           type="text"
           autoComplete="off"
@@ -71,6 +72,7 @@ export function BuyerAddressQuickSearch({
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={(e) => handleKeyDown(e, handleSelect)}
           aria-autocomplete="list"
+          aria-controls={`${idPrefix}-results`}
           aria-expanded={isOpen}
           aria-activedescendant={selectedIndex >= 0 ? `${idPrefix}-item-${selectedIndex}` : undefined}
           style={{ paddingRight: query ? "2.5rem" : "1rem" }}
