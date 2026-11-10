@@ -1,10 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState, type KeyboardEvent } from "react";
-import { useAddressSearch } from "@/hooks/useAddressSearch";
+import { useRef, useState } from "react";
+import { useAddressSearch, useClickOutside } from "@/hooks/useAddressSearch";
 import type { AddressItem } from "@/types/address";
-import administrativeUnits from "@/data/vietnam-administrative-units.json";
-import { removeVietnameseTones } from "@/utils/vietnamese";
+import { matchAdministrativeLocation } from "@/utils/address-matching";
 
 export interface BuyerAddressQuickSearchProps {
   onSelectWard: (provinceCode: string, wardCode: string) => void;
@@ -27,70 +26,24 @@ export function BuyerAddressQuickSearch({
     error,
     loadDataIfNeeded,
     clearSearch,
-  } = useAddressSearch(8);
+    handleKeyDown,
+  } = useAddressSearch(10);
 
   const [selectedLabel, setSelectedLabel] = useState("");
   const containerRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, [setIsOpen]);
+  // Đóng dropdown khi click ra ngoài container dùng chung
+  useClickOutside(containerRef, () => setIsOpen(false));
 
   const handleSelect = (item: AddressItem) => {
     setSelectedLabel(item.fullName);
     clearSearch();
 
-    // Map tên tỉnh sang mã tỉnh của administrativeUnits
-    const normalizedItemProvince = removeVietnameseTones(item.provinceName).replace(/^(tinh|thanh pho|tp\.?)\s+/i, "").trim();
-    const matchedProvince = administrativeUnits.provinces.find((p) => {
-      const normPName = removeVietnameseTones(p.name).replace(/^(tinh|thanh pho|tp\.?)\s+/i, "").trim();
-      return normPName === normalizedItemProvince || normPName.includes(normalizedItemProvince) || normalizedItemProvince.includes(normPName);
-    });
-
-    if (matchedProvince) {
-      const normalizedItemWard = removeVietnameseTones(item.wardName).replace(/^(phuong|xa|thi tran)\s+/i, "").trim();
-      const matchedWard = matchedProvince.wards.find((w) => {
-        const normWName = removeVietnameseTones(w.name).replace(/^(phuong|xa|thi tran)\s+/i, "").trim();
-        return normWName === normalizedItemWard || normWName.includes(normalizedItemWard) || normalizedItemWard.includes(normWName);
-      });
-
-      if (matchedWard) {
-        onSelectWard(matchedProvince.code, matchedWard.code);
-        return;
-      }
-      onSelectWard(matchedProvince.code, "");
-    }
-  };
-
-  const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
-    if (!isOpen || results.length === 0) {
-      if (event.key === "ArrowDown" && query.trim()) setIsOpen(true);
-      return;
-    }
-
-    if (event.key === "ArrowDown") {
-      event.preventDefault();
-      setSelectedIndex(selectedIndex < results.length - 1 ? selectedIndex + 1 : 0);
-    } else if (event.key === "ArrowUp") {
-      event.preventDefault();
-      setSelectedIndex(selectedIndex > 0 ? selectedIndex - 1 : results.length - 1);
-    } else if (event.key === "Enter") {
-      event.preventDefault();
-      if (selectedIndex >= 0 && selectedIndex < results.length) {
-        handleSelect(results[selectedIndex]);
-      }
-    } else if (event.key === "Escape") {
-      event.preventDefault();
-      setIsOpen(false);
+    // Sử dụng domain utility matchAdministrativeLocation để tách bạch trách nhiệm
+    const matched = matchAdministrativeLocation(item.provinceName, item.wardName);
+    if (matched) {
+      onSelectWard(matched.provinceCode, matched.wardCode);
     }
   };
 
@@ -116,9 +69,10 @@ export function BuyerAddressQuickSearch({
             if (query.trim() && results.length > 0) setIsOpen(true);
           }}
           onChange={(e) => setQuery(e.target.value)}
-          onKeyDown={handleKeyDown}
+          onKeyDown={(e) => handleKeyDown(e, handleSelect)}
           aria-autocomplete="list"
           aria-expanded={isOpen}
+          aria-activedescendant={selectedIndex >= 0 ? `${idPrefix}-item-${selectedIndex}` : undefined}
           style={{ paddingRight: query ? "2.5rem" : "1rem" }}
         />
         {query && (
@@ -143,6 +97,7 @@ export function BuyerAddressQuickSearch({
 
       {isOpen && (
         <div
+          id={`${idPrefix}-results`}
           role="listbox"
           style={{
             position: "absolute",
@@ -183,6 +138,7 @@ export function BuyerAddressQuickSearch({
               return (
                 <div
                   key={`${item.provinceId}-${item.districtId}-${item.wardCode}`}
+                  id={`${idPrefix}-item-${idx}`}
                   role="option"
                   aria-selected={isSelected}
                   style={{

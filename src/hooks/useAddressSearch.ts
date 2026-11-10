@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type RefObject } from "react";
 import type { AddressItem } from "@/types/address";
 import { matchesQuery, removeVietnameseTones } from "@/utils/vietnamese";
 
@@ -8,7 +8,7 @@ import { matchesQuery, removeVietnameseTones } from "@/utils/vietnamese";
 let inMemoryAddresses: AddressItem[] | null = null;
 let activeFetchPromise: Promise<AddressItem[]> | null = null;
 
-async function fetchStaticAddressData(): Promise<AddressItem[]> {
+export async function fetchStaticAddressData(): Promise<AddressItem[]> {
   if (inMemoryAddresses) return inMemoryAddresses;
   if (activeFetchPromise) return activeFetchPromise;
 
@@ -33,6 +33,40 @@ async function fetchStaticAddressData(): Promise<AddressItem[]> {
   return activeFetchPromise;
 }
 
+/**
+ * Tra cứu thông tin địa chỉ từ mã tỉnh và mã phường đã lưu
+ */
+export async function lookupAddressByCodes(
+  provinceId: string,
+  wardCode: string,
+): Promise<AddressItem | undefined> {
+  try {
+    const data = inMemoryAddresses ?? (await fetchStaticAddressData());
+    return data.find(
+      (item) => item.wardCode === wardCode && String(item.provinceId) === String(provinceId),
+    );
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Hook tiện ích đóng phần tử khi nhấp chuột ra ngoài container
+ */
+export function useClickOutside(ref: RefObject<HTMLElement | null>, onClickOutside: () => void): void {
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (ref.current && !ref.current.contains(event.target as Node)) {
+        onClickOutside();
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [ref, onClickOutside]);
+}
+
 export interface UseAddressSearchResult {
   query: string;
   setQuery: (val: string) => void;
@@ -45,6 +79,7 @@ export interface UseAddressSearchResult {
   error: string | null;
   loadDataIfNeeded: () => Promise<void>;
   clearSearch: () => void;
+  handleKeyDown: (event: KeyboardEvent<HTMLInputElement>, onSelect?: (item: AddressItem) => void) => void;
 }
 
 /**
@@ -53,6 +88,7 @@ export interface UseAddressSearchResult {
  * - Debounce 300ms
  * - Lọc trực tiếp trên mảng dữ liệu (không phân biệt dấu / hoa thường)
  * - Tối ưu vòng lặp sớm (early-exit) lấy tối đa 10 phần tử
+ * - Hỗ trợ sẵn điều hướng phím (ArrowUp, ArrowDown, Enter, Escape)
  */
 export function useAddressSearch(maxResults = 10): UseAddressSearchResult {
   const [query, setQuery] = useState("");
@@ -117,7 +153,7 @@ export function useAddressSearch(maxResults = 10): UseAddressSearchResult {
         const normalizedQuery = removeVietnameseTones(trimmed);
         const queryTokens = normalizedQuery.split(" ").filter(Boolean);
 
-        // Sử dụng for...of loop kết hợp early exit (ngắt ngay khi đạt maxResults)
+        // Sử dụng for loop kết hợp early exit (ngắt ngay khi đạt maxResults)
         const matched: AddressItem[] = [];
         for (let i = 0; i < allAddresses.length; i++) {
           const item = allAddresses[i];
@@ -157,6 +193,32 @@ export function useAddressSearch(maxResults = 10): UseAddressSearchResult {
     setSelectedIndex(-1);
   }, []);
 
+  const handleKeyDown = useCallback(
+    (event: KeyboardEvent<HTMLInputElement>, onSelect?: (item: AddressItem) => void) => {
+      if (!isOpen || results.length === 0) {
+        if (event.key === "ArrowDown" && query.trim()) setIsOpen(true);
+        return;
+      }
+
+      if (event.key === "ArrowDown") {
+        event.preventDefault();
+        setSelectedIndex((prev) => (prev < results.length - 1 ? prev + 1 : 0));
+      } else if (event.key === "ArrowUp") {
+        event.preventDefault();
+        setSelectedIndex((prev) => (prev > 0 ? prev - 1 : results.length - 1));
+      } else if (event.key === "Enter") {
+        event.preventDefault();
+        if (selectedIndex >= 0 && selectedIndex < results.length) {
+          onSelect?.(results[selectedIndex]);
+        }
+      } else if (event.key === "Escape") {
+        event.preventDefault();
+        setIsOpen(false);
+      }
+    },
+    [isOpen, results, selectedIndex, query],
+  );
+
   return {
     query,
     setQuery,
@@ -169,5 +231,6 @@ export function useAddressSearch(maxResults = 10): UseAddressSearchResult {
     error,
     loadDataIfNeeded,
     clearSearch,
+    handleKeyDown,
   };
 }

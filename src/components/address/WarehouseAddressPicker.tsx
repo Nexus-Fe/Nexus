@@ -1,9 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState, type KeyboardEvent } from "react";
-import { useAddressSearch } from "@/hooks/useAddressSearch";
+import { useEffect, useRef, useState } from "react";
+import { lookupAddressByCodes, useAddressSearch, useClickOutside } from "@/hooks/useAddressSearch";
 import type { AddressItem, WarehouseAddressCodes } from "@/types/address";
-import { Icon } from "@/components/ui/Icon";
 
 export interface WarehouseAddressPickerProps {
   provinceId: string;
@@ -14,9 +13,6 @@ export interface WarehouseAddressPickerProps {
   errors?: Partial<Record<"provinceId" | "districtId" | "wardCode" | "streetAddress", string>>;
   idPrefix?: string;
   showStreetAddress?: boolean;
-  /**
-   * Đặt tên trường input name để tự động ăn khớp với FormData khi submit form truyền thống
-   */
   registerFormInputs?: boolean;
 }
 
@@ -43,24 +39,26 @@ export function WarehouseAddressPicker({
     error,
     loadDataIfNeeded,
     clearSearch,
+    handleKeyDown,
   } = useAddressSearch(10);
 
   const [selectedLabel, setSelectedLabel] = useState<string>("");
   const containerRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  // Đóng dropdown khi click ra ngoài component
+  // Đóng dropdown khi click ra ngoài component bằng hook dùng chung
+  useClickOutside(containerRef, () => setIsOpen(false));
+
+  // Tự động nhận diện và hiển thị địa chỉ kho hiện tại nếu đã có mã từ trước
   useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
-      }
+    if (wardCode && provinceId && !selectedLabel) {
+      void lookupAddressByCodes(provinceId, wardCode).then((found) => {
+        if (found) {
+          setSelectedLabel(found.fullName);
+        }
+      });
     }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, [setIsOpen]);
+  }, [provinceId, wardCode, selectedLabel]);
 
   // Xử lý khi người dùng chọn một mục từ gợi ý
   const handleSelect = (item: AddressItem) => {
@@ -72,32 +70,6 @@ export function WarehouseAddressPicker({
       wardCode: item.wardCode,
       streetAddress,
     });
-  };
-
-  // Điều khiển bằng bàn phím (ArrowUp, ArrowDown, Enter, Escape)
-  const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
-    if (!isOpen || results.length === 0) {
-      if (event.key === "ArrowDown" && query.trim()) {
-        setIsOpen(true);
-      }
-      return;
-    }
-
-    if (event.key === "ArrowDown") {
-      event.preventDefault();
-      setSelectedIndex(selectedIndex < results.length - 1 ? selectedIndex + 1 : 0);
-    } else if (event.key === "ArrowUp") {
-      event.preventDefault();
-      setSelectedIndex(selectedIndex > 0 ? selectedIndex - 1 : results.length - 1);
-    } else if (event.key === "Enter") {
-      event.preventDefault();
-      if (selectedIndex >= 0 && selectedIndex < results.length) {
-        handleSelect(results[selectedIndex]);
-      }
-    } else if (event.key === "Escape") {
-      event.preventDefault();
-      setIsOpen(false);
-    }
   };
 
   const handleManualCodeChange = (
@@ -137,10 +109,11 @@ export function WarehouseAddressPicker({
               if (query.trim() && results.length > 0) setIsOpen(true);
             }}
             onChange={(e) => setQuery(e.target.value)}
-            onKeyDown={handleKeyDown}
+            onKeyDown={(e) => handleKeyDown(e, handleSelect)}
             aria-autocomplete="list"
             aria-controls={`${idPrefix}-results`}
             aria-expanded={isOpen}
+            aria-activedescendant={selectedIndex >= 0 ? `${idPrefix}-item-${selectedIndex}` : undefined}
             style={{ paddingRight: query ? "2.5rem" : "1rem" }}
           />
           {query && (
@@ -207,6 +180,7 @@ export function WarehouseAddressPicker({
                 return (
                   <div
                     key={`${item.provinceId}-${item.districtId}-${item.wardCode}`}
+                    id={`${idPrefix}-item-${idx}`}
                     role="option"
                     aria-selected={isSelected}
                     style={{

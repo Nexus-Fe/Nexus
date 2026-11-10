@@ -12,43 +12,8 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-
-// Khai báo Interface cho response từ GHN API
-interface GhnApiResponse<T> {
-  code: number;
-  message: string;
-  data: T;
-}
-
-interface GhnProvince {
-  ProvinceID: number;
-  ProvinceName: string;
-  Code: string;
-}
-
-interface GhnDistrict {
-  DistrictID: number;
-  ProvinceID: number;
-  DistrictName: string;
-  Code: string;
-}
-
-interface GhnWard {
-  WardCode: string;
-  DistrictID: number;
-  WardName: string;
-}
-
-export interface AddressItem {
-  provinceId: number;
-  provinceName: string;
-  districtId: number;
-  districtName: string;
-  wardCode: string;
-  wardName: string;
-  fullName: string;
-  searchText: string;
-}
+import { removeVietnameseTones } from "../src/utils/vietnamese";
+import type { AddressItem, GhnApiResponse, GhnDistrict, GhnProvince, GhnWard } from "../src/types/address";
 
 /**
  * Hàm đọc biến môi trường từ file .env không phụ thuộc thư viện ngoài
@@ -78,28 +43,6 @@ function loadDotEnv(envPath: string): void {
   } catch {
     // Bỏ qua lỗi đọc file .env
   }
-}
-
-/**
- * Chuẩn hóa bỏ dấu tiếng Việt cho trường searchText
- */
-function removeVietnameseTones(str: string): string {
-  if (!str) return "";
-  let result = str
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[đĐ]/g, (match) => (match === "đ" ? "d" : "D"))
-    .toLowerCase()
-    .trim()
-    .replace(/[,.-]/g, " ")
-    .replace(/\s+/g, " ");
-
-  result = result
-    .replace(/\bq(\d+)\b/g, "quan $1")
-    .replace(/\b(tphcm|hcm)\b/g, "tp ho chi minh")
-    .replace(/\bhn\b/g, "ha noi");
-
-  return result;
 }
 
 /**

@@ -3,37 +3,10 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { removeVietnameseTones, matchesQuery } from "../src/utils/vietnamese.ts";
+import { matchAdministrativeLocation } from "../src/utils/address-matching.ts";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-
-function removeVietnameseTones(str) {
-  if (!str) return "";
-  let result = str
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[đĐ]/g, (match) => (match === "đ" ? "d" : "D"))
-    .toLowerCase()
-    .trim()
-    .replace(/[,.-]/g, " ")
-    .replace(/\s+/g, " ");
-
-  result = result
-    .replace(/\bq(\d+)\b/g, "quan $1")
-    .replace(/\b(tphcm|hcm)\b/g, "tp ho chi minh")
-    .replace(/\bhn\b/g, "ha noi");
-
-  return result;
-}
-
-function matchesQuery(targetSearchText, queryTokens) {
-  if (queryTokens.length === 0) return true;
-  for (let i = 0; i < queryTokens.length; i++) {
-    if (!targetSearchText.includes(queryTokens[i])) {
-      return false;
-    }
-  }
-  return true;
-}
 
 test("removeVietnameseTones converts accents and diacritics correctly", () => {
   assert.equal(removeVietnameseTones("Bến Nghé"), "ben nghe");
@@ -57,6 +30,13 @@ test("matchesQuery handles multi-word query in any order and common abbreviation
 
   const q4 = removeVietnameseTones("ha noi").split(" ").filter(Boolean);
   assert.equal(matchesQuery(target, q4), false);
+});
+
+test("matchAdministrativeLocation maps GHN locations to 2-level administrative units", () => {
+  const matched = matchAdministrativeLocation("Hà Nội", "Phường Ba Đình");
+  assert.ok(matched);
+  assert.equal(matched.provinceCode, "01");
+  assert.equal(matched.wardCode, "00004");
 });
 
 test("public/address.json exists, is valid JSON and contains required fields", () => {
