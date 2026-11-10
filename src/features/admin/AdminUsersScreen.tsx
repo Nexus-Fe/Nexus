@@ -1011,7 +1011,7 @@ export function AdminUsersScreen() {
                     {action === "ban" && (
                       <>
                         <label className="field-wrap">
-                          Căn cứ điều khoản Quy chế (tùy chọn)
+                          Phân loại vi phạm (tùy chọn)
                           <select
                             className="select-field"
                             value={banCustomClause ? "OTHER" : banPolicyClauseCode}
@@ -1034,12 +1034,12 @@ export function AdminUsersScreen() {
                         </label>
                         {banCustomClause && (
                           <label className="field-wrap">
-                            Nhập mã điều khoản quy chế riêng
+                            Nhập phân loại vi phạm riêng
                             <input
                               type="text"
                               className="field"
                               maxLength={100}
-                              placeholder="Ví dụ: POL_CUSTOM_FRAUD_CLAUSE"
+                              placeholder="Ví dụ: Lạm dụng hoàn tiền, tạo tài khoản ảo số lượng lớn..."
                               value={banPolicyClauseCode}
                               onChange={(e) => setBanPolicyClauseCode(e.target.value)}
                             />
@@ -1111,7 +1111,7 @@ export function AdminUsersScreen() {
                       </select>
                     </label>
                     <label className="field-wrap">
-                      Căn cứ điều khoản Quy chế (tùy chọn)
+                      Phân loại vi phạm (tùy chọn)
                       <select
                         className="select-field"
                         value={suspendCustomClause ? "OTHER" : suspendPolicyClauseCode}
@@ -1134,12 +1134,12 @@ export function AdminUsersScreen() {
                     </label>
                     {suspendCustomClause && (
                       <label className="field-wrap">
-                        Nhập mã điều khoản quy chế riêng
+                        Nhập phân loại vi phạm riêng
                         <input
                           type="text"
                           className="field"
                           maxLength={100}
-                          placeholder="Ví dụ: CLAUSE_SPECIAL_SELLER_RULE"
+                          placeholder="Ví dụ: Đóng gói sai quy cách, gửi thiếu linh kiện..."
                           value={suspendPolicyClauseCode}
                           onChange={(e) => setSuspendPolicyClauseCode(e.target.value)}
                         />

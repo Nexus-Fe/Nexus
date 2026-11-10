@@ -18,7 +18,7 @@ import {
   penaltyViolationTypeLabel,
   targetRoleTone,
 } from "./services/admin-penalties.service";
-import { extractAdminError } from "./services/admin-helpers";
+import { extractAdminError, formatPolicyClause } from "./services/admin-helpers";
 
 const GUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -412,8 +412,8 @@ export function AdminPenaltiesScreen() {
                   </div>
                   {detail.data.policyClauseCode && (
                     <div className="info-row">
-                      <span>Mã điều khoản vi phạm</span>
-                      <code>{detail.data.policyClauseCode}</code>
+                      <span>Phân loại vi phạm</span>
+                      <strong>{formatPolicyClause(detail.data.policyClauseCode)}</strong>
                     </div>
                   )}
                   <div className="info-row">

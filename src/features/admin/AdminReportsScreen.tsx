@@ -786,7 +786,7 @@ export function AdminReportsScreen() {
                     </div>
 
                     <label className="field-wrap">
-                      Căn cứ điều khoản Quy chế (tùy chọn)
+                      Phân loại vi phạm (tùy chọn)
                       <select
                         className="select-field"
                         value={reportCustomClause ? "OTHER" : resolveForm.policyClauseCode}
@@ -810,12 +810,12 @@ export function AdminReportsScreen() {
 
                     {reportCustomClause && (
                       <label className="field-wrap">
-                        Nhập mã quy định riêng
+                        Nhập phân loại vi phạm riêng
                         <input
                           type="text"
                           className="field"
                           maxLength={100}
-                          placeholder="Ví dụ: CLAUSE_CUSTOM_RULE"
+                          placeholder="Ví dụ: Sản phẩm không đúng mô tả, từ chối hỗ trợ khách..."
                           value={resolveForm.policyClauseCode}
                           onChange={(e) =>
                             setResolveForm((prev) => ({

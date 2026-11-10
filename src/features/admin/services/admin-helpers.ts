@@ -107,38 +107,46 @@ export type PolicyClause = {
 };
 
 export const SELLER_POLICY_CLAUSES: PolicyClause[] = [
-  { code: "", label: "-- Chọn điều khoản quy chế (Mặc định: Vi phạm vận hành) --" },
-  { code: "SELLER_DELIVERY_DELAY", label: "📦 Điều 4.2 — Giao hàng trễ hạn quá số lần quy định" },
-  { code: "SELLER_COUNTERFEIT_GOODS", label: "🚫 Điều 6.1 — Bán hàng giả, hàng nhái, vi phạm sở hữu trí tuệ" },
-  { code: "SELLER_ORDER_CANCELLATION", label: "❌ Điều 5.3 — Tự ý hủy đơn hàng của người mua" },
-  { code: "SELLER_INCORRECT_INVENTORY", label: "📉 Điều 4.5 — Khai báo tồn kho ảo, không còn hàng để giao" },
-  { code: "SELLER_OFF_PLATFORM_TRANSACTION", label: "💬 Điều 7.2 — Dụ dỗ khách thanh toán ngoài sàn (trốn phí)" },
-  { code: "SELLER_HARASSMENT", label: "⚠️ Điều 8.1 — Xúc phạm, quấy rối, đe dọa khách hàng" },
-  { code: "SELLER_POOR_QUALITY", label: "⭐ Điều 9.3 — Tỷ lệ đánh giá tiêu cực và khiếu nại vượt ngưỡng" },
-  { code: "SELLER_OPERATIONAL_VIOLATION", label: "📋 Quy chế chung — Vi phạm tiêu chuẩn vận hành gian hàng" },
-  { code: "OTHER", label: "✏️ Khác (Nhập mã quy định riêng...)" },
+  { code: "", label: "-- Chọn phân loại vi phạm (Mặc định: Vi phạm quy chuẩn vận hành) --" },
+  { code: "SELLER_OPERATIONAL_VIOLATION", label: "Vi phạm quy chuẩn vận hành gian hàng" },
+  { code: "SELLER_DELIVERY_DELAY", label: "Giao hàng trễ hạn nhiều lần" },
+  { code: "SELLER_ORDER_CANCELLATION", label: "Tự ý hủy đơn hàng của khách" },
+  { code: "SELLER_INCORRECT_INVENTORY", label: "Khai báo tồn kho ảo, không còn hàng để giao" },
+  { code: "SELLER_POOR_QUALITY", label: "Tỷ lệ đánh giá tiêu cực và khiếu nại vượt ngưỡng" },
+  { code: "SELLER_OFF_PLATFORM_TRANSACTION", label: "Dụ dỗ khách thanh toán ngoài sàn" },
+  { code: "SELLER_HARASSMENT", label: "Xúc phạm, đe dọa hoặc quấy rối khách hàng" },
+  { code: "SELLER_COUNTERFEIT_GOODS", label: "Bán hàng giả, hàng nhái hoặc vi phạm bản quyền" },
+  { code: "OTHER", label: "Khác (Tự nhập nội dung riêng...)" },
 ];
 
 export const ACCOUNT_BAN_POLICY_CLAUSES: PolicyClause[] = [
-  { code: "", label: "-- Chọn điều khoản quy chế (Mặc định: Vi phạm điều khoản sàn) --" },
-  { code: "POL_FRAUD_SECURITY_01", label: "🛡️ Điều 3.1 — Gian lận thanh toán, lừa đảo, chiếm đoạt tài sản" },
-  { code: "POL_ACCOUNT_TAKEOVER_02", label: "🔐 Điều 3.2 — Dấu hiệu tài khoản bị xâm phạm / tấn công hệ thống" },
-  { code: "POL_ILLEGAL_GOODS_03", label: "⚖️ Điều 6.2 — Buôn bán hàng cấm, vi phạm pháp luật" },
-  { code: "POL_COMMUNITY_STANDARDS_04", label: "⚠️ Điều 8.2 — Vi phạm nghiêm trọng chuẩn mực văn hóa cộng đồng" },
-  { code: "POL_MULTIPLE_ACCOUNTS_ABUSE", label: "👥 Điều 2.4 — Tạo nhiều tài khoản ảo để trục lợi khuyến mãi" },
-  { code: "POL_GENERAL_TOS_VIOLATION", label: "📋 Quy chế chung — Vi phạm nghiêm trọng điều khoản sử dụng sàn" },
-  { code: "OTHER", label: "✏️ Khác (Nhập mã quy định riêng...)" },
+  { code: "", label: "-- Chọn phân loại vi phạm (Mặc định: Vi phạm quy chế nền tảng) --" },
+  { code: "POL_GENERAL_TOS_VIOLATION", label: "Vi phạm nghiêm trọng quy chế sử dụng sàn" },
+  { code: "POL_FRAUD_SECURITY_01", label: "Gian lận thanh toán, lừa đảo, chiếm đoạt tài sản" },
+  { code: "POL_ILLEGAL_GOODS_03", label: "Buôn bán hàng cấm, vi phạm pháp luật" },
+  { code: "POL_ACCOUNT_TAKEOVER_02", label: "Dấu hiệu tài khoản bị xâm phạm hoặc tấn công hệ thống" },
+  { code: "POL_MULTIPLE_ACCOUNTS_ABUSE", label: "Tạo nhiều tài khoản ảo để trục lợi khuyến mãi" },
+  { code: "POL_COMMUNITY_STANDARDS_04", label: "Vi phạm nghiêm trọng chuẩn mực văn hóa cộng đồng" },
+  { code: "OTHER", label: "Khác (Tự nhập nội dung riêng...)" },
 ];
 
 export const REPORT_POLICY_CLAUSES: PolicyClause[] = [
-  { code: "", label: "-- Chọn căn cứ điều khoản quy chế áp dụng --" },
-  { code: "SELLER_DELIVERY_DELAY", label: "📦 Điều 4.2 — Giao hàng trễ hạn" },
-  { code: "SELLER_COUNTERFEIT_GOODS", label: "🚫 Điều 6.1 — Bán hàng giả, hàng nhái" },
-  { code: "SELLER_ORDER_CANCELLATION", label: "❌ Điều 5.3 — Tự ý hủy đơn hàng" },
-  { code: "SELLER_OFF_PLATFORM_TRANSACTION", label: "💬 Điều 7.2 — Dụ dỗ giao dịch ngoài sàn" },
-  { code: "SELLER_HARASSMENT", label: "⚠️ Điều 8.1 — Xúc phạm, quấy rối khách hàng" },
-  { code: "POL_FRAUD_SECURITY_01", label: "🛡️ Điều 3.1 — Gian lận thanh toán, lừa đảo" },
-  { code: "POL_ILLEGAL_GOODS_03", label: "⚖️ Điều 6.2 — Buôn bán hàng cấm" },
-  { code: "POL_GENERAL_TOS_VIOLATION", label: "📋 Quy chế chung — Vi phạm điều khoản sàn" },
-  { code: "OTHER", label: "✏️ Khác (Nhập mã quy định riêng...)" },
+  { code: "", label: "-- Chọn phân loại vi phạm --" },
+  { code: "POL_GENERAL_TOS_VIOLATION", label: "Vi phạm quy chế sử dụng sàn" },
+  { code: "SELLER_DELIVERY_DELAY", label: "Giao hàng trễ hạn nhiều lần" },
+  { code: "SELLER_ORDER_CANCELLATION", label: "Tự ý hủy đơn hàng của khách" },
+  { code: "SELLER_INCORRECT_INVENTORY", label: "Khai báo tồn kho ảo, không còn hàng để giao" },
+  { code: "SELLER_OFF_PLATFORM_TRANSACTION", label: "Dụ dỗ khách thanh toán ngoài sàn" },
+  { code: "SELLER_HARASSMENT", label: "Xúc phạm, quấy rối khách hàng" },
+  { code: "SELLER_COUNTERFEIT_GOODS", label: "Bán hàng giả, hàng nhái hoặc vi phạm bản quyền" },
+  { code: "POL_ILLEGAL_GOODS_03", label: "Buôn bán hàng cấm, vi phạm pháp luật" },
+  { code: "POL_FRAUD_SECURITY_01", label: "Gian lận thanh toán, lừa đảo" },
+  { code: "OTHER", label: "Khác (Tự nhập nội dung riêng...)" },
 ];
+
+export function formatPolicyClause(code?: string | null): string {
+  if (!code) return "";
+  const all = [...SELLER_POLICY_CLAUSES, ...ACCOUNT_BAN_POLICY_CLAUSES, ...REPORT_POLICY_CLAUSES];
+  const found = all.find((c) => c.code === code && c.code !== "" && c.code !== "OTHER");
+  return found ? found.label : code;
+}
