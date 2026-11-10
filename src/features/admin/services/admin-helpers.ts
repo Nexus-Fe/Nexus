@@ -86,3 +86,17 @@ export function getPrimaryRole(user: AdminUser): string {
   }
   return canonical[0] ?? "Buyer";
 }
+
+export type AdminErrorState = {
+  message: string;
+  traceId?: string;
+};
+
+export function extractAdminError(cause: unknown, fallback: string): AdminErrorState {
+  if (cause && typeof cause === "object" && "message" in cause) {
+    const msg = String((cause as { message: unknown }).message || fallback);
+    const traceId = "traceId" in cause ? String((cause as { traceId: unknown }).traceId) : undefined;
+    return { message: msg, traceId };
+  }
+  return { message: cause instanceof Error ? cause.message : fallback };
+}

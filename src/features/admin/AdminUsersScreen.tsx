@@ -14,25 +14,30 @@ import {
   getPrimaryRole,
   canonicalRoleCode,
   roleTone,
+  extractAdminError,
+  type AdminErrorState,
 } from "./services/admin-helpers";
 
 type Action = "ban" | "unban" | "delete" | "editProfile" | "reputation" | "roles" | "suspendShop" | "reactivateShop";
 
 function sellerShopStatusTone(status?: string | null): "amber" | "green" | "sky" | "slate" {
-  const s = (status ?? "").toUpperCase();
+  if (!status) return "slate";
+  const s = status.toUpperCase();
   if (s === "SUSPENDED") return "amber";
   if (s === "PENDING") return "sky";
   if (s === "REJECTED") return "slate";
-  return "green";
+  if (s === "APPROVED") return "green";
+  return "slate";
 }
 
 function sellerShopStatusLabel(status?: string | null): string {
-  const s = (status ?? "").toUpperCase();
+  if (!status) return "Chưa có hồ sơ Shop";
+  const s = status.toUpperCase();
   if (s === "SUSPENDED") return "Tạm đình chỉ (Shop)";
   if (s === "PENDING") return "Chờ duyệt KYC (Shop)";
   if (s === "REJECTED") return "Bị từ chối KYC (Shop)";
   if (s === "APPROVED") return "Đang hoạt động (Shop)";
-  return status || "Đang hoạt động (Shop)";
+  return status;
 }
 
 export function AdminUsersScreen() {
@@ -105,7 +110,7 @@ export function AdminUsersScreen() {
     if (cause instanceof ApiError) {
       setError({ message: cause.message, traceId: cause.traceId });
     } else {
-      setError({ message: cause instanceof Error ? cause.message : fallback });
+      setError(extractAdminError(cause, fallback));
     }
   }
 
@@ -905,7 +910,7 @@ export function AdminUsersScreen() {
                     </button>
                   )}
 
-                  {Boolean(detail.data.isSeller || detail.data.sellerProfile) && (
+                  {Boolean(detail.data.sellerProfile) && (
                     (detail.data.sellerProfile?.status ?? "").toLowerCase() === "suspended" ? (
                       <button
                         type="button"
@@ -919,8 +924,7 @@ export function AdminUsersScreen() {
                       >
                         Mở lại Shop
                       </button>
-                    ) : (detail.data.sellerProfile?.status ?? "").toLowerCase() === "pending" ||
-                        (detail.data.sellerProfile?.status ?? "").toLowerCase() === "rejected" ? null : (
+                    ) : (detail.data.sellerProfile?.status ?? "").toLowerCase() === "approved" ? (
                       <button
                         type="button"
                         className="button button-small"
@@ -933,7 +937,7 @@ export function AdminUsersScreen() {
                       >
                         Đình chỉ Shop
                       </button>
-                    )
+                    ) : null
                   )}
                 </div>
 

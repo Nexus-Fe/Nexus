@@ -18,6 +18,9 @@ import {
   penaltyViolationTypeLabel,
   targetRoleTone,
 } from "./services/admin-penalties.service";
+import { extractAdminError } from "./services/admin-helpers";
+
+const GUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export function AdminPenaltiesScreen() {
   const [userIdFilter, setUserIdFilter] = useState("");
@@ -35,8 +38,6 @@ export function AdminPenaltiesScreen() {
   const [saved, setSaved] = useState("");
 
   const [filterError, setFilterError] = useState("");
-
-  const GUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
   const query = {
     page,
@@ -62,7 +63,7 @@ export function AdminPenaltiesScreen() {
     if (cause instanceof ApiError) {
       setError({ message: cause.message, traceId: cause.traceId });
     } else {
-      setError({ message: cause instanceof Error ? cause.message : fallback });
+      setError(extractAdminError(cause, fallback));
     }
   }
 
@@ -234,6 +235,7 @@ export function AdminPenaltiesScreen() {
                   <th>Vai trò</th>
                   <th>Hình thức xử phạt</th>
                   <th>Loại vi phạm</th>
+                  <th>Lý do</th>
                   <th>Trạng thái</th>
                   <th>Thời hạn</th>
                   <th>Ngày ban hành</th>
@@ -275,6 +277,9 @@ export function AdminPenaltiesScreen() {
                       <span style={{ fontSize: "13px" }}>
                         {penaltyViolationTypeLabel(item.violationType)}
                       </span>
+                    </td>
+                    <td style={{ fontSize: "13px", maxWidth: "220px" }} title={item.reason}>
+                      {item.reason ? (item.reason.length > 35 ? `${item.reason.slice(0, 35)}…` : item.reason) : "—"}
                     </td>
                     <td>
                       <Badge tone={penaltyStatusTone(item.status)}>

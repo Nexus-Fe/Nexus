@@ -18,6 +18,7 @@ import {
   type AdminReportItem,
   type ResolveReportPayload,
 } from "./services/admin-reports.service";
+import { extractAdminError } from "./services/admin-helpers";
 
 type ActionType = "resolve" | "dismiss" | null;
 
@@ -79,7 +80,7 @@ export function AdminReportsScreen() {
     if (cause instanceof ApiError) {
       setError({ message: cause.message, traceId: cause.traceId });
     } else {
-      setError({ message: cause instanceof Error ? cause.message : fallback });
+      setError(extractAdminError(cause, fallback));
     }
   }
 
@@ -160,9 +161,18 @@ export function AdminReportsScreen() {
     }
 
     const duration = resolveForm.durationDays ? parseInt(resolveForm.durationDays, 10) : undefined;
+    const effectivePenaltyType: "Warning" | "DeductPoints" | "Restriction" | "BanAccount" | "Other" =
+      resolveForm.banAccount
+        ? "BanAccount"
+        : resolveForm.suspendSellerShop
+          ? "Restriction"
+          : score > 0
+            ? "DeductPoints"
+            : resolveForm.penaltyApplied;
+
     const payload: ResolveReportPayload = {
       targetRole: resolveForm.targetRole,
-      penaltyApplied: resolveForm.penaltyApplied,
+      penaltyApplied: effectivePenaltyType,
       scoreDeduction: score,
       banAccount: resolveForm.banAccount,
       suspendSellerShop: resolveForm.suspendSellerShop,
@@ -686,17 +696,15 @@ export function AdminReportsScreen() {
                         <select
                           className="select-field"
                           value={resolveForm.penaltyApplied}
-                          onChange={(e) =>
+                          onChange={(e) => {
+                            const val = e.target.value as "Warning" | "DeductPoints" | "Restriction" | "BanAccount" | "Other";
                             setResolveForm((prev) => ({
                               ...prev,
-                              penaltyApplied: e.target.value as
-                                | "Warning"
-                                | "DeductPoints"
-                                | "Restriction"
-                                | "BanAccount"
-                                | "Other",
-                            }))
-                          }
+                              penaltyApplied: val,
+                              banAccount: val === "BanAccount",
+                              suspendSellerShop: val === "Restriction",
+                            }));
+                          }}
                         >
                           <option value="DeductPoints">Trừ điểm uy tín</option>
                           <option value="Restriction">Đình chỉ quyền hạn</option>
@@ -752,6 +760,7 @@ export function AdminReportsScreen() {
                             setResolveForm((prev) => ({
                               ...prev,
                               suspendSellerShop: e.target.checked,
+                              penaltyApplied: e.target.checked && !prev.banAccount ? "Restriction" : prev.penaltyApplied,
                             }))
                           }
                         />
@@ -763,7 +772,11 @@ export function AdminReportsScreen() {
                           type="checkbox"
                           checked={resolveForm.banAccount}
                           onChange={(e) =>
-                            setResolveForm((prev) => ({ ...prev, banAccount: e.target.checked }))
+                            setResolveForm((prev) => ({
+                              ...prev,
+                              banAccount: e.target.checked,
+                              penaltyApplied: e.target.checked ? "BanAccount" : prev.penaltyApplied === "BanAccount" ? "DeductPoints" : prev.penaltyApplied,
+                            }))
                           }
                         />
                         <strong>Khóa tài khoản toàn diện (Ban Account)</strong>

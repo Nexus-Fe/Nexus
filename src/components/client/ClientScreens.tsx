@@ -138,11 +138,11 @@ export const AdminUsersScreenClient = dynamic(
   { ssr: false, loading: ScreenLoading },
 );
 export const AdminPenaltiesScreenClient = dynamic(
-  () => import("@/features/admin").then((module) => module.AdminPenaltiesScreen),
+  () => import("@/features/admin/AdminPenaltiesScreen").then((module) => module.AdminPenaltiesScreen),
   { ssr: false, loading: ScreenLoading },
 );
 export const AdminReportsScreenClient = dynamic(
-  () => import("@/features/admin").then((module) => module.AdminReportsScreen),
+  () => import("@/features/admin/AdminReportsScreen").then((module) => module.AdminReportsScreen),
   { ssr: false, loading: ScreenLoading },
 );
 export const AdminRolesScreenClient = dynamic(
