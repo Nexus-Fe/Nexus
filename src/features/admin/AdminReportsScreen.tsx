@@ -18,7 +18,7 @@ import {
   type AdminReportItem,
   type ResolveReportPayload,
 } from "./services/admin-reports.service";
-import { extractAdminError } from "./services/admin-helpers";
+import { extractAdminError, REPORT_POLICY_CLAUSES } from "./services/admin-helpers";
 
 type ActionType = "resolve" | "dismiss" | null;
 
@@ -59,6 +59,7 @@ export function AdminReportsScreen() {
   });
 
   const [busy, setBusy] = useState(false);
+  const [reportCustomClause, setReportCustomClause] = useState(false);
   const [error, setError] = useState<{ message: string; traceId?: string } | null>(null);
   const [saved, setSaved] = useState("");
 
@@ -88,6 +89,7 @@ export function AdminReportsScreen() {
     setSelectedReport(item);
     setActionType(null);
     setDismissNote("");
+    setReportCustomClause(false);
     setResolveForm({
       targetRole: normalizeTargetRole(item.targetRole),
       penaltyApplied: "DeductPoints",
@@ -784,21 +786,46 @@ export function AdminReportsScreen() {
                     </div>
 
                     <label className="field-wrap">
-                      Mã điều khoản quy định vi phạm (tùy chọn)
-                      <input
-                        type="text"
-                        className="field"
-                        maxLength={100}
-                        placeholder="Ví dụ: CLAUSE_2_COUNTERFEIT_GOODS"
-                        value={resolveForm.policyClauseCode}
-                        onChange={(e) =>
-                          setResolveForm((prev) => ({
-                            ...prev,
-                            policyClauseCode: e.target.value,
-                          }))
-                        }
-                      />
+                      Căn cứ điều khoản Quy chế (tùy chọn)
+                      <select
+                        className="select-field"
+                        value={reportCustomClause ? "OTHER" : resolveForm.policyClauseCode}
+                        onChange={(e) => {
+                          if (e.target.value === "OTHER") {
+                            setReportCustomClause(true);
+                            setResolveForm((prev) => ({ ...prev, policyClauseCode: "" }));
+                          } else {
+                            setReportCustomClause(false);
+                            setResolveForm((prev) => ({ ...prev, policyClauseCode: e.target.value }));
+                          }
+                        }}
+                      >
+                        {REPORT_POLICY_CLAUSES.map((clause) => (
+                          <option key={clause.code} value={clause.code}>
+                            {clause.label}
+                          </option>
+                        ))}
+                      </select>
                     </label>
+
+                    {reportCustomClause && (
+                      <label className="field-wrap">
+                        Nhập mã quy định riêng
+                        <input
+                          type="text"
+                          className="field"
+                          maxLength={100}
+                          placeholder="Ví dụ: CLAUSE_CUSTOM_RULE"
+                          value={resolveForm.policyClauseCode}
+                          onChange={(e) =>
+                            setResolveForm((prev) => ({
+                              ...prev,
+                              policyClauseCode: e.target.value,
+                            }))
+                          }
+                        />
+                      </label>
+                    )}
 
                     <label className="field-wrap">
                       Quyết định xử lý & Căn cứ chế tài (tối thiểu 10 ký tự) <span style={{ color: "var(--red)" }}>*</span>

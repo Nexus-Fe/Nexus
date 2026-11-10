@@ -16,6 +16,8 @@ import {
   roleTone,
   extractAdminError,
   type AdminErrorState,
+  SELLER_POLICY_CLAUSES,
+  ACCOUNT_BAN_POLICY_CLAUSES,
 } from "./services/admin-helpers";
 
 type Action = "ban" | "unban" | "delete" | "editProfile" | "reputation" | "roles" | "suspendShop" | "reactivateShop";
@@ -54,7 +56,9 @@ export function AdminUsersScreen() {
   const [suspendReason, setSuspendReason] = useState("");
   const [suspendDurationDays, setSuspendDurationDays] = useState("7");
   const [suspendPolicyClauseCode, setSuspendPolicyClauseCode] = useState("");
+  const [suspendCustomClause, setSuspendCustomClause] = useState(false);
   const [suspendEvidenceUrls, setSuspendEvidenceUrls] = useState("");
+  const [banCustomClause, setBanCustomClause] = useState(false);
   const [reactivateReason, setReactivateReason] = useState("");
   const [showFullCccd, setShowFullCccd] = useState(false);
   const [showReputationHistory, setShowReputationHistory] = useState(false);
@@ -128,10 +132,12 @@ export function AdminUsersScreen() {
     setAction(null);
     setReason("");
     setBanPolicyClauseCode("");
+    setBanCustomClause(false);
     setBanEvidenceUrls("");
     setSuspendReason("");
     setSuspendDurationDays("7");
     setSuspendPolicyClauseCode("");
+    setSuspendCustomClause(false);
     setSuspendEvidenceUrls("");
     setReactivateReason("");
     setError(null);
@@ -1005,16 +1011,40 @@ export function AdminUsersScreen() {
                     {action === "ban" && (
                       <>
                         <label className="field-wrap">
-                          Mã điều khoản vi phạm (tùy chọn)
-                          <input
-                            type="text"
-                            className="field"
-                            maxLength={100}
-                            placeholder="Ví dụ: CLAUSE_1_FRAUDULENT_ACTIVITY"
-                            value={banPolicyClauseCode}
-                            onChange={(e) => setBanPolicyClauseCode(e.target.value)}
-                          />
+                          Căn cứ điều khoản Quy chế (tùy chọn)
+                          <select
+                            className="select-field"
+                            value={banCustomClause ? "OTHER" : banPolicyClauseCode}
+                            onChange={(e) => {
+                              if (e.target.value === "OTHER") {
+                                setBanCustomClause(true);
+                                setBanPolicyClauseCode("");
+                              } else {
+                                setBanCustomClause(false);
+                                setBanPolicyClauseCode(e.target.value);
+                              }
+                            }}
+                          >
+                            {ACCOUNT_BAN_POLICY_CLAUSES.map((clause) => (
+                              <option key={clause.code} value={clause.code}>
+                                {clause.label}
+                              </option>
+                            ))}
+                          </select>
                         </label>
+                        {banCustomClause && (
+                          <label className="field-wrap">
+                            Nhập mã điều khoản quy chế riêng
+                            <input
+                              type="text"
+                              className="field"
+                              maxLength={100}
+                              placeholder="Ví dụ: POL_CUSTOM_FRAUD_CLAUSE"
+                              value={banPolicyClauseCode}
+                              onChange={(e) => setBanPolicyClauseCode(e.target.value)}
+                            />
+                          </label>
+                        )}
                         <label className="field-wrap">
                           URL bằng chứng vi phạm (mỗi dòng một URL)
                           <textarea
@@ -1081,16 +1111,40 @@ export function AdminUsersScreen() {
                       </select>
                     </label>
                     <label className="field-wrap">
-                      Mã điều khoản vi phạm (tùy chọn)
-                      <input
-                        type="text"
-                        className="field"
-                        maxLength={100}
-                        placeholder="Ví dụ: CLAUSE_4_2_DELIVERY_DELAY"
-                        value={suspendPolicyClauseCode}
-                        onChange={(e) => setSuspendPolicyClauseCode(e.target.value)}
-                      />
+                      Căn cứ điều khoản Quy chế (tùy chọn)
+                      <select
+                        className="select-field"
+                        value={suspendCustomClause ? "OTHER" : suspendPolicyClauseCode}
+                        onChange={(e) => {
+                          if (e.target.value === "OTHER") {
+                            setSuspendCustomClause(true);
+                            setSuspendPolicyClauseCode("");
+                          } else {
+                            setSuspendCustomClause(false);
+                            setSuspendPolicyClauseCode(e.target.value);
+                          }
+                        }}
+                      >
+                        {SELLER_POLICY_CLAUSES.map((clause) => (
+                          <option key={clause.code} value={clause.code}>
+                            {clause.label}
+                          </option>
+                        ))}
+                      </select>
                     </label>
+                    {suspendCustomClause && (
+                      <label className="field-wrap">
+                        Nhập mã điều khoản quy chế riêng
+                        <input
+                          type="text"
+                          className="field"
+                          maxLength={100}
+                          placeholder="Ví dụ: CLAUSE_SPECIAL_SELLER_RULE"
+                          value={suspendPolicyClauseCode}
+                          onChange={(e) => setSuspendPolicyClauseCode(e.target.value)}
+                        />
+                      </label>
+                    )}
                     <label className="field-wrap">
                       URL bằng chứng vi phạm (mỗi dòng một URL)
                       <textarea
