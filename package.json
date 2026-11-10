@@ -11,9 +11,11 @@
     "test:session": "node --experimental-transform-types --test tests/api-client-session.test.mjs"
   },
   "dependencies": {
+    "clsx": "^2.1.1",
     "next": "16.4.2",
     "react": "19.3.0",
-    "react-dom": "19.3.0"
+    "react-dom": "19.3.0",
+    "tailwind-merge": "^3.7.0"
   },
   "devDependencies": {
     "@tailwindcss/turbopack": "^4",
