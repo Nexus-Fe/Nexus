@@ -15,7 +15,7 @@ import { ShopRegistrationForm, ShopRegistrationReview, emptyShopRegistrationFiel
 import { keepSellerRegistrationHandoff } from "@/features/seller/services/seller-registration-handoff";
 import { AuthSplitLayout } from "@/components/auth/AuthSplitLayout";
 import { PasswordInput } from "@/components/ui/PasswordInput";
-import { Brand } from "@/components/layout/Shells";
+import { NexusBrandHeader } from "@/components/brand/NexusLogo";
 
 function landingPath(user: AuthUser): string {
   const roles = (user.roles ?? (user.role ? [user.role] : [])).map((role) => {
@@ -58,7 +58,7 @@ export function LoginScreen() {
     <AuthSplitLayout>
       <div className="auth-form-brand">
         <Link href={ROUTES.home} aria-label="NEXUS Trang chủ">
-          <Brand />
+          <NexusBrandHeader />
         </Link>
       </div>
 
@@ -315,7 +315,7 @@ export function RegisterScreen() {
     <AuthSplitLayout wide>
       <div className="auth-form-brand">
         <Link href={ROUTES.home} aria-label="NEXUS Trang chủ">
-          <Brand />
+          <NexusBrandHeader />
         </Link>
       </div>
 

@@ -2441,6 +2441,7 @@ h1,h2,h3 { letter-spacing: -.025em; }
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: safe center;
   overflow-y: auto;
   overflow-x: hidden;
   padding: 40px 24px;
@@ -2488,29 +2489,7 @@ h1,h2,h3 { letter-spacing: -.025em; }
   transform: scale(1.08);
 }
 
-.auth-back-btn {
-  position: absolute;
-  top: 24px;
-  left: calc(45% + 28px);
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 14px;
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.1);
-  color: #f1f5f9;
-  font-size: 13px;
-  font-weight: 600;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  cursor: pointer;
-  transition: all 0.2s ease;
-  z-index: 1000;
-}
 
-.auth-back-btn:hover {
-  background: rgba(255, 255, 255, 0.2);
-  color: #ffffff;
-}
 
 .auth-split-body {
   width: 100%;
@@ -2954,11 +2933,7 @@ h1,h2,h3 { letter-spacing: -.025em; }
     z-index: 1000;
   }
 
-  .auth-back-btn {
-    top: 16px;
-    left: 16px;
-    z-index: 1000;
-  }
+  
 
   .auth-split-body {
     max-width: 100%;

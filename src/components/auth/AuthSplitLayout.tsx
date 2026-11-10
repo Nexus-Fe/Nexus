@@ -7,7 +7,6 @@ import { NexusBrandHeader } from "@/components/brand/NexusLogo";
 
 interface AuthSplitLayoutProps {
   children: ReactNode;
-  backAction?: () => void;
   closeHref?: string;
   badgeText?: string;
   wide?: boolean;
@@ -15,7 +14,6 @@ interface AuthSplitLayoutProps {
 
 export function AuthSplitLayout({
   children,
-  backAction,
   closeHref = ROUTES.home,
   badgeText = "NEXUS • Sàn thương mại điện tử & Đấu giá trực tuyến",
   wide = false,
@@ -37,29 +35,13 @@ export function AuthSplitLayout({
         </svg>
       </Link>
 
-      {/* Nút Quay Lại Cố Định (Khi Trong Form Nhiều Bước) */}
-      {backAction && (
-        <button
-          type="button"
-          className="auth-back-btn"
-          onClick={backAction}
-          aria-label="Quay lại bước trước"
-        >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <line x1="19" y1="12" x2="5" y2="12" />
-            <polyline points="12 19 5 12 12 5" />
-          </svg>
-          <span>Quay lại</span>
-        </button>
-      )}
-
       {/* =========================================================================
           CỘT TRÁI (45% DESKTOP ONLY) - SÀN THƯƠNG MẠI TRỌNG YẾU & ĐẤU GIÁ
           ========================================================================= */}
-      <aside className="auth-split-left" aria-hidden="true">
+      <aside className="auth-split-left" aria-label="Giới thiệu NEXUS">
         {/* Top: Logo Thương Hiệu với Biểu tượng Búa Đấu Giá */}
         <div className="auth-split-left-header">
-          <Link href={ROUTES.home} className="auth-left-brand" tabIndex={-1} aria-label="NEXUS Trang chủ">
+          <Link href={ROUTES.home} className="auth-left-brand" aria-label="NEXUS Trang chủ">
             <NexusBrandHeader light />
           </Link>
         </div>
