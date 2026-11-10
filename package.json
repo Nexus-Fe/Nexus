@@ -10,7 +10,7 @@
     "typecheck": "next typegen && tsc --noEmit",
     "test:session": "node --experimental-transform-types --test tests/api-client-session.test.mjs",
     "test:address": "npx tsx --test tests/address-search.test.mjs",
-    "fetch:address": "tsx scripts/fetch-address.ts"
+    "fetch:address": "npx tsx scripts/fetch-address.ts"
   },
   "dependencies": {
     "clsx": "^2.1.1",
