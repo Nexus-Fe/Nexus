@@ -1,4 +1,4 @@
-import administrativeUnits from "../data/vietnam-administrative-units.json";
+import administrativeUnits from "../data/vietnam-administrative-units.json" with { type: "json" };
 import { removeVietnameseTones } from "./vietnamese";
 
 export interface MatchedAdministrativeLocation {

@@ -2060,43 +2060,7 @@ h1,h2,h3 { letter-spacing: -.025em; }
 }
 
 
-/* =========================================================================
-   WINDOWS 8 METRO TURNSTILE ANIMATIONS FOR AUTH ENTRANCE
-   ========================================================================= */
 
-@keyframes metroTurnstileContainer {
-  0% {
-    opacity: 0;
-    transform: perspective(1200px) rotateY(-24deg) translateX(180px);
-  }
-  100% {
-    opacity: 1;
-    transform: perspective(1200px) rotateY(0deg) translateX(0);
-  }
-}
-
-@keyframes metroTurnstileCard {
-  0% {
-    opacity: 0;
-    transform: perspective(1000px) rotateY(-28deg) translateX(220px);
-  }
-
-
-@keyframes metroTurnstileHero {
-  0% {
-    opacity: 0;
-    transform: perspective(1000px) rotateY(-20deg) translateX(120px);
-  }
-  100% {
-    opacity: 1;
-    transform: perspective(1000px) rotateY(0deg) translateX(0);
-  }
-}
-  100% {
-    opacity: 1;
-    transform: perspective(1000px) rotateY(0deg) translateX(0);
-  }
-}
 
 .auth-split-container {
   position: fixed;
@@ -2115,8 +2079,6 @@ h1,h2,h3 { letter-spacing: -.025em; }
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
-  animation: metroTurnstileContainer 0.75s cubic-bezier(0.1, 0.9, 0.2, 1) both;
-  transform-origin: left center;
 }
 
 /* =========================================================================
@@ -2141,8 +2103,6 @@ h1,h2,h3 { letter-spacing: -.025em; }
   box-shadow: none;
   z-index: 5;
   flex-shrink: 0;
-  animation: metroTurnstileHero 0.75s cubic-bezier(0.1, 0.9, 0.2, 1) 0.05s both;
-  transform-origin: left center;
 }
 
 .auth-split-left::after {
@@ -2545,8 +2505,6 @@ h1,h2,h3 { letter-spacing: -.025em; }
   box-shadow: 0 24px 60px -12px rgba(0, 0, 0, 0.5), 0 4px 16px rgba(0, 0, 0, 0.2);
   display: flex;
   flex-direction: column;
-  animation: metroTurnstileCard 0.8s cubic-bezier(0.1, 0.9, 0.2, 1) 0.12s both;
-  transform-origin: left center;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
@@ -2987,28 +2945,4 @@ h1,h2,h3 { letter-spacing: -.025em; }
   .role-cards-container {
     grid-template-columns: 1fr;
   }
-}
-
-
-/* =========================================================================
-   WINDOWS 8 METRO TURNSTILE PAGE TRANSITION (HIỆU ỨNG CHUYỂN TRANG METRO)
-   ========================================================================= */
-
-@keyframes metroPageTransition {
-  0% {
-    opacity: 0;
-    transform: perspective(1200px) rotateY(-14deg) translateX(80px);
-    transform-origin: left center;
-  }
-  100% {
-    opacity: 1;
-    transform: none;
-    transform-origin: left center;
-  }
-}
-
-.metro-page-transition {
-  width: 100%;
-  min-height: 100%;
-  animation: metroPageTransition 0.45s cubic-bezier(0.1, 0.9, 0.2, 1) both;
 }
