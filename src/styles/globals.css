@@ -2505,6 +2505,7 @@ h1,h2,h3 { letter-spacing: -.025em; }
   box-shadow: 0 24px 60px -12px rgba(0, 0, 0, 0.5), 0 4px 16px rgba(0, 0, 0, 0.2);
   display: flex;
   flex-direction: column;
+  animation: authSlideInRight 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
