@@ -82,7 +82,6 @@ export function AdminConfigsScreen() {
   const [page, setPage] = useState(1);
   const [keyword, setKeyword] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
-  const [isNewKey, setIsNewKey] = useState(false);
   const [form, setForm] = useState({ key: "", value: "", reason: "" });
   const [selectedDesc, setSelectedDesc] = useState<string>("");
   const [selectedType, setSelectedType] = useState<string>("String");
@@ -106,12 +105,11 @@ export function AdminConfigsScreen() {
     : allItems;
 
   const isBooleanType =
-    (!isNewKey && selectedType.toLowerCase() === "boolean") ||
+    selectedType.toLowerCase() === "boolean" ||
     form.value.toLowerCase() === "true" ||
     form.value.toLowerCase() === "false";
 
   function openEditModal(item: SystemConfigItem) {
-    setIsNewKey(false);
     const itemType = item.dataType || "String";
     const isBool =
       itemType.toLowerCase() === "boolean" ||
@@ -124,19 +122,6 @@ export function AdminConfigsScreen() {
     });
     setSelectedDesc(formatConfigDescription(item.key, item.description));
     setSelectedType(itemType);
-    setError(null);
-    setModalOpen(true);
-  }
-
-  function openCreateModal() {
-    setIsNewKey(true);
-    setForm({
-      key: "",
-      value: "",
-      reason: "Khởi tạo/cập nhật tham số cấu hình hệ thống từ cổng Admin",
-    });
-    setSelectedDesc("");
-    setSelectedType("String");
     setError(null);
     setModalOpen(true);
   }
@@ -209,14 +194,7 @@ export function AdminConfigsScreen() {
               disabled={resource.loading}
               onClick={resource.reload}
             >
-              Tải lại
-            </button>
-            <button
-              type="button"
-              className="button button-primary button-small"
-              onClick={openCreateModal}
-            >
-              + Cập nhật theo Key
+              {resource.loading ? "Đang làm mới…" : "Làm mới dữ liệu"}
             </button>
           </div>
         }
@@ -354,9 +332,7 @@ export function AdminConfigsScreen() {
           >
             <div className="admin-modal-heading">
               <div>
-                <h2 id="config-modal-title">
-                  {isNewKey ? "Cập nhật tham số cấu hình theo Key" : "Chỉnh sửa tham số cấu hình"}
-                </h2>
+                <h2 id="config-modal-title">Chỉnh sửa tham số cấu hình</h2>
                 <p style={{ margin: "4px 0 0", fontSize: 13, color: "var(--muted)" }}>
                   Cập nhật giá trị tham số hệ thống kèm lý do thay đổi.
                 </p>
@@ -389,27 +365,22 @@ export function AdminConfigsScreen() {
 
             <form className="auth-fields" onSubmit={(e) => void handleSubmit(e)}>
               <label className="field-wrap">
-                Mã tham số <span style={{ color: "var(--red)" }}>*</span>
+                Mã tham số
                 <input
                   className="field"
-                  required
-                  minLength={2}
-                  maxLength={100}
-                  readOnly={!isNewKey}
+                  readOnly
+                  disabled
                   value={form.key}
-                  onChange={(e) => setForm((prev) => ({ ...prev, key: e.target.value }))}
-                  placeholder="Ví dụ: Auction.AntiSnipingExtensionMinutes"
+                  style={{ backgroundColor: "var(--surface-muted)", cursor: "not-allowed" }}
                 />
               </label>
 
-              {!isNewKey && (
-                <div className="info-row">
-                  <span>Kiểu dữ liệu / Mô tả</span>
-                  <strong>
-                    {selectedType} {selectedDesc ? `· ${selectedDesc}` : ""}
-                  </strong>
-                </div>
-              )}
+              <div className="info-row">
+                <span>Kiểu dữ liệu / Mô tả</span>
+                <strong>
+                  {selectedType} {selectedDesc ? `· ${selectedDesc}` : ""}
+                </strong>
+              </div>
 
               <label className="field-wrap">
                 Giá trị cấu hình mới <span style={{ color: "var(--red)" }}>*</span>

@@ -49,7 +49,8 @@ export const OperationsDetailScreenClient = dynamic(() => import("@/features/auc
 export const SellerAuctionResultScreenClient = dynamic(() => import("@/features/auction").then((module) => module.SellerAuctionResultScreen), { ssr: false, loading: ScreenLoading });
 export const SellerAuctionFormScreenClient = dynamic(() => import("@/features/auction").then((module) => module.SellerAuctionEditorScreen), { ssr: false, loading: ScreenLoading });
 export const SellerAuctionRecreateScreenClient = dynamic(() => import("@/features/auction").then((module) => module.SellerAuctionEditorScreen), { ssr: false, loading: ScreenLoading });
-export const AdminAuctionConfigsScreenClient = dynamic(() => import("@/features/auction").then((module) => module.AdminAuctionConfigsScreen), { ssr: false, loading: ScreenLoading });
+export const AdminAuctionConfigsScreenClient = dynamic(() => import("@/features/admin").then((module) => module.AdminAuctionConfigsScreen), { ssr: false, loading: ScreenLoading });
+export const AdminNotificationsScreenClient = dynamic(() => import("@/features/admin").then((module) => module.AdminNotificationsScreen), { ssr: false, loading: ScreenLoading });
 
 export const CartScreenClient = dynamic(
   () => import("@/features/commerce/BuyerCommerceScreens").then((module) => module.CartScreen),
@@ -135,6 +136,10 @@ export const StaffQueueScreenClient = dynamic(() => import("@/features/staff/Sta
 
 export const AdminUsersScreenClient = dynamic(
   () => import("@/features/admin").then((module) => module.AdminUsersScreen),
+  { ssr: false, loading: ScreenLoading },
+);
+export const AdminPenaltiesScreenClient = dynamic(
+  () => import("@/features/admin/AdminPenaltiesScreen").then((module) => module.AdminPenaltiesScreen),
   { ssr: false, loading: ScreenLoading },
 );
 export const AdminRolesScreenClient = dynamic(

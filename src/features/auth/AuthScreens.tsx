@@ -876,6 +876,14 @@ export function AccountProfileScreen() {
   const displayName = [p?.firstName, p?.lastName].filter(Boolean).join(" ") || user?.displayName || user?.username || "Tài khoản Nexus";
   const email = p?.email ?? user?.email ?? "";
   const isSeller = Boolean(p?.isSeller || user?.roles?.some((role) => role.toLowerCase() === "seller") || user?.role?.toLowerCase() === "seller");
+  const isStaffOrAdmin = Boolean(
+    user?.roles?.some((role) => {
+      const r = role.toLowerCase();
+      return r === "admin" || r === "staff";
+    }) ||
+    user?.role?.toLowerCase() === "admin" ||
+    user?.role?.toLowerCase() === "staff"
+  );
   return <div className="profile-page">
     <div className="profile-layout">
       <aside className="profile-sidebar">
@@ -885,9 +893,9 @@ export function AccountProfileScreen() {
           <Link href={ROUTES.auth.changePassword}>Đổi mật khẩu &amp; bảo mật</Link>
           {isSeller ? (
             <Link className="profile-nav-seller" href={ROUTES.seller.products}>Kênh người bán</Link>
-          ) : (
+          ) : !isStaffOrAdmin ? (
             <Link href={ROUTES.buyer.becomeSeller}>Đăng ký bán hàng (Become Seller)</Link>
-          )}
+          ) : null}
         </nav>
       </aside>
       <div className="profile-content">
@@ -902,8 +910,19 @@ export function AccountProfileScreen() {
             <div className="profile-actions"><button type="reset" className="button button-secondary" disabled={busy}>Hủy thao tác</button><button type="submit" className="button button-primary" disabled={busy||profile.loading}>{busy?"Đang lưu…":"Lưu thay đổi"}</button></div>
           </form>}
         </section>
-        {profile.data&&<section id="profile-reputation" className="profile-panel profile-reputation"><div><h2>Điểm uy tín</h2><p>Điểm hiện tại của tài khoản</p></div><div className="profile-reputation-value"><strong>{p.reputationScore}</strong><span>{p.trustLevel}</span></div></section>}
-        {!isSeller && (
+        {!isStaffOrAdmin && profile.data && (
+          <section id="profile-reputation" className="profile-panel profile-reputation">
+            <div>
+              <h2>Điểm uy tín</h2>
+              <p>Điểm hiện tại của tài khoản</p>
+            </div>
+            <div className="profile-reputation-value">
+              <strong>{p.reputationScore}</strong>
+              <span>{p.trustLevel}</span>
+            </div>
+          </section>
+        )}
+        {!isSeller && !isStaffOrAdmin && (
           <section id="profile-selling" className="profile-panel">
             <div className="profile-panel-heading">
               <div>

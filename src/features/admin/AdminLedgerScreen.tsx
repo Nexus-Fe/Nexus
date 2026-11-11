@@ -13,6 +13,8 @@ import {
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export function AdminLedgerScreen() {
+  const [activeTab, setActiveTab] = useState<"withdrawals" | "adjustments">("withdrawals");
+
   // Withdrawal approval state
   const [withdrawalId, setWithdrawalId] = useState("");
   const [withdrawalAction, setWithdrawalAction] = useState<"Approve" | "Reject">("Approve");
@@ -138,171 +140,227 @@ export function AdminLedgerScreen() {
         description="Phê duyệt yêu cầu rút tiền và thực hiện các bút toán điều chỉnh số dư ví đối soát."
       />
 
-      <div className="split" style={{ marginBottom: "24px" }}>
-        {/* Left: Process Withdrawal by ID */}
-        <Card className="card-pad">
-          <SectionHeading
-            title="1. Xử lý yêu cầu rút tiền theo mã"
-            hint="Duyệt hoặc từ chối giải ngân yêu cầu rút tiền"
-          />
+      {/* Thanh Tabs chuẩn phân tách nghiệp vụ */}
+      <div
+        role="tablist"
+        aria-label="Phân hệ đối soát ví"
+        style={{
+          display: "flex",
+          gap: "24px",
+          borderBottom: "1px solid var(--line, #e2e8f0)",
+          marginBottom: "20px",
+          marginTop: "-8px",
+        }}
+      >
+        <button
+          type="button"
+          role="tab"
+          aria-selected={activeTab === "withdrawals"}
+          onClick={() => setActiveTab("withdrawals")}
+          style={{
+            background: "none",
+            border: "none",
+            borderBottom: activeTab === "withdrawals" ? "2px solid var(--primary, #0284c7)" : "2px solid transparent",
+            padding: "8px 4px 12px",
+            fontSize: "14px",
+            fontWeight: activeTab === "withdrawals" ? 600 : 500,
+            color: activeTab === "withdrawals" ? "var(--primary, #0284c7)" : "var(--muted, #64748b)",
+            cursor: "pointer",
+            transition: "all 0.15s ease",
+          }}
+        >
+          Xử lý yêu cầu rút tiền
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={activeTab === "adjustments"}
+          onClick={() => setActiveTab("adjustments")}
+          style={{
+            background: "none",
+            border: "none",
+            borderBottom: activeTab === "adjustments" ? "2px solid var(--primary, #0284c7)" : "2px solid transparent",
+            padding: "8px 4px 12px",
+            fontSize: "14px",
+            fontWeight: activeTab === "adjustments" ? 600 : 500,
+            color: activeTab === "adjustments" ? "var(--primary, #0284c7)" : "var(--muted, #64748b)",
+            cursor: "pointer",
+            transition: "all 0.15s ease",
+          }}
+        >
+          Điều chỉnh số dư ví (Bút toán can thiệp)
+        </button>
+      </div>
 
-          {withdrawalError && (
-            <div role="alert" className="notice">
-              <p>{withdrawalError.message}</p>
-              {withdrawalError.traceId && (
-                <button
-                  type="button"
-                  className="button button-secondary button-small"
-                  onClick={() => void copyTraceId(withdrawalError.traceId!)}
-                >
-                  {copiedTrace ? "Đã sao chép Trace ID" : `Copy Trace ID: ${withdrawalError.traceId}`}
-                </button>
-              )}
-            </div>
-          )}
+      <div style={{ marginBottom: "24px" }}>
+        {/* Tab 1: Process Withdrawal by ID */}
+        {activeTab === "withdrawals" && (
+          <Card className="card-pad">
+            <SectionHeading
+              title="Xử lý yêu cầu rút tiền theo mã"
+              hint="Duyệt hoặc từ chối giải ngân yêu cầu rút tiền của Người mua/Người bán"
+            />
 
-          {withdrawalSuccess && (
-            <p role="status" className="form-success">
-              {withdrawalSuccess}
-            </p>
-          )}
+            {withdrawalError && (
+              <div role="alert" className="notice">
+                <p>{withdrawalError.message}</p>
+                {withdrawalError.traceId && (
+                  <button
+                    type="button"
+                    className="button button-secondary button-small"
+                    onClick={() => void copyTraceId(withdrawalError.traceId!)}
+                  >
+                    {copiedTrace ? "Đã sao chép Trace ID" : `Copy Trace ID: ${withdrawalError.traceId}`}
+                  </button>
+                )}
+              </div>
+            )}
 
-          <form className="auth-fields" onSubmit={(e) => void handleProcessWithdrawal(e)}>
-            <label className="field-wrap">
-              Mã yêu cầu rút tiền <span style={{ color: "var(--red)" }}>*</span>
-              <input
-                className="field"
-                required
-                placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-                value={withdrawalId}
-                onChange={(e) => setWithdrawalId(e.target.value)}
-              />
-            </label>
+            {withdrawalSuccess && (
+              <p role="status" className="form-success">
+                {withdrawalSuccess}
+              </p>
+            )}
 
-            <label className="field-wrap">
-              Quyết định xử lý <span style={{ color: "var(--red)" }}>*</span>
-              <select
-                className="select-field"
-                value={withdrawalAction}
-                onChange={(e) => setWithdrawalAction(e.target.value as "Approve" | "Reject")}
-              >
-                <option value="Approve">Phê duyệt giải ngân</option>
-                <option value="Reject">Từ chối & hoàn trả số dư khả dụng</option>
-              </select>
-            </label>
-
-            <label className="field-wrap">
-              Ghi chú đối soát
-              <textarea
-                className="textarea-field"
-                value={adminNote}
-                onChange={(e) => setAdminNote(e.target.value)}
-                placeholder="Nhập mã giao dịch ngân hàng hoặc lý do từ chối..."
-              />
-            </label>
-
-            <div className="action-row">
-              <button
-                type="submit"
-                className={"button " + (withdrawalAction === "Reject" ? "button-danger" : "button-primary")}
-                disabled={withdrawalBusy || !withdrawalId.trim()}
-              >
-                {withdrawalBusy ? "Đang xử lý…" : "Xác nhận xử lý rút tiền"}
-              </button>
-            </div>
-          </form>
-        </Card>
-
-        {/* Right: Adjust Wallet Balance by WalletId */}
-        <Card className="card-pad">
-          <SectionHeading
-            title="2. Điều chỉnh số dư ví"
-            hint="Tăng hoặc giảm số dư ví kèm lý do đối soát"
-          />
-
-          {adjustError && (
-            <div role="alert" className="notice">
-              <p>{adjustError.message}</p>
-              {adjustError.traceId && (
-                <button
-                  type="button"
-                  className="button button-secondary button-small"
-                  onClick={() => void copyTraceId(adjustError.traceId!)}
-                >
-                  {copiedTrace ? "Đã sao chép Trace ID" : `Copy Trace ID: ${adjustError.traceId}`}
-                </button>
-              )}
-            </div>
-          )}
-
-          {adjustSuccess && (
-            <p role="status" className="form-success">
-              {adjustSuccess}
-            </p>
-          )}
-
-          <form className="auth-fields" onSubmit={(e) => void handleAdjustBalance(e)}>
-            <label className="field-wrap">
-              Mã ví điện tử <span style={{ color: "var(--red)" }}>*</span>
-              <input
-                className="field"
-                required
-                placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-                value={walletId}
-                onChange={(e) => setWalletId(e.target.value)}
-              />
-            </label>
-
-            <div className="form-grid">
+            <form className="auth-fields" onSubmit={(e) => void handleProcessWithdrawal(e)}>
               <label className="field-wrap">
-                Loại bút toán <span style={{ color: "var(--red)" }}>*</span>
+                Mã yêu cầu rút tiền <span style={{ color: "var(--red)" }}>*</span>
+                <input
+                  className="field"
+                  required
+                  placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+                  value={withdrawalId}
+                  onChange={(e) => setWithdrawalId(e.target.value)}
+                />
+              </label>
+
+              <label className="field-wrap">
+                Quyết định xử lý <span style={{ color: "var(--red)" }}>*</span>
                 <select
                   className="select-field"
-                  value={adjustmentType}
-                  onChange={(e) => setAdjustmentType(e.target.value as "Credit" | "Debit")}
+                  value={withdrawalAction}
+                  onChange={(e) => setWithdrawalAction(e.target.value as "Approve" | "Reject")}
                 >
-                  <option value="Credit">+ Cộng tiền vào ví</option>
-                  <option value="Debit">- Trừ tiền khỏi ví</option>
+                  <option value="Approve">Phê duyệt giải ngân</option>
+                  <option value="Reject">Từ chối & hoàn trả số dư khả dụng</option>
                 </select>
               </label>
 
               <label className="field-wrap">
-                Số tiền (VNĐ) <span style={{ color: "var(--red)" }}>*</span>
-                <input
-                  className="field"
-                  type="number"
-                  min="1"
-                  step="any"
-                  required
-                  placeholder="Ví dụ: 500000"
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
+                Ghi chú đối soát
+                <textarea
+                  className="textarea-field"
+                  value={adminNote}
+                  onChange={(e) => setAdminNote(e.target.value)}
+                  placeholder="Nhập mã giao dịch ngân hàng hoặc lý do từ chối..."
                 />
               </label>
-            </div>
 
-            <label className="field-wrap">
-              Lý do đối soát / điều chỉnh <span style={{ color: "var(--red)" }}>*</span>
-              <textarea
-                className="textarea-field"
-                required
-                value={reason}
-                onChange={(e) => setReason(e.target.value)}
-                placeholder="Nhập biên bản đối soát hoặc lý do điều chỉnh số dư..."
-              />
-            </label>
+              <div className="action-row">
+                <button
+                  type="submit"
+                  className={"button " + (withdrawalAction === "Reject" ? "button-danger" : "button-primary")}
+                  disabled={withdrawalBusy || !withdrawalId.trim()}
+                >
+                  {withdrawalBusy ? "Đang xử lý…" : "Xác nhận xử lý rút tiền"}
+                </button>
+              </div>
+            </form>
+          </Card>
+        )}
 
-            <div className="action-row">
-              <button
-                type="submit"
-                className="button button-primary"
-                disabled={adjustBusy || !walletId.trim() || !amount.trim() || !reason.trim()}
-              >
-                {adjustBusy ? "Đang ghi sổ cái…" : "Thực thi bút toán điều chỉnh"}
-              </button>
-            </div>
-          </form>
-        </Card>
+        {/* Tab 2: Adjust Wallet Balance by WalletId */}
+        {activeTab === "adjustments" && (
+          <Card className="card-pad">
+            <SectionHeading
+              title="Điều chỉnh số dư ví điện tử"
+              hint="Tăng hoặc giảm số dư ví kèm lý do đối soát minh bạch"
+            />
+
+            {adjustError && (
+              <div role="alert" className="notice">
+                <p>{adjustError.message}</p>
+                {adjustError.traceId && (
+                  <button
+                    type="button"
+                    className="button button-secondary button-small"
+                    onClick={() => void copyTraceId(adjustError.traceId!)}
+                  >
+                    {copiedTrace ? "Đã sao chép Trace ID" : `Copy Trace ID: ${adjustError.traceId}`}
+                  </button>
+                )}
+              </div>
+            )}
+
+            {adjustSuccess && (
+              <p role="status" className="form-success">
+                {adjustSuccess}
+              </p>
+            )}
+
+            <form className="auth-fields" onSubmit={(e) => void handleAdjustBalance(e)}>
+              <label className="field-wrap">
+                Mã ví điện tử <span style={{ color: "var(--red)" }}>*</span>
+                <input
+                  className="field"
+                  required
+                  placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+                  value={walletId}
+                  onChange={(e) => setWalletId(e.target.value)}
+                />
+              </label>
+
+              <div className="form-grid">
+                <label className="field-wrap">
+                  Loại bút toán <span style={{ color: "var(--red)" }}>*</span>
+                  <select
+                    className="select-field"
+                    value={adjustmentType}
+                    onChange={(e) => setAdjustmentType(e.target.value as "Credit" | "Debit")}
+                  >
+                    <option value="Credit">+ Cộng tiền vào ví</option>
+                    <option value="Debit">- Trừ tiền khỏi ví</option>
+                  </select>
+                </label>
+
+                <label className="field-wrap">
+                  Số tiền (VNĐ) <span style={{ color: "var(--red)" }}>*</span>
+                  <input
+                    className="field"
+                    type="number"
+                    min="1"
+                    step="any"
+                    required
+                    placeholder="Ví dụ: 500000"
+                    value={amount}
+                    onChange={(e) => setAmount(e.target.value)}
+                  />
+                </label>
+              </div>
+
+              <label className="field-wrap">
+                Lý do đối soát / điều chỉnh <span style={{ color: "var(--red)" }}>*</span>
+                <textarea
+                  className="textarea-field"
+                  required
+                  value={reason}
+                  onChange={(e) => setReason(e.target.value)}
+                  placeholder="Nhập biên bản đối soát hoặc lý do điều chỉnh số dư..."
+                />
+              </label>
+
+              <div className="action-row">
+                <button
+                  type="submit"
+                  className="button button-primary"
+                  disabled={adjustBusy || !walletId.trim() || !amount.trim() || !reason.trim()}
+                >
+                  {adjustBusy ? "Đang ghi sổ cái…" : "Thực thi bút toán điều chỉnh"}
+                </button>
+              </div>
+            </form>
+          </Card>
+        )}
       </div>
 
       <SectionHeading

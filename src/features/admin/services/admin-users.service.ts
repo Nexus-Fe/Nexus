@@ -14,6 +14,23 @@ export type AdminUserReputationLog = {
   createdAt: string;
 };
 
+export type AdminSellerProfileDetail = {
+  shopName: string;
+  status: string;
+  hotline?: string | null;
+  businessEmail?: string | null;
+  pickupAddress?: string | null;
+  provinceId?: number | null;
+  districtId?: number | null;
+  wardCode?: string | null;
+  avatarUrl?: string | null;
+  idCardFrontUrl?: string | null;
+  idCardBackUrl?: string | null;
+  businessLicenseUrl?: string | null;
+  rejectionReason?: string | null;
+  reviewedAt?: string | null;
+};
+
 export type AdminUser = {
   id?: string;
   userId?: string;
@@ -28,6 +45,7 @@ export type AdminUser = {
   address?: string | null;
   gender?: string | null;
   isSeller?: boolean;
+  sellerProfile?: AdminSellerProfileDetail | null;
   reputationScore?: number;
   trustLevel?: string;
   sellerReputationScore?: number;
@@ -56,6 +74,23 @@ export type UpdateAdminUserPayload = {
   phoneNumber?: string;
   status?: string;
   reason: string;
+};
+
+export type BanUserPayload = {
+  reason: string;
+  policyClauseCode?: string;
+  evidenceUrls?: string[];
+};
+
+export type SuspendSellerPayload = {
+  reason: string;
+  durationDays?: number;
+  policyClauseCode?: string;
+  evidenceUrls?: string[];
+};
+
+export type ReactivateSellerPayload = {
+  reason?: string;
 };
 
 export type AdjustReputationPayload = {
@@ -139,8 +174,21 @@ export const adminUsersService = {
     });
   },
 
-  async ban(id: string, reason: string): Promise<void> {
-    await api.patch(`${userPath(id)}/ban`, { reason });
+  async ban(
+    id: string,
+    payloadOrReason: string | BanUserPayload,
+  ): Promise<void> {
+    const body =
+      typeof payloadOrReason === "string" ? { reason: payloadOrReason } : payloadOrReason;
+    await api.patch(`${userPath(id)}/ban`, body);
+  },
+
+  async suspendSeller(sellerId: string, payload: SuspendSellerPayload): Promise<void> {
+    await api.put(`/api/v1/admin/sellers/${encodeURIComponent(sellerId)}/suspend`, payload);
+  },
+
+  async reactivateSeller(sellerId: string, payload?: ReactivateSellerPayload): Promise<void> {
+    await api.put(`/api/v1/admin/sellers/${encodeURIComponent(sellerId)}/reactivate`, payload ?? {});
   },
 
   async unban(id: string, reason: string): Promise<void> {
