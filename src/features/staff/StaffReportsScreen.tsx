@@ -18,7 +18,7 @@ import {
   type AdminReportItem,
   type ResolveReportPayload,
 } from "@/features/admin/services/admin-reports.service";
-import { extractAdminError, REPORT_POLICY_CLAUSES } from "@/features/admin/services/admin-helpers";
+import { extractAdminError } from "@/features/admin/services/admin-helpers";
 
 type ActionType = "resolve" | "dismiss" | null;
 
@@ -59,7 +59,6 @@ export function StaffReportsScreen() {
   });
 
   const [busy, setBusy] = useState(false);
-  const [reportCustomClause, setReportCustomClause] = useState(false);
   const [error, setError] = useState<{ message: string; traceId?: string } | null>(null);
   const [saved, setSaved] = useState("");
 
@@ -89,7 +88,6 @@ export function StaffReportsScreen() {
     setSelectedReport(item);
     setActionType(null);
     setDismissNote("");
-    setReportCustomClause(false);
     setResolveForm({
       targetRole: normalizeTargetRole(item.targetRole),
       penaltyApplied: "DeductPoints",
@@ -522,7 +520,7 @@ export function StaffReportsScreen() {
                           onChange={(e) =>
                             setResolveForm((prev) => ({
                               ...prev,
-                              penaltyApplied: e.target.value as any,
+                              penaltyApplied: e.target.value as "Warning" | "DeductPoints" | "Restriction" | "BanAccount" | "Other",
                             }))
                           }
                         >

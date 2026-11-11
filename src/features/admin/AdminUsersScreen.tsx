@@ -16,7 +16,6 @@ import {
   canonicalRoleCode,
   roleTone,
   extractAdminError,
-  type AdminErrorState,
   SELLER_POLICY_CLAUSES,
   ACCOUNT_BAN_POLICY_CLAUSES,
 } from "./services/admin-helpers";

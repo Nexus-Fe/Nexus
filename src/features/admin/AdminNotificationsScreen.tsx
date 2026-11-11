@@ -13,8 +13,6 @@ import { useApiResource } from "@/lib/api/use-api-resource";
 import {
   adminNotificationsService,
   type InAppNotificationItemResponse,
-  type EventLogSummaryResponse,
-  type EventLogDetailResponse,
 } from "./services/admin-notifications.service";
 
 export function AdminNotificationsScreen() {
