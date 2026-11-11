@@ -1,6 +1,5 @@
-import { redirect } from "next/navigation";
-import { ROUTES } from "@/constants/routes";
+import { AdminPenaltiesScreenClient } from "@/components/client/ClientScreens";
 
 export default function AdminPenaltiesPage() {
-  redirect(ROUTES.staff.penalties);
+  return <AdminPenaltiesScreenClient />;
 }

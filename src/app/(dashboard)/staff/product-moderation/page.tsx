@@ -1,5 +1,5 @@
-import { StaffQueueScreenClient } from "@/components/client/ClientScreens";
+import { StaffProductModerationScreenClient } from "@/components/client/ClientScreens";
 
 export default function StaffProductModerationPage() {
-  return <StaffQueueScreenClient queue="moderation" />;
+  return <StaffProductModerationScreenClient />;
 }

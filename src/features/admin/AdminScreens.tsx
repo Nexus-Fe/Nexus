@@ -22,7 +22,7 @@ export {
 
 const adminWorkspaces = [
   ["Người dùng & Phân quyền", "Quản lý hồ sơ tài khoản, bổ nhiệm nhân sự và phân cấp vai trò hệ thống", ROUTES.admin.users],
-  ["Sổ bộ án phạt", "Tra cứu và thu hồi các quyết định xử phạt tài khoản, gian hàng", ROUTES.admin.penalties],
+  ["Quản lý xử phạt", "Tra cứu và thu hồi các quyết định xử phạt tài khoản, gian hàng", ROUTES.admin.penalties],
   ["Danh mục sản phẩm", "Cấu trúc cây danh mục toàn sàn (bao gồm cả danh mục đang ẩn)", ROUTES.admin.categories],
   ["Cấu hình đấu giá", "Quy tắc chống sniping, bước giá và điểm uy tín đấu giá", ROUTES.admin.auctionConfigs],
   ["Cấu hình toàn sàn", "Tham số vận hành động của toàn hệ thống", ROUTES.admin.configs],
@@ -133,7 +133,7 @@ export function AdminOverviewScreen() {
 
         <Card className="card-pad">
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span style={{ fontSize: "13px", color: "var(--muted)" }}>Sổ bộ án phạt</span>
+            <span style={{ fontSize: "13px", color: "var(--muted)" }}>Quản lý xử phạt</span>
             <Badge tone="red">Xử phạt</Badge>
           </div>
           <strong style={{ display: "block", fontSize: "24px", margin: "10px 0 4px" }}>

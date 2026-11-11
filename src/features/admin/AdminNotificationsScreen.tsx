@@ -161,10 +161,10 @@ export function AdminNotificationsScreen() {
             borderBottom: activeTab === "notifications" ? "2px solid var(--primary, #0284c7)" : "2px solid transparent",
             padding: "8px 4px 12px",
             fontSize: "14px",
-            fontWeight: activeTab === "notifications" ? 600 : 500,
+            fontWeight: 600,
             color: activeTab === "notifications" ? "var(--primary, #0284c7)" : "var(--muted, #64748b)",
             cursor: "pointer",
-            transition: "all 0.15s ease",
+            transition: "border-color 0.12s ease, color 0.12s ease",
           }}
         >
           Lịch sử thông báo
@@ -180,10 +180,10 @@ export function AdminNotificationsScreen() {
             borderBottom: activeTab === "event-logs" ? "2px solid var(--primary, #0284c7)" : "2px solid transparent",
             padding: "8px 4px 12px",
             fontSize: "14px",
-            fontWeight: activeTab === "event-logs" ? 600 : 500,
+            fontWeight: 600,
             color: activeTab === "event-logs" ? "var(--primary, #0284c7)" : "var(--muted, #64748b)",
             cursor: "pointer",
-            transition: "all 0.15s ease",
+            transition: "border-color 0.12s ease, color 0.12s ease",
           }}
         >
           Nhật ký sự kiện (Event Logs)
@@ -255,16 +255,16 @@ export function AdminNotificationsScreen() {
             <NoData title="Đang nạp lịch sử thông báo…" />
           ) : notifItems.length > 0 ? (
             <div className="table-scroll">
-              <table className="data-table">
+              <table className="data-table" style={{ width: "100%", tableLayout: "fixed" }}>
                 <thead>
                   <tr>
-                    <th>Mã thông báo</th>
-                    <th>Người nhận (User ID)</th>
-                    <th>Phân loại</th>
-                    <th>Tiêu đề & Nội dung</th>
-                    <th>Trạng thái</th>
-                    <th>Thời gian gửi</th>
-                    <th>Thao tác</th>
+                    <th style={{ width: "12%" }}>Mã thông báo</th>
+                    <th style={{ width: "14%" }}>Người nhận</th>
+                    <th style={{ width: "14%" }}>Phân loại</th>
+                    <th style={{ width: "30%" }}>Tiêu đề & Nội dung</th>
+                    <th style={{ width: "12%" }}>Trạng thái</th>
+                    <th style={{ width: "12%" }}>Thời gian gửi</th>
+                    <th style={{ width: "6%", textAlign: "right" }}>Thao tác</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -374,15 +374,15 @@ export function AdminNotificationsScreen() {
             <NoData title="Đang nạp nhật ký sự kiện…" />
           ) : eventItems.length > 0 ? (
             <div className="table-scroll">
-              <table className="data-table">
+              <table className="data-table" style={{ width: "100%", tableLayout: "fixed" }}>
                 <thead>
                   <tr>
-                    <th>Dịch vụ nguồn</th>
-                    <th>Loại sự kiện (EventType)</th>
-                    <th>Tác nhân (Actor / Role)</th>
-                    <th>Mã Trace ID</th>
-                    <th>Thời điểm phát sinh</th>
-                    <th>Thao tác</th>
+                    <th style={{ width: "16%" }}>Dịch vụ nguồn</th>
+                    <th style={{ width: "24%" }}>Loại sự kiện</th>
+                    <th style={{ width: "20%" }}>Tác nhân thực hiện</th>
+                    <th style={{ width: "18%" }}>Mã tham chiếu Trace</th>
+                    <th style={{ width: "14%" }}>Thời điểm phát sinh</th>
+                    <th style={{ width: "8%", textAlign: "right" }}>Thao tác</th>
                   </tr>
                 </thead>
                 <tbody>

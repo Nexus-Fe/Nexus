@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { AdminPagination, Badge, Card, NoData, PageHeading, SectionHeading } from "@/components/ui/Primitives";
+import { CopyableId } from "@/components/ui/CopyableId";
 import { ApiError } from "@/lib/api/client";
 import { useApiResource } from "@/lib/api/use-api-resource";
 import { adminUsersService, type AdminUserReputationLog } from "./services/admin-users.service";
@@ -204,17 +205,6 @@ export function AdminUsersScreen() {
     setRepForm({
       targetRole: "Buyer",
       scoreDelta: "5",
-      reason: "",
-    });
-    setError(null);
-    setSaved("");
-  }
-
-  function openRolesAction() {
-    if (!detail.data) return;
-    setAction("roles");
-    setRoleForm({
-      roleCode: canonicalRoleCode(getPrimaryRole(detail.data)),
       reason: "",
     });
     setError(null);
@@ -438,10 +428,10 @@ export function AdminUsersScreen() {
             borderBottom: activeTab === "users" ? "2px solid var(--primary, #0284c7)" : "2px solid transparent",
             padding: "8px 4px 12px",
             fontSize: "14px",
-            fontWeight: activeTab === "users" ? 600 : 500,
+            fontWeight: 600,
             color: activeTab === "users" ? "var(--primary, #0284c7)" : "var(--muted, #64748b)",
             cursor: "pointer",
-            transition: "all 0.15s ease",
+            transition: "border-color 0.12s ease, color 0.12s ease",
           }}
         >
           Danh sách tài khoản
@@ -457,10 +447,10 @@ export function AdminUsersScreen() {
             borderBottom: activeTab === "roles" ? "2px solid var(--primary, #0284c7)" : "2px solid transparent",
             padding: "8px 4px 12px",
             fontSize: "14px",
-            fontWeight: activeTab === "roles" ? 600 : 500,
+            fontWeight: 600,
             color: activeTab === "roles" ? "var(--primary, #0284c7)" : "var(--muted, #64748b)",
             cursor: "pointer",
-            transition: "all 0.15s ease",
+            transition: "border-color 0.12s ease, color 0.12s ease",
           }}
         >
           Vai trò & Bổ nhiệm
@@ -557,15 +547,15 @@ export function AdminUsersScreen() {
 
         {records.length ? (
           <div className="table-scroll">
-            <table className="data-table">
+            <table className="data-table" style={{ width: "100%", tableLayout: "fixed" }}>
               <thead>
                 <tr>
-                  <th>Người dùng</th>
-                  <th>Email</th>
-                  <th>Vai trò chính</th>
-                  <th>Uy tín</th>
-                  <th>Trạng thái</th>
-                  <th>Thao tác</th>
+                  <th style={{ width: "24%" }}>Người dùng</th>
+                  <th style={{ width: "26%" }}>Email</th>
+                  <th style={{ width: "18%" }}>Vai trò chính</th>
+                  <th style={{ width: "12%" }}>Uy tín</th>
+                  <th style={{ width: "12%" }}>Trạng thái</th>
+                  <th style={{ width: "8%", textAlign: "right" }}>Thao tác</th>
                 </tr>
               </thead>
               <tbody>
@@ -587,6 +577,9 @@ export function AdminUsersScreen() {
                         <strong>{userName(user)}</strong>
                         {user.username && <small>@{user.username}</small>}
                       </button>
+                      <div style={{ marginTop: "4px" }} onClick={(e) => e.stopPropagation()}>
+                        <CopyableId id={userId(user)} />
+                      </div>
                     </td>
                     <td>{user.email}</td>
                     <td>
@@ -682,9 +675,10 @@ export function AdminUsersScreen() {
             <div className="admin-modal-heading">
               <div>
                 <h2 id="user-modal-title">Chi tiết & Quản trị tài khoản</h2>
-                <p style={{ margin: "4px 0 0", fontSize: 13, color: "var(--muted)" }}>
-                  Mã định danh: <code>{selected}</code>
-                </p>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px", margin: "4px 0 0" }}>
+                  <span style={{ fontSize: 13, color: "var(--muted)" }}>Mã người dùng (User ID):</span>
+                  <CopyableId id={selected} showFull />
+                </div>
               </div>
               <button
                 type="button"

@@ -8,6 +8,7 @@ import {
   NoData,
   PageHeading,
 } from "@/components/ui/Primitives";
+import { CopyableId } from "@/components/ui/CopyableId";
 import { ApiError } from "@/lib/api/client";
 import { useApiResource } from "@/lib/api/use-api-resource";
 import {
@@ -120,7 +121,7 @@ export function AdminPenaltiesScreen() {
     <>
       <PageHeading
         overline="Quản trị hệ thống"
-        title="Sổ bộ án phạt toàn sàn"
+        title="Quản lý xử phạt toàn sàn"
         description="Tra cứu biên bản xử phạt vi phạm của Người mua và Gian hàng. Thu hồi chế tài kỷ luật khi khắc phục vi phạm."
         action={
           <button
@@ -228,44 +229,45 @@ export function AdminPenaltiesScreen() {
           <NoData title="Không tìm thấy quyết định xử phạt nào." />
         ) : (
           <div className="table-scroll">
-            <table className="data-table">
+            <table className="data-table" style={{ width: "100%", tableLayout: "fixed", minWidth: 0 }}>
               <thead>
                 <tr>
-                  <th>Người vi phạm</th>
-                  <th>Vai trò</th>
-                  <th>Hình thức xử phạt</th>
-                  <th>Loại vi phạm</th>
-                  <th>Lý do</th>
-                  <th>Trạng thái</th>
-                  <th>Thời hạn</th>
-                  <th>Ngày ban hành</th>
-                  <th style={{ textAlign: "right" }}>Thao tác</th>
+                  <th style={{ width: "19%", padding: "10px 8px", whiteSpace: "normal" }}>Người vi phạm</th>
+                  <th style={{ width: "8%", padding: "10px 8px", whiteSpace: "normal" }}>Vai trò</th>
+                  <th style={{ width: "15%", padding: "10px 8px", whiteSpace: "normal" }}>Hình thức xử phạt</th>
+                  <th style={{ width: "12%", padding: "10px 8px", whiteSpace: "normal" }}>Loại vi phạm</th>
+                  <th style={{ width: "15%", padding: "10px 8px", whiteSpace: "normal" }}>Lý do</th>
+                  <th style={{ width: "9%", padding: "10px 8px", whiteSpace: "normal" }}>Trạng thái</th>
+                  <th style={{ width: "8%", padding: "10px 8px", whiteSpace: "normal" }}>Thời hạn</th>
+                  <th style={{ width: "7%", padding: "10px 8px", whiteSpace: "normal" }}>Ngày ban hành</th>
+                  <th style={{ width: "7%", padding: "10px 8px", textAlign: "right", whiteSpace: "normal" }}>Thao tác</th>
                 </tr>
               </thead>
               <tbody>
                 {records.map((item) => (
                   <tr key={item.id}>
-                    <td>
+                    <td style={{ padding: "10px 8px", wordBreak: "break-word", overflowWrap: "anywhere" }}>
                       <button
                         type="button"
                         className="user-cell-btn"
                         onClick={() => openDetail(item.id)}
                         title="Bấm để xem chi tiết án phạt"
+                        style={{ textAlign: "left", wordBreak: "break-word", overflowWrap: "anywhere" }}
                       >
                         <strong>{item.userEmail || item.userId}</strong>
                       </button>
-                      {item.userEmail && item.userId && (
-                        <div style={{ fontSize: "11px", color: "var(--muted)" }}>
-                          ID: {item.userId.slice(0, 8)}…
+                      {item.userId && (
+                        <div style={{ marginTop: "4px" }}>
+                          <CopyableId id={item.userId} />
                         </div>
                       )}
                     </td>
-                    <td>
+                    <td style={{ padding: "10px 8px" }}>
                       <Badge tone={targetRoleTone(item.targetRole)}>
                         {item.targetRole}
                       </Badge>
                     </td>
-                    <td>
+                    <td style={{ padding: "10px 8px", wordBreak: "break-word" }}>
                       <strong>{penaltyTypeLabel(item.penaltyApplied)}</strong>
                       {item.pointsDeducted > 0 && (
                         <span style={{ color: "#dc2626", marginLeft: "4px", fontSize: "12px" }}>
@@ -273,28 +275,26 @@ export function AdminPenaltiesScreen() {
                         </span>
                       )}
                     </td>
-                    <td>
-                      <span style={{ fontSize: "13px" }}>
-                        {penaltyViolationTypeLabel(item.violationType)}
-                      </span>
+                    <td style={{ padding: "10px 8px", fontSize: "13px", wordBreak: "break-word" }}>
+                      {penaltyViolationTypeLabel(item.violationType)}
                     </td>
-                    <td style={{ fontSize: "13px", maxWidth: "220px" }} title={item.reason}>
-                      {item.reason ? (item.reason.length > 35 ? `${item.reason.slice(0, 35)}…` : item.reason) : "—"}
+                    <td style={{ padding: "10px 8px", fontSize: "13px", wordBreak: "break-word", overflowWrap: "anywhere" }} title={item.reason}>
+                      {item.reason || "—"}
                     </td>
-                    <td>
+                    <td style={{ padding: "10px 8px" }}>
                       <Badge tone={penaltyStatusTone(item.status)}>
                         {penaltyStatusLabel(item.status)}
                       </Badge>
                     </td>
-                    <td style={{ fontSize: "12px" }}>
+                    <td style={{ padding: "10px 8px", fontSize: "12px", whiteSpace: "nowrap" }}>
                       {item.expiresAt
                         ? new Date(item.expiresAt).toLocaleDateString("vi-VN")
                         : "Vô thời hạn"}
                     </td>
-                    <td style={{ fontSize: "12px", color: "var(--muted)" }}>
+                    <td style={{ padding: "10px 8px", fontSize: "12px", color: "var(--muted)", whiteSpace: "nowrap" }}>
                       {new Date(item.issuedAt).toLocaleDateString("vi-VN")}
                     </td>
-                    <td style={{ textAlign: "right" }}>
+                    <td style={{ padding: "10px 8px", textAlign: "right" }}>
                       <button
                         type="button"
                         className="button button-secondary button-small"

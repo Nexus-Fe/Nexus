@@ -1,6 +1,5 @@
 import Link from "next/link";
 import type { CSSProperties, ReactNode } from "react";
-import { Icon } from "./Icon";
 
 export function ButtonLink({ href, children, variant = "primary", small = false }: { href: string; children: ReactNode; variant?: "primary" | "secondary" | "light"; small?: boolean }) {
   return <Link className={"button button-" + variant + (small ? " button-small" : "")} href={href}>{children}</Link>;
@@ -29,7 +28,7 @@ export function SectionHeading({ title, hint, action, id }: { title: string; hin
 }
 
 export function NoData({ className = "", title = "Chưa có dữ liệu" }: { className?: string; title?: string }) {
-  return <div className={"no-data " + className} role="status"><span className="no-data-icon"><Icon name="grid" size={22} /></span><strong>{title}</strong></div>;
+  return <div className={"no-data " + className} role="status"><strong>{title}</strong></div>;
 }
 
 export function EmptyTable({ columns }: { columns: string[] }) {

@@ -15,11 +15,11 @@ import { AuctionOrderPayment } from "@/widgets/payment/AuctionOrderPayment";
 import { AuctionUnavailableState } from "./AuctionUnavailableState";
 import { AuctionComingSoon } from "./AuctionComingSoon";
 import { auctionService } from "./services/auction.service";
-import { normalizeAuctionStatus, statusLabel } from "./contract";
+import { normalizeAuctionStatus, statusLabel, auctionStatusTone } from "./contract";
 import type { AuctionStatus, AuctionSummary, Pagination } from "./types";
 import { isAuctionId } from "./validation";
 
-export { normalizeAuctionStatus, statusLabel } from "./contract";
+export { normalizeAuctionStatus, statusLabel, auctionStatusTone } from "./contract";
 
 export const auctionStatuses: (AuctionStatus | "ALL")[] = ["ALL", "RUNNING", "SCHEDULED", "DRAFT", "ENDED", "SETTLED", "FAILED", "CANCELLED"];
 
@@ -45,7 +45,7 @@ export function StatusFilter({ status, setStatus, options = auctionStatuses }: {
 }
 
 export function AuctionTile({ auction, href }: { auction: AuctionSummary; href: string }) {
-  return <Link href={href} className="auction-tile"><div className="auction-tile-image"><BackendImage src={resolveImageUrl(auction.primaryImageUrl)} alt={auction.productName ?? "Sản phẩm đấu giá"} compact /><Badge tone={normalizeAuctionStatus(auction.status) === "RUNNING" ? "green" : "slate"}>{statusLabel(auction.status)}</Badge></div><div className="auction-tile-body"><h3>{auction.productName ?? "Sản phẩm chưa có tên"}</h3><p>{normalizeAuctionStatus(auction.status) === "RUNNING" ? <>Còn lại: <Countdown end={auction.scheduledEndAt} /></> : `Kết thúc ${dateText(auction.scheduledEndAt)}`}</p><div><span>Giá hiện tại<strong>{formatMoney(auction.currentPriceAmount ?? auction.startPriceAmount)}</strong></span><span>{auction.bidCount} lượt đặt giá</span></div></div></Link>;
+  return <Link href={href} className="auction-tile"><div className="auction-tile-image"><BackendImage src={resolveImageUrl(auction.primaryImageUrl)} alt={auction.productName ?? "Sản phẩm đấu giá"} compact /><Badge tone={auctionStatusTone(auction.status)}>{statusLabel(auction.status)}</Badge></div><div className="auction-tile-body"><h3>{auction.productName ?? "Sản phẩm chưa có tên"}</h3><p>{normalizeAuctionStatus(auction.status) === "RUNNING" ? <>Còn lại: <Countdown end={auction.scheduledEndAt} /></> : `Kết thúc ${dateText(auction.scheduledEndAt)}`}</p><div><span>Giá hiện tại<strong>{formatMoney(auction.currentPriceAmount ?? auction.startPriceAmount)}</strong></span><span>{auction.bidCount} lượt đặt giá</span></div></div></Link>;
 }
 
 export function AuctionListScreen() {
@@ -63,7 +63,7 @@ function useAuctionId() { return String(useParams<{ id: string }>().id ?? ""); }
 function useClock() { const [now, setNow] = useState(0); useEffect(() => { const timer = window.setInterval(() => setNow(Date.now()), 1000); return () => window.clearInterval(timer); }, []); return now; }
 function Countdown({ end }: { end: string }) { const now = useClock(); const remaining = Math.max(0, new Date(end).getTime() - now); const days = Math.floor(remaining / 86400000); const hours = Math.floor(remaining / 3600000) % 24; const minutes = Math.floor(remaining / 60000) % 60; const seconds = Math.floor(remaining / 1000) % 60; const text = days ? `${days} ngày ${hours} giờ ${minutes} phút` : `${hours} giờ ${minutes} phút ${seconds} giây`; return <time dateTime={end}>{now ? remaining ? text : "Đã hết giờ" : "Đang cập nhật…"}</time>; }
 
-const auctionTone = (status: string) => ({ DRAFT: "slate", SCHEDULED: "amber", RUNNING: "green", ENDED: "slate", SETTLED: "indigo", FAILED: "red", CANCELLED: "red" } as Record<string, "slate" | "amber" | "green" | "indigo" | "red">)[normalizeAuctionStatus(status)] ?? "slate";
+const auctionTone = (status: string) => auctionStatusTone(status);
 const specificationText = (value: unknown) => typeof value === "string" || typeof value === "number" || typeof value === "boolean" ? String(value) : Array.isArray(value) ? value.map(String).join(", ") : value && typeof value === "object" ? JSON.stringify(value) : "";
 
 export function AuctionRoomScreen() {
