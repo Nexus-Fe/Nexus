@@ -1,6 +1,5 @@
-import { redirect } from "next/navigation";
-import { ROUTES } from "@/constants/routes";
+import { OperationsListScreenClient } from "@/components/client/ClientScreens";
 
 export default function AdminAuctionsPage() {
-  redirect(ROUTES.staff.auctions);
+  return <OperationsListScreenClient role="admin" />;
 }

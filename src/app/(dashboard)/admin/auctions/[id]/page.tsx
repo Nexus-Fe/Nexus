@@ -1,7 +1,13 @@
-import { redirect } from "next/navigation";
-import { ROUTES } from "@/constants/routes";
+import { notFound } from "next/navigation";
+import { OperationsDetailScreenClient } from "@/components/client/ClientScreens";
+import { isAuctionId } from "@/features/auction";
 
-export default async function AdminAuctionPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function AdminAuctionDetailPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
   const { id } = await params;
-  redirect(ROUTES.staff.auction(id));
+  if (!isAuctionId(id)) notFound();
+  return <OperationsDetailScreenClient role="admin" />;
 }

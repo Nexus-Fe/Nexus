@@ -344,7 +344,7 @@ export function StaffQueueScreen({
         "Chưa có API hàng đợi báo cáo sản phẩm, chi tiết kiểm duyệt hoặc hợp đồng hành động Staff.",
     },
     discrepancies: {
-      title: "Sai lệch giao dịch",
+      title: "Đối soát giao dịch",
       description:
         "Chưa có endpoint đối chiếu ledger và ghi bút toán điều chỉnh riêng. Không sửa trực tiếp giao dịch cũ.",
     },

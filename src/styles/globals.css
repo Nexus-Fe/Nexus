@@ -315,15 +315,15 @@ h1,h2,h3 { letter-spacing: -.025em; }
 .stat-icon { color: var(--sky); background: #f0f9ff; border-radius: 10px; padding: 9px; }
 .stat-card strong { display: block; font-size: 18px; margin-top: 10px; letter-spacing: -.02em; }
 .stat-card small { display: block; color: #94a3b8; margin-top: 4px; }
-.no-data { min-height: 178px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 13px; color: #94a3b8; text-align: center; padding: 24px; }
-.no-data strong { color: #64748b; font-size: 14px; font-weight: 600; }
-.no-data-icon { display: grid; place-items: center; width: 42px; height: 42px; background: #f1f5f9; border-radius: 12px; }
-.no-data.compact { min-height: 100px; }
-.catalog-layout .no-data.compact { min-height: 58px; padding: 9px; }
+.no-data { min-height: 110px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; color: #94a3b8; text-align: center; padding: 20px 16px; }
+.no-data strong { color: #64748b; font-size: 13px; font-weight: 500; }
+.no-data-icon { display: none; }
+.no-data.compact { min-height: 56px; padding: 12px; }
+.catalog-layout .no-data.compact { min-height: 48px; padding: 8px; }
 .status-note { color: #64748b; font-size: 11px; margin: 18px 0 0; }
 .table-scroll { width: 100%; overflow-x: auto; }
-.data-table { width: 100%; border-collapse: collapse; min-width: 620px; }
-.data-table th { text-align: left; color: #64748b; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; background: #f8fafc; white-space: nowrap; }
+.data-table { width: 100%; border-collapse: collapse; min-width: 0; }
+.data-table th { text-align: left; color: #64748b; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; background: #f8fafc; }
 .data-table th.text-right, .data-table td.text-right { text-align: right; }
 .data-table th.text-center, .data-table td.text-center { text-align: center; }
 .data-table th.sticky-col-right, .data-table td.sticky-col-right { position: sticky; right: 0; z-index: 2; background: var(--surface); box-shadow: -4px 0 8px -2px rgba(15, 23, 42, 0.05); }
@@ -1145,6 +1145,8 @@ h1,h2,h3 { letter-spacing: -.025em; }
   cursor: pointer;
   color: var(--sky-dark);
   font-weight: 600;
+  white-space: normal;
+  word-break: break-all;
 }
 .user-cell-btn:hover {
   text-decoration: underline;

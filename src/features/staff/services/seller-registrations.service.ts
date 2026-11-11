@@ -32,6 +32,16 @@ function unwrap<T>(response: ApiResponse<T> | T): T {
 const basePath = "/api/v1/admin/seller-registrations";
 const detailPath = (id: string) => `${basePath}/${encodeURIComponent(id)}`;
 
+export type AdminSellerProfile = {
+  sellerId: string;
+  shopName: string;
+  status: string;
+  reputationScore?: number;
+  trustLevel?: string;
+  penaltyCount?: number;
+  [key: string]: unknown;
+};
+
 export const sellerRegistrationsService = {
   async list(query: { page: number; limit: number; status: string }, signal?: AbortSignal): Promise<SellerRegistrationPage> {
     const params = new URLSearchParams({ page: String(query.page), pageSize: String(query.limit) });
@@ -49,5 +59,15 @@ export const sellerRegistrationsService = {
   },
   async reject(id: string, rejectionReason: string): Promise<void> {
     await api.put<ApiResponse<{ status: string }>>(`${detailPath(id)}/reject`, { rejectionReason });
+  },
+  async getSellerProfile(sellerId: string, signal?: AbortSignal): Promise<AdminSellerProfile> {
+    const response = await api.get<ApiResponse<AdminSellerProfile> | AdminSellerProfile>(`/api/v1/admin/sellers/${encodeURIComponent(sellerId)}`, { signal });
+    return unwrap(response);
+  },
+  async suspendSeller(sellerId: string, payload: { reason: string; durationDays?: number }): Promise<void> {
+    await api.put(`/api/v1/admin/sellers/${encodeURIComponent(sellerId)}/suspend`, payload);
+  },
+  async reactivateSeller(sellerId: string, payload: { reason?: string } = {}): Promise<void> {
+    await api.put(`/api/v1/admin/sellers/${encodeURIComponent(sellerId)}/reactivate`, payload);
   },
 };

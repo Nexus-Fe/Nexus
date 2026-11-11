@@ -97,6 +97,10 @@ export const adminReportsService = {
       reason: payload.reason ?? payload.resolutionNote,
     });
   },
+
+  async hideReview(reviewId: string, reason: string): Promise<void> {
+    await api.put(`/api/v1/admin/reviews/${encodeURIComponent(reviewId)}/hide`, { reason });
+  },
 };
 
 export function reportStatusTone(status?: string): BadgeTone {

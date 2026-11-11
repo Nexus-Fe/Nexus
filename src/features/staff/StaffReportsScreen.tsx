@@ -20,7 +20,7 @@ import {
 } from "@/features/admin/services/admin-reports.service";
 import { extractAdminError } from "@/features/admin/services/admin-helpers";
 
-type ActionType = "resolve" | "dismiss" | null;
+type ActionType = "resolve" | "dismiss" | "hideReview" | null;
 
 function normalizeTargetRole(role?: string): "Account" | "Buyer" | "Seller" {
   const r = (role ?? "").toLowerCase();
@@ -38,6 +38,8 @@ export function StaffReportsScreen() {
   // Actions
   const [actionType, setActionType] = useState<ActionType>(null);
   const [dismissNote, setDismissNote] = useState("");
+  const [reviewIdToHide, setReviewIdToHide] = useState("");
+  const [hideReviewReason, setHideReviewReason] = useState("");
   const [resolveForm, setResolveForm] = useState<{
     targetRole: "Account" | "Buyer" | "Seller";
     penaltyApplied: "Warning" | "DeductPoints" | "Restriction" | "BanAccount" | "Other";
@@ -145,6 +147,33 @@ export function StaffReportsScreen() {
     }
   }
 
+  async function submitHideReview(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const id = reviewIdToHide.trim();
+    const r = hideReviewReason.trim();
+    if (!id) {
+      setError({ message: "Vui lòng nhập mã đánh giá." });
+      return;
+    }
+    if (!r) {
+      setError({ message: "Vui lòng nhập lý do ẩn đánh giá." });
+      return;
+    }
+
+    setBusy(true);
+    setError(null);
+    setSaved("");
+    try {
+      await adminReportsService.hideReview(id, r);
+      setSaved("Đã ẩn đánh giá vi phạm thành công.");
+      setActionType(null);
+    } catch (cause) {
+      handleError(cause, "Không thể ẩn đánh giá vi phạm.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function submitResolve(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!selectedReport) return;
@@ -202,7 +231,7 @@ export function StaffReportsScreen() {
     <>
       <PageHeading
         overline="Nghiệp vụ Vận hành (Staff)"
-        title="Xử lý báo cáo & khiếu nại"
+        title="Khiếu nại & Vi phạm"
         description="Tiếp nhận, kiểm tra chứng cứ và ban hành quyết định xử lý báo cáo vi phạm từ người dùng sàn."
       />
 
@@ -258,53 +287,59 @@ export function StaffReportsScreen() {
           <NoData title="Đang nạp danh sách báo cáo…" />
         ) : records.length > 0 ? (
           <div className="table-scroll">
-            <table className="data-table">
+            <table className="data-table" style={{ width: "100%", tableLayout: "fixed" }}>
               <thead>
                 <tr>
-                  <th>Mã báo cáo</th>
-                  <th>Loại vi phạm</th>
-                  <th>Đối tượng</th>
-                  <th>Trạng thái</th>
-                  <th>Thời gian gửi</th>
-                  <th>Thao tác</th>
+                  <th style={{ width: "18%", padding: "12px 10px" }}>Mã báo cáo</th>
+                  <th style={{ width: "22%", padding: "12px 10px" }}>Loại vi phạm</th>
+                  <th style={{ width: "15%", padding: "12px 10px" }}>Đối tượng</th>
+                  <th style={{ width: "15%", padding: "12px 10px" }}>Trạng thái</th>
+                  <th style={{ width: "18%", padding: "12px 10px" }}>Thời gian gửi</th>
+                  <th style={{ width: "100px", padding: "12px 10px", textAlign: "right" }}>Thao tác</th>
                 </tr>
               </thead>
               <tbody>
-                {records.map((item) => (
-                  <tr key={item.reportId}>
-                    <td>
-                      <code>{item.reportId.slice(0, 8)}…</code>
-                    </td>
-                    <td>
-                      <strong>{reportViolationTypeLabel(item.violationType)}</strong>
-                    </td>
-                    <td>
-                      <Badge tone={item.targetRole === "Seller" ? "amber" : "sky"}>
-                        {item.targetRole}
-                      </Badge>
-                    </td>
-                    <td>
-                      <Badge tone={reportStatusTone(item.status)}>
-                        {reportStatusLabel(item.status)}
-                      </Badge>
-                    </td>
-                    <td>
-                      {new Date(item.createdAt).toLocaleString("vi-VN", {
-                        dateStyle: "short",
-                        timeStyle: "short",
-                      })}
-                    </td>
-                    <td>
-                      <button
-                        type="button"
-                        className="button button-secondary button-small"
-                        onClick={() => openDetail(item)}
-                      >
-                        Xem & Xử lý
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                {records.map((item) => {
+                  const d = new Date(item.createdAt);
+                  const validDate = Number.isFinite(d.getTime());
+                  const time = validDate ? d.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }) : "—";
+                  const date = validDate ? d.toLocaleDateString("vi-VN") : "—";
+                  return (
+                    <tr key={item.reportId}>
+                      <td style={{ padding: "12px 10px", wordBreak: "break-word", overflowWrap: "anywhere" }}>
+                        <code>{item.reportId.slice(0, 8)}…</code>
+                      </td>
+                      <td style={{ padding: "12px 10px", wordBreak: "break-word" }}>
+                        <strong>{reportViolationTypeLabel(item.violationType)}</strong>
+                      </td>
+                      <td style={{ padding: "12px 10px" }}>
+                        <Badge tone={item.targetRole === "Seller" ? "amber" : "sky"}>
+                          {item.targetRole}
+                        </Badge>
+                      </td>
+                      <td style={{ padding: "12px 10px" }}>
+                        <Badge tone={reportStatusTone(item.status)}>
+                          {reportStatusLabel(item.status)}
+                        </Badge>
+                      </td>
+                      <td style={{ padding: "12px 10px" }}>
+                        <div style={{ display: "flex", flexDirection: "column", gap: "2px", lineHeight: 1.25 }}>
+                          <strong style={{ fontSize: "13px", fontWeight: 600 }}>{time}</strong>
+                          <span style={{ fontSize: "12px", color: "var(--muted)" }}>{date}</span>
+                        </div>
+                      </td>
+                      <td style={{ padding: "12px 10px", textAlign: "right" }}>
+                        <button
+                          type="button"
+                          className="button button-secondary button-small"
+                          onClick={() => openDetail(item)}
+                        >
+                          Xem & Xử lý
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -449,6 +484,17 @@ export function StaffReportsScreen() {
                     >
                       Bác bỏ báo cáo
                     </button>
+                    <button
+                      type="button"
+                      className="button button-secondary button-small"
+                      onClick={() => {
+                        setActionType("hideReview");
+                        setReviewIdToHide(selectedReport.referenceId ?? "");
+                        setHideReviewReason(selectedReport.description ?? "");
+                      }}
+                    >
+                      Ẩn đánh giá vi phạm
+                    </button>
                   </div>
                 )}
 
@@ -582,7 +628,7 @@ export function StaffReportsScreen() {
                             }))
                           }
                         />
-                        <span>Tạm đình chỉ quyền bán hàng của Shop (nếu là Seller)</span>
+                        <span>Tạm đình chỉ quyền bán hàng (nếu là người bán)</span>
                       </label>
 
                       <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "13px", cursor: "pointer", color: "#dc2626" }}>
@@ -597,7 +643,7 @@ export function StaffReportsScreen() {
                             }))
                           }
                         />
-                        <strong>Khóa tài khoản toàn diện (Ban Account)</strong>
+                        <strong>Khóa tài khoản toàn diện</strong>
                       </label>
                     </div>
 
@@ -625,6 +671,52 @@ export function StaffReportsScreen() {
                         style={{ backgroundColor: "#16a34a", borderColor: "#16a34a" }}
                       >
                         {busy ? "Đang xử lý…" : "Xác nhận ban hành quyết định"}
+                      </button>
+                      <button
+                        type="button"
+                        className="button button-secondary"
+                        disabled={busy}
+                        onClick={() => setActionType(null)}
+                      >
+                        Hủy
+                      </button>
+                    </div>
+                  </form>
+                )}
+
+                {/* Form Ẩn đánh giá vi phạm */}
+                {actionType === "hideReview" && (
+                  <form onSubmit={submitHideReview} style={{ borderTop: "1px solid var(--line)", paddingTop: "16px" }}>
+                    <h3 style={{ fontSize: "15px", marginBottom: "8px" }}>Ẩn đánh giá vi phạm</h3>
+                    <p style={{ fontSize: "13px", color: "var(--muted)", marginBottom: "12px" }}>
+                      Hành động này sẽ ẩn đánh giá khỏi giao diện công khai và tự động hoàn trả điểm uy tín cho người bị đánh giá tiêu cực.
+                    </p>
+                    <label className="field-wrap">
+                      Mã đánh giá <span style={{ color: "var(--red)" }}>*</span>
+                      <input
+                        className="field"
+                        required
+                        value={reviewIdToHide}
+                        onChange={(e) => setReviewIdToHide(e.target.value)}
+                        placeholder="Mã định danh đánh giá..."
+                      />
+                    </label>
+                    <label className="field-wrap">
+                      Lý do ẩn đánh giá <span style={{ color: "var(--red)" }}>*</span>
+                      <textarea
+                        className="textarea-field"
+                        required
+                        value={hideReviewReason}
+                        onChange={(e) => setHideReviewReason(e.target.value)}
+                        placeholder="Nêu rõ lý do vi phạm (bôi nhọ, ngôn từ kích động, xúc phạm)..."
+                      />
+                    </label>
+                    <div className="action-row">
+                      <button
+                        className="button button-primary"
+                        disabled={busy || !reviewIdToHide.trim() || !hideReviewReason.trim()}
+                      >
+                        {busy ? "Đang xử lý…" : "Xác nhận ẩn đánh giá"}
                       </button>
                       <button
                         type="button"

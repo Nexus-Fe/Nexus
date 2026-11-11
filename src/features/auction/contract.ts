@@ -25,6 +25,24 @@ export function statusLabel(status: unknown): string {
   return normalized ? statusLabels[normalized] : "Không rõ trạng thái";
 }
 
+export function auctionStatusTone(status: unknown): "sky" | "green" | "slate" | "red" {
+  const normalized = normalizeAuctionStatus(status);
+  switch (normalized) {
+    case "RUNNING":
+      return "green"; // Đang diễn ra: Xanh lá
+    case "FAILED":
+    case "CANCELLED":
+      return "red"; // Hủy hoặc Không thành công: Màu đỏ
+    case "SCHEDULED":
+    case "SETTLED":
+      return "sky"; // Sắp diễn ra & Hoàn tất: Màu xanh chủ đề
+    case "ENDED":
+    case "DRAFT":
+    default:
+      return "slate"; // Đã kết thúc & Nháp: Xám trung tính
+  }
+}
+
 const invalidList = (detail: string): never => {
   throw new Error(`Dữ liệu danh sách phiên đấu giá không hợp lệ (${detail}). Hãy tải lại danh sách; nếu vẫn lỗi, liên hệ hỗ trợ.`);
 };

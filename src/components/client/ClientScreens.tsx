@@ -133,6 +133,14 @@ export const StaffReportsScreenClient = dynamic(
   { ssr: false, loading: ScreenLoading },
 );
 export const StaffQueueScreenClient = dynamic(() => import("@/features/staff/StaffScreens").then((module) => module.StaffQueueScreen), { ssr: false, loading: ScreenLoading });
+export const StaffProductModerationScreenClient = dynamic(
+  () => import("@/features/staff/StaffProductModerationScreen").then((module) => module.StaffProductModerationScreen),
+  { ssr: false, loading: ScreenLoading },
+);
+export const StaffWithdrawalsScreenClient = dynamic(
+  () => import("@/features/staff/StaffWithdrawalsScreen").then((module) => module.StaffWithdrawalsScreen),
+  { ssr: false, loading: ScreenLoading },
+);
 
 export const AdminUsersScreenClient = dynamic(
   () => import("@/features/admin").then((module) => module.AdminUsersScreen),

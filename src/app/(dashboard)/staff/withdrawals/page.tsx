@@ -1,5 +1,5 @@
-import { StaffQueueScreenClient } from "@/components/client/ClientScreens";
+import { StaffWithdrawalsScreenClient } from "@/components/client/ClientScreens";
 
 export default function StaffWithdrawalsPage() {
-  return <StaffQueueScreenClient queue="withdrawals" />;
+  return <StaffWithdrawalsScreenClient />;
 }

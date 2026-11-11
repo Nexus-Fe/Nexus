@@ -249,14 +249,14 @@ export function AdminCategoriesScreen() {
       <Card>
         {records.length ? (
           <div className="table-scroll">
-            <table className="data-table">
+            <table className="data-table" style={{ width: "100%", tableLayout: "fixed" }}>
               <thead>
                 <tr>
-                  <th>Tên danh mục</th>
-                  <th>Danh mục cha</th>
-                  <th>Thứ tự</th>
-                  <th>Trạng thái</th>
-                  <th>Thao tác</th>
+                  <th style={{ width: "35%" }}>Tên danh mục</th>
+                  <th style={{ width: "30%" }}>Danh mục cha</th>
+                  <th style={{ width: "12%", textAlign: "center" }}>Thứ tự</th>
+                  <th style={{ width: "13%" }}>Trạng thái</th>
+                  <th style={{ width: "10%", textAlign: "right" }}>Thao tác</th>
                 </tr>
               </thead>
               <tbody>

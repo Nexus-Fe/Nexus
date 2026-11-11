@@ -27,7 +27,9 @@ export const auctionService = {
   cancel: (_id: string, _reason?: string): Promise<void> => unsupportedWrite(),
   recreate: (_id: string, _body: Omit<CreateAuctionRequest, "productId" | "skuId">): Promise<ApiResponse<AuctionSummary>> => unsupportedWrite(),
   placeBid: (_id: string, _input: BidRequest, _ifMatch: string, _idempotencyKey?: string): Promise<void> => unsupportedWrite(),
-  history: (_id: string, _signal?: AbortSignal): Promise<ApiResponse<AuctionStatusHistory>> => unsupportedWrite(),
+  history: (id: string, page = 1, signal?: AbortSignal) => api.get<ApiResponse<AuctionStatusHistory>>(`/api/v1/auctions/${idPath(id)}/status-history?page=${page}&pageSize=50`, { signal }),
   saga: (_id: string, _signal?: AbortSignal): Promise<ApiResponse<AuctionSaga>> => unsupportedWrite(),
-  forceCancel: (_id: string, _reason: string): Promise<void> => unsupportedWrite(),
+  forceCancel: async (id: string, reason: string): Promise<void> => {
+    await api.post(`/api/v1/admin/auctions/${idPath(id)}/force-cancel`, { reason });
+  },
 };

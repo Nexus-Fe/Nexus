@@ -32,7 +32,9 @@ export function AdminLedgerScreen() {
   const [adjustBusy, setAdjustBusy] = useState(false);
   const [adjustError, setAdjustError] = useState<{ message: string; traceId?: string } | null>(null);
   const [adjustSuccess, setAdjustSuccess] = useState("");
-  const [adjustHistory, setAdjustHistory] = useState<(BalanceAdjustmentResponse & { adjustmentType: string; reason: string })[]>([]);
+  const [adjustHistory, setAdjustHistory] = useState<
+    Array<BalanceAdjustmentResponse & { adjustmentType: "Credit" | "Debit"; reason: string }>
+  >([]);
 
   const [copiedTrace, setCopiedTrace] = useState(false);
 
@@ -40,7 +42,7 @@ export function AdminLedgerScreen() {
     try {
       await navigator.clipboard.writeText(traceId);
       setCopiedTrace(true);
-      setTimeout(() => setCopiedTrace(false), 1800);
+      setTimeout(() => setCopiedTrace(false), 2000);
     } catch {
       // Ignore
     }
@@ -54,17 +56,22 @@ export function AdminLedgerScreen() {
       return;
     }
 
+    if (withdrawalAction === "Reject" && !adminNote.trim()) {
+      setWithdrawalError({ message: "Vui lòng nhập lý do từ chối để thông báo cho người dùng." });
+      return;
+    }
+
     setWithdrawalBusy(true);
     setWithdrawalError(null);
     setWithdrawalSuccess("");
     try {
       const result = await adminLedgerService.processWithdrawal(trimmedId, {
         action: withdrawalAction,
-        adminNote,
+        adminNote: adminNote.trim() || undefined,
       });
       setWithdrawalHistory((prev) => [result, ...prev]);
       setWithdrawalSuccess(
-        `Đã xử lý yêu cầu rút tiền ${result.withdrawalId} với trạng thái: ${result.status}.`,
+        `Đã xử lý yêu cầu rút tiền ${result.withdrawalId.slice(0, 8)}… với trạng thái: ${result.status}.`,
       );
       setWithdrawalId("");
       setAdminNote("");
@@ -89,15 +96,15 @@ export function AdminLedgerScreen() {
       return;
     }
 
-    const numericAmount = Number(amount);
-    if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
-      setAdjustError({ message: "Số tiền điều chỉnh phải lớn hơn 0." });
+    const parsedAmount = Number(amount);
+    if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
+      setAdjustError({ message: "Số tiền điều chỉnh phải là số dương lớn hơn 0." });
       return;
     }
 
     const trimmedReason = reason.trim();
     if (!trimmedReason) {
-      setAdjustError({ message: "Vui lòng nhập lý do điều chỉnh số dư để ghi nhận vào sổ cái." });
+      setAdjustError({ message: "Vui lòng nhập lý do hoặc căn cứ đối soát để ghi nhận vào sổ cái." });
       return;
     }
 
@@ -106,17 +113,22 @@ export function AdminLedgerScreen() {
     setAdjustSuccess("");
     try {
       const result = await adminLedgerService.adjustBalance(trimmedWalletId, {
-        amount: numericAmount,
+        amount: parsedAmount,
         adjustmentType,
         reason: trimmedReason,
       });
       setAdjustHistory((prev) => [
-        { ...result, adjustmentType, reason: trimmedReason },
+        {
+          ...result,
+          adjustmentType,
+          reason: trimmedReason,
+        },
         ...prev,
       ]);
       setAdjustSuccess(
-        `Đã ${adjustmentType === "Credit" ? "cộng" : "trừ"} ${formatMoney(result.amount)} cho ví ${result.walletId}. Số dư sau điều chỉnh: ${formatMoney(result.balanceAfter)}.`,
+        `Đã thực thi bút toán điều chỉnh cho ví ${result.walletId}. Số dư mới: ${formatMoney(result.balanceAfter)}.`,
       );
+      setWalletId("");
       setAmount("");
       setReason("");
     } catch (cause) {
@@ -124,7 +136,7 @@ export function AdminLedgerScreen() {
         setAdjustError({ message: cause.message, traceId: cause.traceId });
       } else {
         setAdjustError({
-          message: cause instanceof Error ? cause.message : "Không thể điều chỉnh số dư ví.",
+          message: cause instanceof Error ? cause.message : "Không thể thực hiện bút toán điều chỉnh ví.",
         });
       }
     } finally {
@@ -135,70 +147,37 @@ export function AdminLedgerScreen() {
   return (
     <>
       <PageHeading
-        overline="Quản lý tài chính"
-        title="Sổ cái & Đối soát ví"
-        description="Phê duyệt yêu cầu rút tiền và thực hiện các bút toán điều chỉnh số dư ví đối soát."
+        overline="Quản trị hệ thống"
+        title="Sổ cái & Nghiệp vụ ví"
+        description="Phê duyệt các yêu cầu rút tiền và thực hiện các bút toán điều chỉnh số dư ví khi có sự cố đối soát."
       />
 
-      {/* Thanh Tabs chuẩn phân tách nghiệp vụ */}
-      <div
-        role="tablist"
-        aria-label="Phân hệ đối soát ví"
-        style={{
-          display: "flex",
-          gap: "24px",
-          borderBottom: "1px solid var(--line, #e2e8f0)",
-          marginBottom: "20px",
-          marginTop: "-8px",
-        }}
-      >
+      {/* Tabs chuyển đổi giữa Duyệt rút tiền và Điều chỉnh số dư */}
+      <div style={{ display: "flex", gap: "8px", marginBottom: "20px" }}>
         <button
           type="button"
-          role="tab"
-          aria-selected={activeTab === "withdrawals"}
           onClick={() => setActiveTab("withdrawals")}
-          style={{
-            background: "none",
-            border: "none",
-            borderBottom: activeTab === "withdrawals" ? "2px solid var(--primary, #0284c7)" : "2px solid transparent",
-            padding: "8px 4px 12px",
-            fontSize: "14px",
-            fontWeight: activeTab === "withdrawals" ? 600 : 500,
-            color: activeTab === "withdrawals" ? "var(--primary, #0284c7)" : "var(--muted, #64748b)",
-            cursor: "pointer",
-            transition: "all 0.15s ease",
-          }}
+          className={`button ${activeTab === "withdrawals" ? "button-primary" : "button-secondary"}`}
+          style={{ padding: "8px 16px", fontSize: "13px", fontWeight: 600 }}
         >
-          Xử lý yêu cầu rút tiền
+          Duyệt yêu cầu rút tiền
         </button>
         <button
           type="button"
-          role="tab"
-          aria-selected={activeTab === "adjustments"}
           onClick={() => setActiveTab("adjustments")}
-          style={{
-            background: "none",
-            border: "none",
-            borderBottom: activeTab === "adjustments" ? "2px solid var(--primary, #0284c7)" : "2px solid transparent",
-            padding: "8px 4px 12px",
-            fontSize: "14px",
-            fontWeight: activeTab === "adjustments" ? 600 : 500,
-            color: activeTab === "adjustments" ? "var(--primary, #0284c7)" : "var(--muted, #64748b)",
-            cursor: "pointer",
-            transition: "all 0.15s ease",
-          }}
+          className={`button ${activeTab === "adjustments" ? "button-primary" : "button-secondary"}`}
+          style={{ padding: "8px 16px", fontSize: "13px", fontWeight: 600 }}
         >
           Điều chỉnh số dư ví (Bút toán can thiệp)
         </button>
       </div>
 
       <div style={{ marginBottom: "24px" }}>
-        {/* Tab 1: Process Withdrawal by ID */}
-        {activeTab === "withdrawals" && (
+        {activeTab === "withdrawals" ? (
           <Card className="card-pad">
             <SectionHeading
-              title="Xử lý yêu cầu rút tiền theo mã"
-              hint="Duyệt hoặc từ chối giải ngân yêu cầu rút tiền của Người mua/Người bán"
+              title="Phê duyệt lệnh rút tiền ví"
+              hint="Xác nhận chuyển khoản giải ngân hoặc từ chối hoàn tiền về số dư khả dụng"
             />
 
             {withdrawalError && (
@@ -224,57 +203,119 @@ export function AdminLedgerScreen() {
 
             <form className="auth-fields" onSubmit={(e) => void handleProcessWithdrawal(e)}>
               <label className="field-wrap">
-                Mã yêu cầu rút tiền <span style={{ color: "var(--red)" }}>*</span>
+                <span>Mã yêu cầu rút tiền (Withdrawal ID) <span style={{ color: "var(--red)" }}>*</span></span>
                 <input
                   className="field"
                   required
-                  placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+                  placeholder="Ví dụ: 3fa85f64-5717-4562-b3fc-2c963f66afa6"
                   value={withdrawalId}
                   onChange={(e) => setWithdrawalId(e.target.value)}
+                  style={{ fontFamily: "monospace" }}
                 />
+                <span style={{ fontSize: "12px", color: "var(--muted)", marginTop: "2px" }}>
+                  Lưu ý: Nhập mã phiếu rút tiền từ thông báo đối soát của hệ thống (không phải mã User ID).
+                </span>
               </label>
 
-              <label className="field-wrap">
-                Quyết định xử lý <span style={{ color: "var(--red)" }}>*</span>
-                <select
-                  className="select-field"
-                  value={withdrawalAction}
-                  onChange={(e) => setWithdrawalAction(e.target.value as "Approve" | "Reject")}
-                >
-                  <option value="Approve">Phê duyệt giải ngân</option>
-                  <option value="Reject">Từ chối & hoàn trả số dư khả dụng</option>
-                </select>
-              </label>
+              {/* 2 nút chọn quyết định nhanh */}
+              <div style={{ marginBottom: "14px" }}>
+                <span style={{ display: "block", fontSize: "13px", fontWeight: 600, marginBottom: "6px" }}>
+                  Quyết định xử lý <span style={{ color: "var(--red)" }}>*</span>
+                </span>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+                  <button
+                    type="button"
+                    onClick={() => setWithdrawalAction("Approve")}
+                    style={{
+                      height: "42px",
+                      padding: "0 14px",
+                      borderRadius: "8px",
+                      border: "2px solid",
+                      borderColor: withdrawalAction === "Approve" ? "#16a34a" : "var(--border)",
+                      background: withdrawalAction === "Approve" ? "#f0fdf4" : "var(--surface)",
+                      color: withdrawalAction === "Approve" ? "#15803d" : "var(--muted)",
+                      fontWeight: 600,
+                      fontSize: "13px",
+                      cursor: "pointer",
+                      textAlign: "center",
+                      boxSizing: "border-box",
+                      transition: "background-color 0.12s ease, border-color 0.12s ease, color 0.12s ease",
+                    }}
+                  >
+                    Phê duyệt giải ngân
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setWithdrawalAction("Reject")}
+                    style={{
+                      height: "42px",
+                      padding: "0 14px",
+                      borderRadius: "8px",
+                      border: "2px solid",
+                      borderColor: withdrawalAction === "Reject" ? "#dc2626" : "var(--border)",
+                      background: withdrawalAction === "Reject" ? "#fef2f2" : "var(--surface)",
+                      color: withdrawalAction === "Reject" ? "#b91c1c" : "var(--muted)",
+                      fontWeight: 600,
+                      fontSize: "13px",
+                      cursor: "pointer",
+                      textAlign: "center",
+                      boxSizing: "border-box",
+                      transition: "background-color 0.12s ease, border-color 0.12s ease, color 0.12s ease",
+                    }}
+                  >
+                    Từ chối & hoàn tiền
+                  </button>
+                </div>
+              </div>
 
               <label className="field-wrap">
-                Ghi chú đối soát
+                <span>
+                  {withdrawalAction === "Reject" ? (
+                    <>Lý do từ chối <span style={{ color: "var(--red)" }}>* (Bắt buộc)</span></>
+                  ) : (
+                    "Ghi chú đối soát / Mã tham chiếu ngân hàng (Tùy chọn)"
+                  )}
+                </span>
                 <textarea
                   className="textarea-field"
+                  rows={2}
+                  required={withdrawalAction === "Reject"}
                   value={adminNote}
                   onChange={(e) => setAdminNote(e.target.value)}
-                  placeholder="Nhập mã giao dịch ngân hàng hoặc lý do từ chối..."
+                  placeholder={
+                    withdrawalAction === "Reject"
+                      ? "Nêu rõ lý do từ chối (ví dụ: Tên tài khoản ngân hàng không khớp hồ sơ KYC)..."
+                      : "Nhập mã tham chiếu đối soát hoặc biên lai chuyển khoản..."
+                  }
                 />
               </label>
 
-              <div className="action-row">
+              <div className="action-row" style={{ marginTop: 16 }}>
                 <button
                   type="submit"
-                  className={"button " + (withdrawalAction === "Reject" ? "button-danger" : "button-primary")}
-                  disabled={withdrawalBusy || !withdrawalId.trim()}
+                  className="button"
+                  disabled={withdrawalBusy || !withdrawalId.trim() || (withdrawalAction === "Reject" && !adminNote.trim())}
+                  style={{
+                    backgroundColor: withdrawalAction === "Approve" ? "#16a34a" : "#dc2626",
+                    borderColor: withdrawalAction === "Approve" ? "#16a34a" : "#dc2626",
+                    color: "#ffffff",
+                    fontWeight: 600,
+                  }}
                 >
-                  {withdrawalBusy ? "Đang xử lý…" : "Xác nhận xử lý rút tiền"}
+                  {withdrawalBusy
+                    ? "Đang xử lý…"
+                    : withdrawalAction === "Approve"
+                    ? "Xác nhận duyệt giải ngân"
+                    : "Xác nhận từ chối yêu cầu"}
                 </button>
               </div>
             </form>
           </Card>
-        )}
-
-        {/* Tab 2: Adjust Wallet Balance by WalletId */}
-        {activeTab === "adjustments" && (
+        ) : (
           <Card className="card-pad">
             <SectionHeading
-              title="Điều chỉnh số dư ví điện tử"
-              hint="Tăng hoặc giảm số dư ví kèm lý do đối soát minh bạch"
+              title="Điều chỉnh số dư ví điện tử (Bút toán can thiệp)"
+              hint="Tăng hoặc giảm số dư ví kèm căn cứ đối soát minh bạch vào sổ cái"
             />
 
             {adjustError && (
@@ -300,31 +341,32 @@ export function AdminLedgerScreen() {
 
             <form className="auth-fields" onSubmit={(e) => void handleAdjustBalance(e)}>
               <label className="field-wrap">
-                Mã ví điện tử <span style={{ color: "var(--red)" }}>*</span>
+                <span>Mã ví điện tử (Wallet ID) <span style={{ color: "var(--red)" }}>*</span></span>
                 <input
                   className="field"
                   required
-                  placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+                  placeholder="Ví dụ: 3fa85f64-5717-4562-b3fc-2c963f66afa6"
                   value={walletId}
                   onChange={(e) => setWalletId(e.target.value)}
+                  style={{ fontFamily: "monospace" }}
                 />
               </label>
 
-              <div className="form-grid">
+              <div className="split" style={{ gap: "16px" }}>
                 <label className="field-wrap">
-                  Loại bút toán <span style={{ color: "var(--red)" }}>*</span>
+                  <span>Loại bút toán can thiệp <span style={{ color: "var(--red)" }}>*</span></span>
                   <select
                     className="select-field"
                     value={adjustmentType}
                     onChange={(e) => setAdjustmentType(e.target.value as "Credit" | "Debit")}
                   >
-                    <option value="Credit">+ Cộng tiền vào ví</option>
-                    <option value="Debit">- Trừ tiền khỏi ví</option>
+                    <option value="Credit">+ Cộng tiền vào ví (Hoàn tiền / Điều chỉnh tăng)</option>
+                    <option value="Debit">- Trừ tiền khỏi ví (Thu hồi / Điều chỉnh giảm)</option>
                   </select>
                 </label>
 
                 <label className="field-wrap">
-                  Số tiền (VNĐ) <span style={{ color: "var(--red)" }}>*</span>
+                  <span>Số tiền điều chỉnh (VNĐ) <span style={{ color: "var(--red)" }}>*</span></span>
                   <input
                     className="field"
                     type="number"
@@ -339,17 +381,18 @@ export function AdminLedgerScreen() {
               </div>
 
               <label className="field-wrap">
-                Lý do đối soát / điều chỉnh <span style={{ color: "var(--red)" }}>*</span>
+                <span>Lý do đối soát / Căn cứ biên bản điều chỉnh <span style={{ color: "var(--red)" }}>*</span></span>
                 <textarea
                   className="textarea-field"
                   required
+                  rows={2}
                   value={reason}
                   onChange={(e) => setReason(e.target.value)}
-                  placeholder="Nhập biên bản đối soát hoặc lý do điều chỉnh số dư..."
+                  placeholder="Nhập biên bản đối soát hoặc lý do ghi nhận bút toán điều chỉnh số dư..."
                 />
               </label>
 
-              <div className="action-row">
+              <div className="action-row" style={{ marginTop: 16 }}>
                 <button
                   type="submit"
                   className="button button-primary"
@@ -364,27 +407,29 @@ export function AdminLedgerScreen() {
       </div>
 
       <SectionHeading
-        title="Bút toán vừa thực thi trong phiên"
-        hint="Lịch sử các giao dịch vừa thao tác trong phiên làm việc"
+        title="Nhật ký các thao tác vừa thực thi trong phiên"
+        hint="Lịch sử các quyết định duyệt rút tiền hoặc điều chỉnh số dư vừa thao tác"
       />
       <Card>
         {withdrawalHistory.length > 0 || adjustHistory.length > 0 ? (
           <div className="table-scroll">
-            <table className="data-table">
+            <table className="data-table" style={{ width: "100%", tableLayout: "fixed" }}>
               <thead>
                 <tr>
-                  <th>Loại nghiệp vụ</th>
-                  <th>Mã giao dịch / Bút toán</th>
-                  <th>Mã đối tượng</th>
-                  <th>Chi tiết thay đổi</th>
-                  <th>Thời điểm thực thi</th>
+                  <th style={{ width: "20%" }}>Loại nghiệp vụ</th>
+                  <th style={{ width: "24%" }}>Mã giao dịch / Bút toán</th>
+                  <th style={{ width: "22%" }}>Mã đối tượng</th>
+                  <th style={{ width: "18%" }}>Chi tiết thay đổi</th>
+                  <th style={{ width: "16%", textAlign: "right" }}>Thời điểm thực thi</th>
                 </tr>
               </thead>
               <tbody>
                 {withdrawalHistory.map((w) => (
                   <tr key={`w-${w.withdrawalId}-${w.processedAt}`}>
                     <td>
-                      <Badge tone="sky">Duyệt rút tiền</Badge>
+                      <Badge tone={w.status === "Approved" ? "green" : "red"}>
+                        {w.status === "Approved" ? "Duyệt rút tiền" : "Từ chối rút tiền"}
+                      </Badge>
                     </td>
                     <td>
                       <code>{w.transactionId ?? "—"}</code>
@@ -393,7 +438,7 @@ export function AdminLedgerScreen() {
                       <code>{w.withdrawalId}</code>
                     </td>
                     <td>
-                      Trạng thái mới: <strong>{w.status}</strong>
+                      Trạng thái: <strong>{w.status}</strong>
                     </td>
                     <td>{new Date(w.processedAt).toLocaleString("vi-VN")}</td>
                   </tr>
@@ -402,7 +447,7 @@ export function AdminLedgerScreen() {
                   <tr key={`a-${a.adjustmentId}`}>
                     <td>
                       <Badge tone={a.adjustmentType === "Credit" ? "green" : "amber"}>
-                        Điều chỉnh ví: {a.adjustmentType === "Credit" ? "+ Cộng tiền" : "- Trừ tiền"}
+                        {a.adjustmentType === "Credit" ? "+ Cộng tiền" : "- Trừ tiền"}
                       </Badge>
                     </td>
                     <td>
@@ -412,11 +457,7 @@ export function AdminLedgerScreen() {
                       <code>{a.walletId}</code>
                     </td>
                     <td>
-                      <strong>
-                        {a.adjustmentType === "Credit" ? "+" : "-"}
-                        {formatMoney(a.amount)}
-                      </strong>{" "}
-                      → Số dư mới: <strong>{formatMoney(a.balanceAfter)}</strong> — Lý do: {a.reason}
+                      Số dư sau điều chỉnh: <strong>{formatMoney(a.balanceAfter)}</strong>
                     </td>
                     <td>{new Date(a.createdAt).toLocaleString("vi-VN")}</td>
                   </tr>

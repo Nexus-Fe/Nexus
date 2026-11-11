@@ -24,22 +24,23 @@ export const sellerNavigation: NavigationItem[] = [
 ];
 
 export const staffNavigation: NavigationItem[] = [
-  { label: "Vận hành đấu giá", href: ROUTES.staff.auctions, icon: "gavel" },
-  { label: "Duyệt hồ sơ Seller", href: ROUTES.staff.sellers, icon: "users" },
-  { label: "Báo cáo & khiếu nại", href: ROUTES.staff.reports, icon: "flag" },
-  { label: "Sổ bộ án phạt", href: ROUTES.staff.penalties, icon: "gavel" },
-  { label: "Duyệt yêu cầu rút", href: ROUTES.staff.withdrawals, icon: "wallet" },
-  { label: "Kiểm duyệt sản phẩm", href: ROUTES.staff.productModeration, icon: "grid" },
-  { label: "Sai lệch giao dịch", href: ROUTES.staff.discrepancies, icon: "orders" },
+  { label: "Giám sát đấu giá", href: ROUTES.staff.auctions, icon: "gavel" },
+  { label: "Duyệt người bán", href: ROUTES.staff.sellers, icon: "users" },
+  { label: "Duyệt sản phẩm", href: ROUTES.staff.productModeration, icon: "grid" },
+  { label: "Duyệt rút tiền", href: ROUTES.staff.withdrawals, icon: "wallet" },
+  { label: "Khiếu nại & Vi phạm", href: ROUTES.staff.reports, icon: "flag" },
+  { label: "Xử phạt vi phạm", href: ROUTES.staff.penalties, icon: "gavel" },
+  { label: "Đối soát giao dịch", href: ROUTES.staff.discrepancies, icon: "orders" },
 ];
 
 export const adminNavigation: NavigationItem[] = [
-  { label: "Tổng quan", href: ROUTES.admin.overview, icon: "home" },
-  { label: "Cấu hình đấu giá", href: ROUTES.admin.auctionConfigs, icon: "gavel" },
-  { label: "Người dùng & Phân quyền", href: ROUTES.admin.users, icon: "users" },
-  { label: "Danh mục", href: ROUTES.admin.categories, icon: "grid" },
-  { label: "Sổ giao dịch", href: ROUTES.admin.ledger, icon: "orders" },
-  { label: "Cấu hình hệ thống", href: ROUTES.admin.configs, icon: "shield" },
-  { label: "Thông báo & Event Logs", href: ROUTES.admin.notifications, icon: "orders" },
+  { label: "Tổng quan hệ thống", href: ROUTES.admin.overview, icon: "home" },
+  { label: "Tài khoản & Phân quyền", href: ROUTES.admin.users, icon: "users" },
+  { label: "Danh mục sản phẩm", href: ROUTES.admin.categories, icon: "grid" },
+  { label: "Xử phạt vi phạm", href: ROUTES.admin.penalties, icon: "gavel" },
+  { label: "Điều chỉnh số dư ví", href: ROUTES.admin.ledger, icon: "wallet" },
   { label: "Mã giảm giá", href: ROUTES.admin.coupons, icon: "orders" },
+  { label: "Cài đặt đấu giá", href: ROUTES.admin.auctionConfigs, icon: "gavel" },
+  { label: "Cài đặt hệ thống", href: ROUTES.admin.configs, icon: "shield" },
+  { label: "Nhật ký & Thông báo", href: ROUTES.admin.notifications, icon: "orders" },
 ];

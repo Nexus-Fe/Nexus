@@ -389,7 +389,7 @@ export function AdminRolesScreen({ embedded = false }: { embedded?: boolean } = 
           </div>
           {isCurrentRoleSeller && (
             <span className="role-seller-notice">
-              Cấp tự động qua duyệt KYC (/staff/sellers)
+              Cấp tự động qua luồng xét duyệt hồ sơ Người bán
             </span>
           )}
         </div>
@@ -401,7 +401,7 @@ export function AdminRolesScreen({ embedded = false }: { embedded?: boolean } = 
           title={`Tài khoản thuộc vai trò: ${currentRole?.name ?? ""}`}
           hint={
             isCurrentRoleSeller
-              ? "Vai trò Seller chỉ được cấp tự động qua luồng xét duyệt hồ sơ KYC (/staff/sellers)"
+              ? "Vai trò Người bán (Seller) chỉ được cấp tự động sau khi thẩm định và phê duyệt hồ sơ KYC"
               : `Quản lý và chuyển vai trò chính cho người dùng thuộc vai trò ${currentRole?.code ?? ""}`
           }
           action={

@@ -127,16 +127,16 @@ export function AdminCouponsScreen() {
 
         {filtered.length > 0 ? (
           <div className="table-scroll">
-            <table className="data-table">
+            <table className="data-table" style={{ width: "100%", tableLayout: "fixed" }}>
               <thead>
                 <tr>
-                  <th>Mã giảm giá</th>
-                  <th>Loại ưu đãi</th>
-                  <th>Đơn tối thiểu</th>
-                  <th>Giới hạn lượt</th>
-                  <th>Hạn sử dụng</th>
-                  <th>Trạng thái</th>
-                  <th>Thao tác</th>
+                  <th style={{ width: "18%" }}>Mã giảm giá</th>
+                  <th style={{ width: "18%" }}>Loại ưu đãi</th>
+                  <th style={{ width: "15%" }}>Đơn tối thiểu</th>
+                  <th style={{ width: "15%" }}>Giới hạn lượt</th>
+                  <th style={{ width: "16%" }}>Hạn sử dụng</th>
+                  <th style={{ width: "10%" }}>Trạng thái</th>
+                  <th style={{ width: "8%", textAlign: "right" }}>Thao tác</th>
                 </tr>
               </thead>
               <tbody>
