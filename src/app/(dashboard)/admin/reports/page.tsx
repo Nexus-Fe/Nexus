@@ -1,5 +1,6 @@
-import { AdminReportsScreenClient } from "@/components/client/ClientScreens";
+import { redirect } from "next/navigation";
+import { ROUTES } from "@/constants/routes";
 
 export default function AdminReportsPage() {
-  return <AdminReportsScreenClient />;
+  redirect(ROUTES.staff.reports);
 }

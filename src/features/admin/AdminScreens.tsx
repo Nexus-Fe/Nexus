@@ -21,21 +21,20 @@ export {
 };
 
 const adminWorkspaces = [
-  ["Tài khoản người dùng", "Quản lý hồ sơ, tạo tài khoản nội bộ, điểm uy tín và khóa/mở khóa", ROUTES.admin.users],
+  ["Người dùng & Phân quyền", "Quản lý hồ sơ tài khoản, bổ nhiệm nhân sự và phân cấp vai trò hệ thống", ROUTES.admin.users],
   ["Sổ bộ án phạt", "Tra cứu và thu hồi các quyết định xử phạt tài khoản, gian hàng", ROUTES.admin.penalties],
-  ["Báo cáo vi phạm", "Tiếp nhận và xử lý khiếu nại, tố cáo vi phạm từ cộng đồng", ROUTES.admin.reports],
   ["Danh mục sản phẩm", "Cấu trúc cây danh mục toàn sàn (bao gồm cả danh mục đang ẩn)", ROUTES.admin.categories],
-  ["Giám sát đấu giá", "Theo dõi phiên đấu giá trực tiếp, lịch sử lượt đặt giá (bids)", ROUTES.admin.auctions],
   ["Cấu hình đấu giá", "Quy tắc chống sniping, bước giá và điểm uy tín đấu giá", ROUTES.admin.auctionConfigs],
   ["Cấu hình toàn sàn", "Tham số vận hành động của toàn hệ thống", ROUTES.admin.configs],
   ["Mã giảm giá toàn sàn", "Thiết lập và quản lý các chương trình khuyến mãi", ROUTES.admin.coupons],
   ["Sổ cái & Đối soát ví", "Duyệt yêu cầu rút tiền và điều chỉnh số dư ví theo ID", ROUTES.admin.ledger],
+  ["Thông báo & Event Logs", "Tra cứu lịch sử thông báo và nhật ký sự kiện đồng bộ", ROUTES.admin.notifications],
 ] as const;
 
 type OverviewSnapshot = {
   usersCount: number | null;
   auctionsCount: number | null;
-  pendingReportsCount: number | null;
+  penaltiesCount: number | null;
 };
 
 function extractTotalCount(raw: unknown): number {
@@ -59,17 +58,17 @@ function extractTotalCount(raw: unknown): number {
 
 export function AdminOverviewScreen() {
   const overview = useApiResource("admin-overview-metrics", async (signal) => {
-    const [usersRes, reportsRes] = await Promise.allSettled([
+    const [usersRes, penaltiesRes] = await Promise.allSettled([
       api.get<ApiResponse<any>>("/api/v1/admin/users?page=1&pageSize=1", { signal }),
-      api.get<ApiResponse<any>>("/api/v1/admin/reports?status=Pending&page=1&pageSize=1", { signal }),
+      api.get<ApiResponse<any>>("/api/v1/admin/penalties?page=1&limit=1", { signal }),
     ]);
 
     const snapshot: OverviewSnapshot = {
       usersCount:
         usersRes.status === "fulfilled" ? extractTotalCount(usersRes.value) : null,
       auctionsCount: null,
-      pendingReportsCount:
-        reportsRes.status === "fulfilled" ? extractTotalCount(reportsRes.value) : null,
+      penaltiesCount:
+        penaltiesRes.status === "fulfilled" ? extractTotalCount(penaltiesRes.value) : null,
     };
 
     return snapshot;
@@ -90,7 +89,7 @@ export function AdminOverviewScreen() {
             disabled={overview.loading}
             onClick={overview.reload}
           >
-            {overview.loading ? "Đang cập nhật…" : "Làm mới số liệu"}
+            {overview.loading ? "Đang làm mới…" : "Làm mới dữ liệu"}
           </button>
         }
       />
@@ -118,37 +117,37 @@ export function AdminOverviewScreen() {
 
         <Card className="card-pad">
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span style={{ fontSize: "13px", color: "var(--muted)" }}>Phiên đấu giá</span>
-            <Badge tone="amber">Sắp ra mắt</Badge>
+            <span style={{ fontSize: "13px", color: "var(--muted)" }}>Quy tắc đấu giá</span>
+            <Badge tone="amber">Anti-sniping</Badge>
           </div>
           <strong style={{ display: "block", fontSize: "24px", margin: "10px 0 4px" }}>
-            Coming Soon
+            Cấu hình sàn
           </strong>
           <small style={{ display: "block", color: "var(--muted)", marginBottom: "10px" }}>
-            Tính năng đấu giá đang được hoàn thiện
+            Chính sách gia hạn & chống tỉa giá đấu giá
           </small>
-          <Link className="button button-secondary button-small" href={ROUTES.admin.auctions}>
-            Xem chi tiết
+          <Link className="button button-secondary button-small" href={ROUTES.admin.auctionConfigs}>
+            Xem cấu hình
           </Link>
         </Card>
 
         <Card className="card-pad">
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span style={{ fontSize: "13px", color: "var(--muted)" }}>Báo cáo chờ xử lý</span>
-            <Badge tone={data?.pendingReportsCount ? "amber" : "slate"}>Báo cáo</Badge>
+            <span style={{ fontSize: "13px", color: "var(--muted)" }}>Sổ bộ án phạt</span>
+            <Badge tone="red">Xử phạt</Badge>
           </div>
           <strong style={{ display: "block", fontSize: "24px", margin: "10px 0 4px" }}>
-            {data?.pendingReportsCount != null
-              ? data.pendingReportsCount.toLocaleString("vi-VN")
+            {data?.penaltiesCount != null
+              ? data.penaltiesCount.toLocaleString("vi-VN")
               : overview.loading
                 ? "Đang tải…"
                 : "—"}
           </strong>
           <small style={{ display: "block", color: "var(--muted)", marginBottom: "10px" }}>
-            Báo cáo vi phạm đang chờ xem xét
+            Tổng số án phạt vi phạm toàn sàn
           </small>
-          <Link className="button button-secondary button-small" href={ROUTES.admin.reports}>
-            Xử lý báo cáo
+          <Link className="button button-secondary button-small" href={ROUTES.admin.penalties}>
+            Tra cứu án phạt
           </Link>
         </Card>
       </div>

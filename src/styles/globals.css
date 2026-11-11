@@ -152,7 +152,10 @@
 @media(max-width:640px) { .auction-list-grid { grid-template-columns:1fr; } .auction-facts,.auction-specifications { grid-template-columns:1fr; } .auction-config-row { grid-template-columns:1fr; } .auction-lookup,.auction-product-search { flex-direction:column; align-items:stretch; } .auction-room .page-heading { display:block; } .auction-room .page-action { margin-top:12px; } .auction-room .page-action .button { width:100%; justify-content:center; } .auction-room-main,.auction-room-rail { gap:14px; } .auction-detail-image { height:260px; margin:-20px -20px 14px; } .auction-gallery-item { height:64px; } .auction-product-heading { align-items:flex-start; } .auction-product-heading h2,.auction-rules h2,.auction-bid-history h2 { font-size:17px; } .auction-room-rail { grid-row:auto; } .auction-quick-bids .button { min-height:42px; } .auction-refresh { width:100%; justify-content:center; } }
 @media(max-width:640px) { .auction-unavailable { min-height:52vh; padding:28px 12px; } .auction-unavailable-content { gap:18px; } .auction-unavailable-content .button { width:100%; justify-content:center; } }
 * { box-sizing: border-box; }
-html { scroll-behavior: smooth; }
+html {
+  scroll-behavior: smooth;
+  scrollbar-gutter: stable;
+}
 html,body { font-family: var(--font-ui); }
 body { margin: 0; background: var(--canvas); color: var(--ink); }
 button,input,textarea,select { font-family: inherit; }
@@ -256,8 +259,8 @@ h1,h2,h3 { letter-spacing: -.025em; }
 .portal-account-menu-panel button.portal-logout-btn:hover svg { color: #dc2626; }
 .portal-marketplace-link { border-bottom: 1px solid #f1f5f9; border-radius: 8px !important; margin-bottom: 3px; color: #0284c7 !important; font-weight: 600 !important; }
 .portal-marketplace-link svg { color: #0284c7 !important; }
-.portal-column { min-width: 0; flex: 1; }
-.portal-main { max-width: 1440px; margin: 0 auto; padding: 36px 32px 80px; }
+.portal-column { min-width: 0; flex: 1; display: flex; flex-direction: column; }
+.portal-main { width: 100%; max-width: 1600px; margin: 0; padding: 32px 36px 80px; box-sizing: border-box; }
 .mobile-menu { display: none; }
 .page-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; margin-bottom: 28px; }
 .page-heading h1 { font-size: clamp(26px,3vw,34px); line-height: 1.2; font-weight: 760; margin: 0 0 8px; }
@@ -1047,7 +1050,8 @@ h1,h2,h3 { letter-spacing: -.025em; }
   background: rgba(15, 23, 42, 0.55);
   backdrop-filter: blur(4px);
 }
-.admin-modal-dialog {
+.admin-modal-dialog,
+.admin-modal {
   width: min(100%, 640px);
   max-height: calc(100dvh - 40px);
   overflow-y: auto;
@@ -1057,6 +1061,39 @@ h1,h2,h3 { letter-spacing: -.025em; }
   background: var(--surface);
   box-shadow: 0 24px 64px rgba(15, 23, 42, 0.22);
   color: var(--ink);
+}
+.admin-modal-dialog.admin-modal-wide {
+  width: min(100%, 980px);
+}
+.admin-modal-dialog.admin-modal-xl {
+  width: min(100%, 1120px);
+}
+.admin-detail-grid-2col {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+@media (min-width: 768px) {
+  .admin-detail-grid-2col {
+    grid-template-columns: 1fr 1fr;
+    gap: 0 28px;
+    align-items: start;
+  }
+}
+.admin-detail-grid-2col .info-row {
+  padding: 9px 0;
+}
+.admin-modal-actions-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+  margin-top: 14px;
+}
+@media (min-width: 768px) {
+  .admin-modal-actions-grid {
+    grid-template-columns: 1fr 1fr;
+    align-items: stretch;
+  }
 }
 .admin-category-confirm {
   width: min(100% - 32px, 440px);
@@ -2029,6 +2066,7 @@ h1,h2,h3 { letter-spacing: -.025em; }
   border-top: 1px dashed var(--line);
   font-size: 12.5px;
   color: #64748b;
+  min-height: 38px;
 }
 
 .role-active-desc {

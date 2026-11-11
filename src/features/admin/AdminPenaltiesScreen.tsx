@@ -129,7 +129,7 @@ export function AdminPenaltiesScreen() {
             disabled={penalties.loading}
             onClick={penalties.reload}
           >
-            {penalties.loading ? "Đang cập nhật…" : "Làm mới danh sách"}
+            {penalties.loading ? "Đang làm mới…" : "Làm mới dữ liệu"}
           </button>
         }
       />
@@ -333,7 +333,7 @@ export function AdminPenaltiesScreen() {
           }}
         >
           <section
-            className="admin-modal-dialog"
+            className="admin-modal-dialog admin-modal-wide"
             role="dialog"
             aria-modal="true"
             aria-labelledby="penalty-modal-title"
@@ -376,158 +376,186 @@ export function AdminPenaltiesScreen() {
 
             {detail.data && (
               <>
-                <div style={{ display: "grid", gap: "10px", marginBottom: "16px" }}>
-                  <div className="info-row">
-                    <span>Người vi phạm</span>
-                    <strong>{detail.data.userFullName || detail.data.userEmail || "—"}</strong>
-                  </div>
-                  {detail.data.userEmail && (
+                <div className="admin-detail-grid-2col" style={{ marginBottom: "14px" }}>
+                  {/* Cột 1: Đối tượng & Án phạt */}
+                  <div style={{ display: "grid", gap: "2px" }}>
                     <div className="info-row">
-                      <span>Email tài khoản</span>
-                      <strong>{detail.data.userEmail}</strong>
+                      <span>Người vi phạm</span>
+                      <strong>{detail.data.userFullName || detail.data.userEmail || "—"}</strong>
                     </div>
-                  )}
-                  <div className="info-row">
-                    <span>User ID</span>
-                    <code>{detail.data.userId}</code>
-                  </div>
-                  <div className="info-row">
-                    <span>Vai trò áp dụng chế tài</span>
-                    <Badge tone={targetRoleTone(detail.data.targetRole)}>
-                      {detail.data.targetRole}
-                    </Badge>
-                  </div>
-                  <div className="info-row">
-                    <span>Hình thức xử phạt</span>
-                    <strong>
-                      {penaltyTypeLabel(detail.data.penaltyApplied)}
-                      {detail.data.pointsDeducted > 0 && ` (Trừ ${detail.data.pointsDeducted} điểm)`}
-                    </strong>
-                  </div>
-                  <div className="info-row">
-                    <span>Loại vi phạm</span>
-                    <Badge tone="slate">
-                      {penaltyViolationTypeLabel(detail.data.violationType)}
-                    </Badge>
-                  </div>
-                  {detail.data.policyClauseCode && (
+                    {detail.data.userEmail && (
+                      <div className="info-row">
+                        <span>Email tài khoản</span>
+                        <strong>{detail.data.userEmail}</strong>
+                      </div>
+                    )}
                     <div className="info-row">
-                      <span>Phân loại vi phạm</span>
-                      <strong>{formatPolicyClause(detail.data.policyClauseCode)}</strong>
+                      <span>User ID</span>
+                      <code style={{ fontSize: "12px" }}>{detail.data.userId}</code>
                     </div>
-                  )}
-                  <div className="info-row">
-                    <span>Trạng thái hiệu lực</span>
-                    <Badge tone={penaltyStatusTone(detail.data.status)}>
-                      {penaltyStatusLabel(detail.data.status)}
-                    </Badge>
-                  </div>
-                  <div className="info-row">
-                    <span>Lý do xử phạt</span>
-                    <strong style={{ color: "var(--ink)", maxWidth: "65%", textAlign: "right" }}>
-                      {detail.data.reason}
-                    </strong>
-                  </div>
-                  <div className="info-row">
-                    <span>Thời điểm lập biên bản</span>
-                    <strong>{new Date(detail.data.issuedAt).toLocaleString("vi-VN")}</strong>
-                  </div>
-                  <div className="info-row">
-                    <span>Thời hạn thi hành</span>
-                    <strong>
-                      {detail.data.expiresAt
-                        ? new Date(detail.data.expiresAt).toLocaleString("vi-VN")
-                        : "Vô thời hạn"}
-                    </strong>
-                  </div>
-                  {detail.data.createdBy && (
                     <div className="info-row">
-                      <span>Người ban hành</span>
-                      <small style={{ color: "var(--muted)" }}>{detail.data.createdBy}</small>
+                      <span>Vai trò áp dụng</span>
+                      <Badge tone={targetRoleTone(detail.data.targetRole)}>
+                        {detail.data.targetRole}
+                      </Badge>
                     </div>
-                  )}
+                    <div className="info-row">
+                      <span>Hình thức xử phạt</span>
+                      <strong>
+                        {penaltyTypeLabel(detail.data.penaltyApplied)}
+                        {detail.data.pointsDeducted > 0 && ` (Trừ ${detail.data.pointsDeducted} điểm)`}
+                      </strong>
+                    </div>
+                    <div className="info-row">
+                      <span>Trạng thái hiệu lực</span>
+                      <Badge tone={penaltyStatusTone(detail.data.status)}>
+                        {penaltyStatusLabel(detail.data.status)}
+                      </Badge>
+                    </div>
+                  </div>
 
-                  {/* Evidence URLs */}
-                  {Boolean(detail.data.evidenceUrls?.length) && (
-                    <div style={{ borderTop: "1px solid var(--line)", paddingTop: "12px", marginTop: "4px" }}>
-                      <span style={{ fontSize: "13px", fontWeight: 700, color: "var(--ink)", display: "block", marginBottom: "6px" }}>
-                        Tài liệu & Bằng chứng vi phạm:
-                      </span>
-                      <ul style={{ margin: 0, paddingLeft: "18px", fontSize: "12px" }}>
-                        {detail.data.evidenceUrls.map((url, idx) => (
-                          <li key={idx} style={{ marginBottom: "4px" }}>
-                            <a
-                              href={url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              style={{ color: "var(--sky-dark)", textDecoration: "underline", wordBreak: "break-all" }}
-                            >
-                              {url}
-                            </a>
-                          </li>
-                        ))}
-                      </ul>
+                  {/* Cột 2: Phân loại & Thời hạn */}
+                  <div style={{ display: "grid", gap: "2px" }}>
+                    <div className="info-row">
+                      <span>Loại vi phạm</span>
+                      <Badge tone="slate">
+                        {penaltyViolationTypeLabel(detail.data.violationType)}
+                      </Badge>
                     </div>
-                  )}
-
-                  {/* Revoke Audit Information */}
-                  {String(detail.data.status).toUpperCase() === "REVOKED" && (
-                    <div
-                      style={{
-                        borderTop: "1px solid var(--line)",
-                        paddingTop: "12px",
-                        marginTop: "4px",
-                        background: "#f0fdf4",
-                        padding: "10px 12px",
-                        borderRadius: "8px",
-                      }}
-                    >
-                      <span style={{ fontSize: "13px", fontWeight: 700, color: "#166534", display: "block", marginBottom: "6px" }}>
-                        Thông tin thu hồi án phạt:
-                      </span>
-                      {detail.data.revokedAt && (
-                        <div className="info-row" style={{ color: "#166534" }}>
-                          <span>Thời điểm thu hồi</span>
-                          <strong>{new Date(detail.data.revokedAt).toLocaleString("vi-VN")}</strong>
-                        </div>
-                      )}
-                      {detail.data.revokedBy && (
-                        <div className="info-row" style={{ color: "#166534" }}>
-                          <span>Người thực hiện thu hồi</span>
-                          <small>{detail.data.revokedBy}</small>
-                        </div>
-                      )}
-                      {detail.data.revokeReason && (
-                        <div className="info-row" style={{ color: "#166534" }}>
-                          <span>Lý do thu hồi</span>
-                          <strong>{detail.data.revokeReason}</strong>
-                        </div>
-                      )}
+                    {detail.data.policyClauseCode && (
+                      <div className="info-row">
+                        <span>Phân loại vi phạm</span>
+                        <strong>{formatPolicyClause(detail.data.policyClauseCode)}</strong>
+                      </div>
+                    )}
+                    <div className="info-row">
+                      <span>Thời điểm lập biên bản</span>
+                      <strong>{new Date(detail.data.issuedAt).toLocaleString("vi-VN")}</strong>
                     </div>
-                  )}
+                    <div className="info-row">
+                      <span>Thời hạn thi hành</span>
+                      <strong>
+                        {detail.data.expiresAt
+                          ? new Date(detail.data.expiresAt).toLocaleString("vi-VN")
+                          : "Vô thời hạn"}
+                      </strong>
+                    </div>
+                    {detail.data.createdBy && (
+                      <div className="info-row">
+                        <span>Người ban hành</span>
+                        <small style={{ color: "var(--muted)" }}>{detail.data.createdBy}</small>
+                      </div>
+                    )}
+                  </div>
                 </div>
 
-                {/* Revoke Action Button */}
-                {String(detail.data.status).toUpperCase() === "ACTIVE" && !showRevokeForm && (
+                {/* Hàng ngang: Lý do xử phạt */}
+                <div style={{ padding: "10px 14px", borderRadius: "8px", background: "var(--canvas)", border: "1px solid var(--line)", marginBottom: "12px" }}>
+                  <span style={{ fontSize: "12px", color: "var(--muted)", display: "block", marginBottom: "4px" }}>
+                    Lý do xử phạt
+                  </span>
+                  <div style={{ fontSize: "13px", fontWeight: 600, color: "var(--ink)", lineHeight: "1.5" }}>
+                    {detail.data.reason || "—"}
+                  </div>
+                </div>
+
+                {/* Evidence URLs */}
+                {Boolean(detail.data.evidenceUrls?.length) && (
+                  <div style={{ borderTop: "1px solid var(--line)", paddingTop: "12px", marginBottom: "12px" }}>
+                    <span style={{ fontSize: "13px", fontWeight: 700, color: "var(--ink)", display: "block", marginBottom: "6px" }}>
+                      Tài liệu & Bằng chứng vi phạm:
+                    </span>
+                    <ul style={{ margin: 0, paddingLeft: "18px", fontSize: "12px" }}>
+                      {detail.data.evidenceUrls.map((url, idx) => (
+                        <li key={idx} style={{ marginBottom: "4px" }}>
+                          <a
+                            href={url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{ color: "var(--sky-dark)", textDecoration: "underline", wordBreak: "break-all" }}
+                          >
+                            {url}
+                          </a>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* Revoke Audit Information */}
+                {String(detail.data.status).toUpperCase() === "REVOKED" && (
+                  <div
+                    style={{
+                      borderTop: "1px solid var(--line)",
+                      paddingTop: "12px",
+                      marginBottom: "12px",
+                      background: "#f0fdf4",
+                      padding: "10px 14px",
+                      borderRadius: "8px",
+                      border: "1px solid #bbf7d0",
+                    }}
+                  >
+                    <span style={{ fontSize: "13px", fontWeight: 700, color: "#166534", display: "block", marginBottom: "6px" }}>
+                      Thông tin thu hồi án phạt:
+                    </span>
+                    <div className="admin-detail-grid-2col">
+                      <div style={{ display: "grid", gap: "2px" }}>
+                        {detail.data.revokedAt && (
+                          <div className="info-row" style={{ color: "#166534" }}>
+                            <span>Thời điểm thu hồi</span>
+                            <strong>{new Date(detail.data.revokedAt).toLocaleString("vi-VN")}</strong>
+                          </div>
+                        )}
+                        {detail.data.revokedBy && (
+                          <div className="info-row" style={{ color: "#166534" }}>
+                            <span>Người thực hiện</span>
+                            <small>{detail.data.revokedBy}</small>
+                          </div>
+                        )}
+                      </div>
+                      <div style={{ display: "grid", gap: "2px" }}>
+                        {detail.data.revokeReason && (
+                          <div className="info-row" style={{ color: "#166534" }}>
+                            <span>Lý do thu hồi</span>
+                            <strong>{detail.data.revokeReason}</strong>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Actions */}
+                {!showRevokeForm && (
                   <div
                     className="action-row"
-                    style={{ borderTop: "1px solid var(--line)", paddingTop: "14px" }}
+                    style={{
+                      display: "flex",
+                      justifyContent: "flex-end",
+                      alignItems: "center",
+                      gap: "10px",
+                      borderTop: "1px solid var(--line)",
+                      paddingTop: "14px",
+                      marginTop: "14px",
+                    }}
                   >
+                    {String(detail.data.status).toUpperCase() === "ACTIVE" && (
+                      <button
+                        type="button"
+                        className="button button-danger button-small"
+                        disabled={busy}
+                        onClick={() => {
+                          setShowRevokeForm(true);
+                          setRevokeReason("");
+                          setError(null);
+                        }}
+                      >
+                        Thu hồi án phạt (Admin Revoke)
+                      </button>
+                    )}
                     <button
                       type="button"
-                      className="button button-danger button-small"
-                      disabled={busy}
-                      onClick={() => {
-                        setShowRevokeForm(true);
-                        setRevokeReason("");
-                        setError(null);
-                      }}
-                    >
-                      Thu hồi án phạt (Admin Revoke)
-                    </button>
-                    <button
-                      type="button"
-                      className="button button-secondary button-small"
+                      className="button button-secondary"
                       disabled={busy}
                       onClick={closeDetail}
                     >

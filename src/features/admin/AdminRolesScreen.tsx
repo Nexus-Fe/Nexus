@@ -117,7 +117,7 @@ function parseRolesFromApi(data: unknown): SystemRoleItem[] {
   });
 }
 
-export function AdminRolesScreen() {
+export function AdminRolesScreen({ embedded = false }: { embedded?: boolean } = {}) {
   const [selectedRoleCode, setSelectedRoleCode] = useState<string>("Buyer");
   const [keyword, setKeyword] = useState("");
   const [search, setSearch] = useState("");
@@ -339,11 +339,13 @@ export function AdminRolesScreen() {
 
   return (
     <>
-      <PageHeading
-        overline="Phân quyền tài khoản"
-        title="Quản lý tài khoản theo vai trò"
-        description="Quản lý và chuyển đổi vai trò người dùng hệ thống (quy tắc 1 tài khoản - 1 vai trò chính)."
-      />
+      {!embedded && (
+        <PageHeading
+          overline="Phân quyền tài khoản"
+          title="Quản lý tài khoản theo vai trò"
+          description="Quản lý và chuyển đổi vai trò người dùng hệ thống (quy tắc 1 tài khoản - 1 vai trò chính)."
+        />
+      )}
 
       <div className="role-rule-strip">
         <div className="role-rule-content">
@@ -464,21 +466,44 @@ export function AdminRolesScreen() {
             </p>
           )}
 
-          {users.length > 0 ? (
-            <div className="table-scroll">
-              <table className="data-table">
-                <thead>
-                  <tr>
-                    <th style={{ minWidth: 200 }}>Người dùng</th>
-                    <th style={{ minWidth: 220 }}>Email & SĐT</th>
-                    <th style={{ minWidth: 130 }}>Vai trò chính</th>
-                    <th style={{ minWidth: 140 }}>Trạng thái</th>
-                    <th className="text-right sticky-col-right" style={{ textAlign: "right", whiteSpace: "nowrap", minWidth: 160 }}>
-                      Thao tác phân quyền
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
+          <div style={{ position: "relative", minHeight: "400px" }}>
+            {usersResource.loading && (
+              <div
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  backgroundColor: "rgba(255, 255, 255, 0.72)",
+                  backdropFilter: "blur(2px)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  zIndex: 10,
+                  borderRadius: "8px",
+                  transition: "opacity 0.2s ease",
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: "10px", color: "var(--sky-dark)", fontWeight: 600, fontSize: "13px" }}>
+                  <div className="route-loading-mark" />
+                  Đang tải danh sách tài khoản…
+                </div>
+              </div>
+            )}
+
+            {users.length > 0 ? (
+              <div className="table-scroll">
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th style={{ minWidth: 200 }}>Người dùng</th>
+                      <th style={{ minWidth: 220 }}>Email & SĐT</th>
+                      <th style={{ minWidth: 130 }}>Vai trò chính</th>
+                      <th style={{ minWidth: 140 }}>Trạng thái</th>
+                      <th className="text-right sticky-col-right" style={{ textAlign: "right", whiteSpace: "nowrap", minWidth: 160 }}>
+                        Thao tác phân quyền
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
                     {users.map((user) => {
                       const primaryRole = getPrimaryRole(user);
                       return (
@@ -527,19 +552,18 @@ export function AdminRolesScreen() {
                   </tbody>
                 </table>
               </div>
-            ) : (
+            ) : !usersResource.loading ? (
               <NoData
                 title={
-                  usersResource.loading
-                    ? "Đang tải danh sách tài khoản…"
-                    : usersResource.error
-                      ? "Không tải được danh sách tài khoản từ API"
-                      : search || status
-                        ? "Không tìm thấy tài khoản phù hợp với điều kiện lọc"
-                        : `Chưa có tài khoản nào thuộc vai trò ${currentRole?.name ?? ""}`
+                  usersResource.error
+                    ? "Không tải được danh sách tài khoản từ API"
+                    : search || status
+                      ? "Không tìm thấy tài khoản phù hợp với điều kiện lọc"
+                      : `Chưa có tài khoản nào thuộc vai trò ${currentRole?.name ?? ""}`
                 }
               />
-            )}
+            ) : null}
+          </div>
 
             {usersResource.data && (
               <AdminPagination

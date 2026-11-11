@@ -52,6 +52,7 @@ export const ROUTES = {
     sellers: "/staff/sellers",
     seller: (id: string) => "/staff/sellers/" + encodeURIComponent(id),
     reports: "/staff/reports",
+    penalties: "/staff/penalties",
   },
   admin: {
     overview: "/admin/overview",
@@ -59,12 +60,13 @@ export const ROUTES = {
     auction: (id: string) => "/admin/auctions/" + encodeURIComponent(id),
     auctionConfigs: "/admin/auction-configs",
     users: "/admin/users",
-    roles: "/admin/roles",
+    roles: "/admin/users?tab=roles",
     penalties: "/admin/penalties",
     reports: "/admin/reports",
     configs: "/admin/configs",
     ledger: "/admin/ledger",
     categories: "/admin/categories",
     coupons: "/admin/coupons",
+    notifications: "/admin/notifications",
   },
 } as const;

@@ -5,6 +5,7 @@ import { AdminPagination, Badge, Card, NoData, PageHeading, SectionHeading } fro
 import { ApiError } from "@/lib/api/client";
 import { useApiResource } from "@/lib/api/use-api-resource";
 import { adminUsersService, type AdminUserReputationLog } from "./services/admin-users.service";
+import { AdminRolesScreen } from "./AdminRolesScreen";
 import {
   userId,
   userName,
@@ -43,6 +44,13 @@ function sellerShopStatusLabel(status?: string | null): string {
 }
 
 export function AdminUsersScreen() {
+  const [activeTab, setActiveTab] = useState<"users" | "roles">(() => {
+    if (typeof window !== "undefined") {
+      const p = new URLSearchParams(window.location.search);
+      if (p.get("tab") === "roles") return "roles";
+    }
+    return "users";
+  });
   const [keyword, setKeyword] = useState("");
   const [search, setSearch] = useState("");
   const [role, setRole] = useState("");
@@ -378,29 +386,97 @@ export function AdminUsersScreen() {
   return (
     <>
       <PageHeading
-        overline="Quản lý tài khoản"
-        title="Quản lý tài khoản"
-        description="Tra cứu, khởi tạo tài khoản nội bộ, chỉnh sửa hồ sơ, điều chỉnh điểm uy tín và xử lý trạng thái tài khoản."
+        overline="Quản trị người dùng & phân quyền"
+        title="Người dùng & Phân quyền"
+        description="Tra cứu hồ sơ tài khoản toàn sàn, bổ nhiệm vai trò nhân sự và quản lý quyền hạn hệ thống."
         action={
-          <button
-            type="button"
-            className="button button-primary button-small"
-            onClick={() => {
-              setError(null);
-              setSaved("");
-              setCreateOpen(true);
-            }}
-          >
-            + Tạo tài khoản nội bộ
-          </button>
+          <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+            <button
+              type="button"
+              className="button button-secondary button-small"
+              disabled={users.loading}
+              onClick={users.reload}
+            >
+              {users.loading ? "Đang làm mới…" : "Làm mới dữ liệu"}
+            </button>
+            {activeTab === "users" && (
+              <button
+                type="button"
+                className="button button-primary button-small"
+                onClick={() => {
+                  setError(null);
+                  setSaved("");
+                  setCreateOpen(true);
+                }}
+              >
+                + Thêm tài khoản
+              </button>
+            )}
+          </div>
         }
       />
 
-      {saved && !selected && (
-        <p role="status" className="form-success">
-          {saved}
-        </p>
-      )}
+      {/* Thanh Tabs chuẩn phân tách giao diện */}
+      <div
+        role="tablist"
+        aria-label="Phân hệ người dùng và phân quyền"
+        style={{
+          display: "flex",
+          gap: "24px",
+          borderBottom: "1px solid var(--line, #e2e8f0)",
+          marginBottom: "20px",
+          marginTop: "-8px",
+        }}
+      >
+        <button
+          type="button"
+          role="tab"
+          aria-selected={activeTab === "users"}
+          onClick={() => setActiveTab("users")}
+          style={{
+            background: "none",
+            border: "none",
+            borderBottom: activeTab === "users" ? "2px solid var(--primary, #0284c7)" : "2px solid transparent",
+            padding: "8px 4px 12px",
+            fontSize: "14px",
+            fontWeight: activeTab === "users" ? 600 : 500,
+            color: activeTab === "users" ? "var(--primary, #0284c7)" : "var(--muted, #64748b)",
+            cursor: "pointer",
+            transition: "all 0.15s ease",
+          }}
+        >
+          Danh sách tài khoản
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={activeTab === "roles"}
+          onClick={() => setActiveTab("roles")}
+          style={{
+            background: "none",
+            border: "none",
+            borderBottom: activeTab === "roles" ? "2px solid var(--primary, #0284c7)" : "2px solid transparent",
+            padding: "8px 4px 12px",
+            fontSize: "14px",
+            fontWeight: activeTab === "roles" ? 600 : 500,
+            color: activeTab === "roles" ? "var(--primary, #0284c7)" : "var(--muted, #64748b)",
+            cursor: "pointer",
+            transition: "all 0.15s ease",
+          }}
+        >
+          Vai trò & Bổ nhiệm
+        </button>
+      </div>
+
+      {activeTab === "roles" ? (
+        <AdminRolesScreen embedded />
+      ) : (
+        <>
+          {saved && !selected && (
+            <p role="status" className="form-success">
+              {saved}
+            </p>
+          )}
 
       <SectionHeading title="Danh sách tài khoản" />
       <Card>
@@ -599,7 +675,7 @@ export function AdminUsersScreen() {
           }}
         >
           <section
-            className="admin-modal-dialog"
+            className="admin-modal-dialog admin-modal-wide"
             role="dialog"
             aria-modal="true"
             aria-labelledby="user-modal-title"
@@ -651,124 +727,169 @@ export function AdminUsersScreen() {
 
             {detail.data && (
               <>
-                <div style={{ display: "grid", gap: "10px", marginBottom: "16px" }}>
-                  <div className="info-row">
-                    <span>Họ và tên</span>
-                    <strong>{userName(detail.data)}</strong>
-                  </div>
-                  <div className="info-row">
-                    <span>Email</span>
-                    <strong>{detail.data.email}</strong>
-                  </div>
-                  {detail.data.username && (
+                <div className="admin-detail-grid-2col" style={{ marginBottom: "16px" }}>
+                  {/* Cột 1: Thông tin cá nhân & Liên hệ */}
+                  <div style={{ display: "grid", gap: "2px" }}>
                     <div className="info-row">
-                      <span>Tên đăng nhập</span>
-                      <strong>@{detail.data.username}</strong>
+                      <span>Họ và tên</span>
+                      <strong>{userName(detail.data)}</strong>
                     </div>
-                  )}
-                  <div className="info-row">
-                    <span>Số điện thoại</span>
-                    <strong>{detail.data.phoneNumber ?? "—"}</strong>
-                  </div>
-                  {detail.data.identifyNumber && (
                     <div className="info-row">
-                      <span>Số CCCD/Định danh (Bảo vệ PII)</span>
-                      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                        <strong>
-                          {showFullCccd
-                            ? detail.data.identifyNumber
-                            : maskIdentifyNumber(detail.data.identifyNumber)}
-                        </strong>
-                        <button
-                          type="button"
-                          className="button button-secondary button-small"
-                          onClick={() => setShowFullCccd((prev) => !prev)}
-                        >
-                          {showFullCccd ? "Ẩn bớt" : "Hiện đầy đủ"}
-                        </button>
+                      <span>Email</span>
+                      <strong>{detail.data.email}</strong>
+                    </div>
+                    {detail.data.username && (
+                      <div className="info-row">
+                        <span>Tên đăng nhập</span>
+                        <strong>@{detail.data.username}</strong>
                       </div>
-                    </div>
-                  )}
-                  {detail.data.address && (
+                    )}
                     <div className="info-row">
-                      <span>Địa chỉ</span>
-                      <strong>{detail.data.address}</strong>
+                      <span>Số điện thoại</span>
+                      <strong>{detail.data.phoneNumber ?? "—"}</strong>
                     </div>
-                  )}
-                  <div className="info-row">
-                    <span>Vai trò chính</span>
-                    <Badge tone={roleTone(getPrimaryRole(detail.data))}>
-                      {getPrimaryRole(detail.data)}
-                    </Badge>
+                    {detail.data.identifyNumber && (
+                      <div className="info-row">
+                        <span>Số CCCD/Định danh (PII)</span>
+                        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                          <strong>
+                            {showFullCccd
+                              ? detail.data.identifyNumber
+                              : maskIdentifyNumber(detail.data.identifyNumber)}
+                          </strong>
+                          <button
+                            type="button"
+                            className="button button-secondary button-small"
+                            onClick={() => setShowFullCccd((prev) => !prev)}
+                            style={{ minHeight: "24px", padding: "0 8px", fontSize: "11px" }}
+                          >
+                            {showFullCccd ? "Ẩn bớt" : "Hiện"}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                    {detail.data.address && (
+                      <div className="info-row">
+                        <span>Địa chỉ</span>
+                        <strong>{detail.data.address}</strong>
+                      </div>
+                    )}
                   </div>
-                  <div className="info-row">
-                    <span>Trạng thái</span>
-                    <Badge tone={userStatusTone(detail.data.status)}>
-                      {userStatusLabel(detail.data.status)}
-                    </Badge>
-                  </div>
-                  {detail.data.reputationScore != null && (
-                    <div className="info-row">
-                      <span>Điểm uy tín Buyer</span>
-                      <strong>
-                        {detail.data.reputationScore} ({detail.data.trustLevel ?? "Standard"})
-                      </strong>
-                    </div>
-                  )}
-                  {(detail.data.isSeller || detail.data.sellerReputationScore != null) && (
-                    <div className="info-row">
-                      <span>Điểm uy tín Seller</span>
-                      <strong>
-                        {detail.data.sellerReputationScore ?? 50} ({detail.data.sellerTrustLevel ?? "Standard"})
-                      </strong>
-                    </div>
-                  )}
-                  {detail.data.createdAt && (
-                    <div className="info-row">
-                      <span>Ngày tạo tài khoản</span>
-                      <strong>{new Date(detail.data.createdAt).toLocaleString("vi-VN")}</strong>
-                    </div>
-                  )}
-                  {currentStatus === "BANNED" && detail.data.banReason && (
-                    <div className="info-row" style={{ color: "#9f2f2c" }}>
-                      <span>Lý do khóa</span>
-                      <strong>{detail.data.banReason}</strong>
-                    </div>
-                  )}
 
-                  {Boolean(detail.data.isSeller || detail.data.sellerProfile) && (
-                    <div style={{ borderTop: "1px solid var(--line)", paddingTop: "14px", marginTop: "4px", display: "grid", gap: "10px" }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                        <span style={{ fontSize: "13px", fontWeight: 700, color: "var(--ink)" }}>Hồ sơ & Trạng thái Shop</span>
+                  {/* Cột 2: Vai trò, Trạng thái & Uy tín */}
+                  <div style={{ display: "grid", gap: "2px" }}>
+                    <div className="info-row">
+                      <span>Vai trò chính</span>
+                      <Badge tone={roleTone(getPrimaryRole(detail.data))}>
+                        {getPrimaryRole(detail.data)}
+                      </Badge>
+                    </div>
+                    <div className="info-row">
+                      <span>Trạng thái</span>
+                      <Badge tone={userStatusTone(detail.data.status)}>
+                        {userStatusLabel(detail.data.status)}
+                      </Badge>
+                    </div>
+                    {detail.data.reputationScore != null && (
+                      <div className="info-row">
+                        <span>Điểm uy tín Buyer</span>
+                        <strong>
+                          {detail.data.reputationScore} ({detail.data.trustLevel ?? "Standard"})
+                        </strong>
+                      </div>
+                    )}
+                    {(detail.data.isSeller || detail.data.sellerReputationScore != null) && (
+                      <div className="info-row">
+                        <span>Điém uy tín Seller</span>
+                        <strong>
+                          {detail.data.sellerReputationScore ?? 50} ({detail.data.sellerTrustLevel ?? "Standard"})
+                        </strong>
+                      </div>
+                    )}
+                    {detail.data.createdAt && (
+                      <div className="info-row">
+                        <span>Ngày tạo tài khoản</span>
+                        <strong>{new Date(detail.data.createdAt).toLocaleString("vi-VN")}</strong>
+                      </div>
+                    )}
+                    {currentStatus === "BANNED" && detail.data.banReason && (
+                      <div className="info-row" style={{ color: "#9f2f2c" }}>
+                        <span>Lý do khóa</span>
+                        <strong>{detail.data.banReason}</strong>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {Boolean(detail.data.isSeller || detail.data.sellerProfile) && (
+                  <div style={{ borderTop: "1px solid var(--line)", paddingTop: "12px", marginBottom: "16px" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "8px", marginBottom: "8px" }}>
+                      <span style={{ fontSize: "13px", fontWeight: 700, color: "var(--ink)" }}>Hồ sơ & Trạng thái Shop</span>
+                      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                         <Badge tone={sellerShopStatusTone(detail.data.sellerProfile?.status)}>
                           {sellerShopStatusLabel(detail.data.sellerProfile?.status)}
                         </Badge>
+                        {Boolean(detail.data.sellerProfile) && (
+                          (detail.data.sellerProfile?.status ?? "").toLowerCase() === "suspended" ? (
+                            <button
+                              type="button"
+                              className="button button-small"
+                              disabled={busy}
+                              onClick={() => {
+                                resetActionState();
+                                setAction("reactivateShop");
+                              }}
+                              style={{ backgroundColor: "#16a34a", borderColor: "#16a34a", color: "#fff", minHeight: "26px", padding: "0 10px", fontSize: "12px" }}
+                            >
+                              Mở lại Shop
+                            </button>
+                          ) : (detail.data.sellerProfile?.status ?? "").toLowerCase() === "approved" ? (
+                            <button
+                              type="button"
+                              className="button button-small"
+                              disabled={busy}
+                              onClick={() => {
+                                resetActionState();
+                                setAction("suspendShop");
+                              }}
+                              style={{ backgroundColor: "#d97706", borderColor: "#d97706", color: "#fff", minHeight: "26px", padding: "0 10px", fontSize: "12px" }}
+                            >
+                              Đình chỉ Shop
+                            </button>
+                          ) : null
+                        )}
                       </div>
-                      <div className="info-row">
-                        <span>Tên gian hàng</span>
-                        <strong>{detail.data.sellerProfile?.shopName || "Gian hàng cá nhân"}</strong>
-                      </div>
-                      {detail.data.sellerProfile?.hotline && (
-                        <div className="info-row">
-                          <span>Hotline shop</span>
-                          <strong>{detail.data.sellerProfile.hotline}</strong>
-                        </div>
-                      )}
-                      {detail.data.sellerProfile?.businessEmail && (
-                        <div className="info-row">
-                          <span>Email doanh nghiệp</span>
-                          <strong>{detail.data.sellerProfile.businessEmail}</strong>
-                        </div>
-                      )}
-                      {detail.data.sellerProfile?.pickupAddress && (
-                        <div className="info-row">
-                          <span>Địa chỉ kho (GHN)</span>
-                          <strong>{detail.data.sellerProfile.pickupAddress}</strong>
-                        </div>
-                      )}
                     </div>
-                  )}
-                </div>
+                    <div className="admin-detail-grid-2col">
+                      <div style={{ display: "grid", gap: "2px" }}>
+                        <div className="info-row">
+                          <span>Tên gian hàng</span>
+                          <strong>{detail.data.sellerProfile?.shopName || "Gian hàng cá nhân"}</strong>
+                        </div>
+                        {detail.data.sellerProfile?.hotline && (
+                          <div className="info-row">
+                            <span>Hotline shop</span>
+                            <strong>{detail.data.sellerProfile.hotline}</strong>
+                          </div>
+                        )}
+                      </div>
+                      <div style={{ display: "grid", gap: "2px" }}>
+                        {detail.data.sellerProfile?.businessEmail && (
+                          <div className="info-row">
+                            <span>Email doanh nghiệp</span>
+                            <strong>{detail.data.sellerProfile.businessEmail}</strong>
+                          </div>
+                        )}
+                        {detail.data.sellerProfile?.pickupAddress && (
+                          <div className="info-row">
+                            <span>Địa chỉ kho (GHN)</span>
+                            <strong>{detail.data.sellerProfile.pickupAddress}</strong>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {((detail.data.reputationLogs && detail.data.reputationLogs.length > 0) || showReputationHistory) && (
                   <div style={{ borderTop: "1px solid var(--line)", paddingTop: "14px", marginBottom: "16px" }}>
@@ -837,115 +958,189 @@ export function AdminUsersScreen() {
                   </div>
                 )}
 
-                <div
-                  className="action-row"
-                  style={{ borderTop: "1px solid var(--line)", paddingTop: "14px", flexWrap: "wrap" }}
-                >
-                  <button
-                    type="button"
-                    className="button button-secondary button-small"
-                    disabled={busy}
-                    onClick={openRolesAction}
+                {/* Khung hành động quản trị & Chế tài (Dàn 2 cột ngang hàng) */}
+                <div className="admin-modal-actions-grid">
+                  {/* Phân nhóm tác vụ 1: Thao tác hồ sơ & Quản trị thông thường */}
+                  <div
+                    style={{
+                      padding: "12px 14px",
+                      borderRadius: "10px",
+                      border: "1px solid var(--line)",
+                      background: "var(--canvas)",
+                      display: "flex",
+                      flexDirection: "column",
+                      justifyContent: "space-between",
+                      gap: "8px",
+                    }}
                   >
-                    Quản lý vai trò
-                  </button>
-                  <button
-                    type="button"
-                    className="button button-secondary button-small"
-                    disabled={busy}
-                    onClick={openEditProfileAction}
-                  >
-                    Cập nhật hồ sơ
-                  </button>
-                  <button
-                    type="button"
-                    className="button button-secondary button-small"
-                    disabled={busy}
-                    onClick={openReputationAction}
-                  >
-                    Chỉnh điểm uy tín
-                  </button>
-                  <button
-                    type="button"
-                    className={`button button-small ${showReputationHistory ? "button-primary" : "button-secondary"}`}
-                    disabled={busy}
-                    onClick={toggleReputationHistory}
-                  >
-                    {showReputationHistory ? "Ẩn lịch sử uy tín" : "Nhật ký uy tín"}
-                  </button>
-                  {currentStatus !== "BANNED" && currentStatus !== "DELETED" && (
-                    <button
-                      type="button"
-                      className="button button-secondary button-small"
-                      disabled={busy}
-                      onClick={() => {
-                        setAction("ban");
-                        setReason("");
-                        setError(null);
-                      }}
-                    >
-                      Khóa tài khoản (Ban)
-                    </button>
-                  )}
-                  {currentStatus === "BANNED" && (
-                    <button
-                      type="button"
-                      className="button button-secondary button-small"
-                      disabled={busy}
-                      onClick={() => {
-                        setAction("unban");
-                        setReason("");
-                        setError(null);
-                      }}
-                    >
-                      Mở khóa
-                    </button>
-                  )}
-                  {currentStatus !== "DELETED" && (
-                    <button
-                      type="button"
-                      className="button button-danger button-small"
-                      disabled={busy}
-                      onClick={() => {
-                        setAction("delete");
-                        setReason("");
-                        setError(null);
-                      }}
-                    >
-                      Xóa mềm
-                    </button>
-                  )}
+                    <div>
+                      <span style={{ fontSize: "13px", fontWeight: 700, color: "var(--ink)", display: "block" }}>
+                        Thao tác quản trị tài khoản
+                      </span>
+                      <p style={{ margin: "2px 0 0", fontSize: "12px", color: "var(--muted)", lineHeight: "1.4" }}>
+                        Chỉnh sửa thông tin hồ sơ và điều chỉnh điểm uy tín của thành viên.
+                      </p>
+                    </div>
+                    <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginTop: "4px" }}>
+                      <button
+                        type="button"
+                        className={`button button-small ${action === "editProfile" ? "button-primary" : "button-secondary"}`}
+                        disabled={busy}
+                        onClick={openEditProfileAction}
+                      >
+                        Cập nhật hồ sơ
+                      </button>
+                      <button
+                        type="button"
+                        className={`button button-small ${action === "reputation" ? "button-primary" : "button-secondary"}`}
+                        disabled={busy}
+                        onClick={openReputationAction}
+                      >
+                        Chỉnh điểm uy tín
+                      </button>
+                      <button
+                        type="button"
+                        className={`button button-small ${showReputationHistory ? "button-primary" : "button-secondary"}`}
+                        disabled={busy}
+                        onClick={toggleReputationHistory}
+                      >
+                        {showReputationHistory ? "Ẩn lịch sử uy tín" : "Nhật ký uy tín"}
+                      </button>
+                    </div>
+                  </div>
 
-                  {Boolean(detail.data.sellerProfile) && (
-                    (detail.data.sellerProfile?.status ?? "").toLowerCase() === "suspended" ? (
-                      <button
-                        type="button"
-                        className="button button-small"
-                        disabled={busy}
-                        onClick={() => {
-                          resetActionState();
-                          setAction("reactivateShop");
-                        }}
-                        style={{ backgroundColor: "#16a34a", borderColor: "#16a34a", color: "#fff" }}
-                      >
-                        Mở lại Shop
-                      </button>
-                    ) : (detail.data.sellerProfile?.status ?? "").toLowerCase() === "approved" ? (
-                      <button
-                        type="button"
-                        className="button button-small"
-                        disabled={busy}
-                        onClick={() => {
-                          resetActionState();
-                          setAction("suspendShop");
-                        }}
-                        style={{ backgroundColor: "#d97706", borderColor: "#d97706", color: "#fff" }}
-                      >
-                        Đình chỉ Shop
-                      </button>
-                    ) : null
-                  )}
+                  {/* Phân nhóm tác vụ 2: Vùng chế tài & nguy hiểm (Danger Zone) */}
+                  <div
+                    style={{
+                      padding: "12px 14px",
+                      borderRadius: "10px",
+                      border: "1px solid #fecdd3",
+                      backgroundColor: "#fff1f2",
+                      display: "flex",
+                      flexDirection: "column",
+                      justifyContent: "space-between",
+                      gap: "8px",
+                    }}
+                  >
+                    <div>
+                      <span style={{ fontSize: "13px", fontWeight: 700, color: "#991b1b", display: "flex", alignItems: "center", gap: "6px" }}>
+                        Vùng chế tài & xử lý vi phạm
+                      </span>
+                      <p style={{ margin: "2px 0 0", fontSize: "12px", color: "#b91c1c", lineHeight: "1.4" }}>
+                        Các hành động này ảnh hưởng trực tiếp đến quyền truy cập hoặc xóa tài khoản khỏi sàn.
+                      </p>
+                    </div>
+                    <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginTop: "4px" }}>
+                      {currentStatus !== "BANNED" && currentStatus !== "DELETED" && (
+                        <button
+                          type="button"
+                          className="button button-small"
+                          disabled={busy}
+                          onClick={() => {
+                            resetActionState();
+                            setAction("ban");
+                          }}
+                          style={{
+                            backgroundColor: action === "ban" ? "#b91c1c" : "#dc2626",
+                            borderColor: "#dc2626",
+                            color: "#fff",
+                          }}
+                        >
+                          Khóa tài khoản (Ban)
+                        </button>
+                      )}
+                      {currentStatus === "BANNED" && (
+                        <button
+                          type="button"
+                          className="button button-small"
+                          disabled={busy}
+                          onClick={() => {
+                            resetActionState();
+                            setAction("unban");
+                          }}
+                          style={{
+                            backgroundColor: action === "unban" ? "#0369a1" : "#0284c7",
+                            borderColor: "#0284c7",
+                            color: "#fff",
+                          }}
+                        >
+                          Mở khóa tài khoản
+                        </button>
+                      )}
+                      {currentStatus !== "DELETED" && (
+                        <button
+                          type="button"
+                          className="button button-small"
+                          disabled={busy}
+                          onClick={() => {
+                            resetActionState();
+                            setAction("delete");
+                          }}
+                          style={{
+                            backgroundColor: action === "delete" ? "#fee2e2" : "#fff",
+                            borderColor: "#dc2626",
+                            color: "#dc2626",
+                            fontWeight: 600,
+                          }}
+                        >
+                          Xóa mềm
+                        </button>
+                      )}
+                    </div>
+                  </div>
                 </div>
+
+                {/* Khung thao tác hành động đang chọn (Active Action Panel) */}
+                {action && (
+                  <div
+                    style={{
+                      marginTop: "16px",
+                      padding: "16px",
+                      borderRadius: "10px",
+                      border: `1px solid ${action === "ban" || action === "delete" || action === "suspendShop" ? "#fca5a5" : "var(--line)"}`,
+                      backgroundColor: action === "ban" || action === "delete" || action === "suspendShop" ? "#fef2f2" : "#f8fafc",
+                      boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        marginBottom: "12px",
+                        borderBottom: `1px solid ${action === "ban" || action === "delete" || action === "suspendShop" ? "#fecaca" : "var(--line)"}`,
+                        paddingBottom: "8px",
+                      }}
+                    >
+                      <h3
+                        style={{
+                          margin: 0,
+                          fontSize: "14px",
+                          fontWeight: 700,
+                          color: action === "ban" || action === "delete" || action === "suspendShop" ? "#b91c1c" : "var(--ink)",
+                        }}
+                      >
+                        {action === "roles" && "Bổ nhiệm & Quản lý vai trò"}
+                        {action === "editProfile" && "Cập nhật hồ sơ tài khoản"}
+                        {action === "reputation" && "Điều chỉnh điểm uy tín"}
+                        {action === "ban" && "Chế tài: Khóa tài khoản (Ban)"}
+                        {action === "unban" && "Khôi phục: Mở khóa tài khoản"}
+                        {action === "delete" && "Cảnh báo: Xóa mềm tài khoản"}
+                        {action === "suspendShop" && "Đình chỉ hoạt động gian hàng (Shop)"}
+                        {action === "reactivateShop" && "Mở lại hoạt động gian hàng (Shop)"}
+                      </h3>
+                      <button
+                        type="button"
+                        className="admin-modal-close-btn"
+                        onClick={() => resetActionState()}
+                        disabled={busy}
+                        aria-label="Đóng form"
+                        title="Đóng form"
+                        style={{ width: "26px", height: "26px", fontSize: "14px" }}
+                      >
+                        ✕
+                      </button>
+                    </div>
 
                 {action === "roles" && (
                   <form className="auth-fields" onSubmit={(event) => void submitAction(event)} style={{ marginTop: "14px" }}>
@@ -1296,37 +1491,141 @@ export function AdminUsersScreen() {
                 )}
 
                 {/* Form for Adjust Reputation (PATCH /api/v1/admin/users/{id}/reputation) */}
-                {action === "reputation" && (
-                  <form
-                    className="auth-fields"
-                    onSubmit={(event) => void submitAction(event)}
-                    style={{ marginTop: "14px" }}
-                  >
-                    <div className="form-grid">
-                      <label className="field-wrap">
-                        Quỹ điểm mục tiêu (TargetRole)
-                        <select
-                          className="select-field"
-                          value={repForm.targetRole}
-                          onChange={(e) =>
-                            setRepForm((prev) => ({
-                              ...prev,
-                              targetRole: e.target.value as "Buyer" | "Seller",
-                            }))
-                          }
-                        >
-                          <option value="Buyer">Buyer (Người mua)</option>
-                          {detail.data?.isSeller || (detail.data?.roles ?? []).some((r: string) => r.toLowerCase() === "seller") ? (
-                            <option value="Seller">Seller (Người bán)</option>
-                          ) : (
-                            <option value="Seller" disabled>
-                              Seller (Tài khoản không có vai trò Seller)
-                            </option>
-                          )}
-                        </select>
-                      </label>
-                      <label className="field-wrap">
-                        Điểm thay đổi (-50 đến +50, khác 0) <span style={{ color: "var(--red)" }}>*</span>
+                {action === "reputation" && (() => {
+                  const isEligibleSeller = Boolean(
+                    detail.data?.isSeller ||
+                    (detail.data?.roles ?? []).some((r: string) => r.toLowerCase() === "seller")
+                  );
+                  const currentScore = repForm.targetRole === "Seller"
+                    ? (detail.data.sellerReputationScore ?? 50)
+                    : (detail.data.reputationScore ?? 50);
+                  const delta = parseInt(repForm.scoreDelta || "0", 10) || 0;
+                  const projectedScore = Math.max(0, currentScore + delta);
+
+                  return (
+                    <form
+                      className="auth-fields"
+                      onSubmit={(event) => void submitAction(event)}
+                      style={{ marginTop: "14px", display: "grid", gap: "14px" }}
+                    >
+                      {/* Chọn quỹ điểm */}
+                      <div>
+                        <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--muted)", display: "block", marginBottom: "6px" }}>
+                          Quỹ điểm áp dụng
+                        </span>
+                        {isEligibleSeller ? (
+                          <div style={{ display: "flex", gap: "6px" }}>
+                            <button
+                              type="button"
+                              className={`button button-small ${repForm.targetRole === "Buyer" ? "button-primary" : "button-secondary"}`}
+                              onClick={() => setRepForm((prev) => ({ ...prev, targetRole: "Buyer" }))}
+                            >
+                              Người mua (Buyer)
+                            </button>
+                            <button
+                              type="button"
+                              className={`button button-small ${repForm.targetRole === "Seller" ? "button-primary" : "button-secondary"}`}
+                              onClick={() => setRepForm((prev) => ({ ...prev, targetRole: "Seller" }))}
+                            >
+                              Người bán (Seller)
+                            </button>
+                          </div>
+                        ) : (
+                          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                            <Badge tone="slate">Buyer (Người mua)</Badge>
+                            <span style={{ fontSize: "12px", color: "var(--muted)" }}>
+                              Tài khoản chưa kích hoạt vai trò Seller
+                            </span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Khối xem trước biến động điểm (Score Preview) */}
+                      <div
+                        style={{
+                          padding: "12px 16px",
+                          borderRadius: "8px",
+                          backgroundColor: delta > 0 ? "#f0fdf4" : delta < 0 ? "#fef2f2" : "#f8fafc",
+                          border: `1px solid ${delta > 0 ? "#bbf7d0" : delta < 0 ? "#fecaca" : "#e2e8f0"}`,
+                          display: "grid",
+                          gridTemplateColumns: "1fr auto 1fr",
+                          alignItems: "center",
+                          gap: "12px",
+                        }}
+                      >
+                        <div>
+                          <small style={{ color: "var(--muted)", display: "block", fontSize: "11px" }}>Điểm hiện tại</small>
+                          <strong style={{ fontSize: "17px", color: "var(--ink)" }}>{currentScore}</strong>
+                        </div>
+                        <div style={{ textAlign: "center", padding: "0 8px" }}>
+                          <small style={{ color: "var(--muted)", display: "block", fontSize: "11px" }}>Biến động</small>
+                          <strong
+                            style={{
+                              fontSize: "17px",
+                              color: delta > 0 ? "#16a34a" : delta < 0 ? "#dc2626" : "var(--muted)",
+                            }}
+                          >
+                            {delta > 0 ? `+${delta}` : delta}
+                          </strong>
+                        </div>
+                        <div style={{ textAlign: "right" }}>
+                          <small style={{ color: "var(--muted)", display: "block", fontSize: "11px" }}>Điểm sau điều chỉnh</small>
+                          <strong
+                            style={{
+                              fontSize: "17px",
+                              color: delta > 0 ? "#16a34a" : delta < 0 ? "#dc2626" : "var(--ink)",
+                            }}
+                          >
+                            {projectedScore}
+                          </strong>
+                        </div>
+                      </div>
+
+                      {/* Chọn nhanh & Nhập điểm */}
+                      <div className="field-wrap">
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px" }}>
+                          <span style={{ fontSize: "12px", fontWeight: 600 }}>
+                            Số điểm điều chỉnh (-50 đến +50, khác 0) <span style={{ color: "var(--red)" }}>*</span>
+                          </span>
+                        </div>
+                        <div style={{ display: "flex", gap: "6px", flexWrap: "wrap", marginBottom: "8px" }}>
+                          {[5, 10, 20].map((num) => (
+                            <button
+                              key={num}
+                              type="button"
+                              className="button button-small"
+                              style={{
+                                backgroundColor: repForm.scoreDelta === String(num) ? "#16a34a" : "#f0fdf4",
+                                borderColor: "#bbf7d0",
+                                color: repForm.scoreDelta === String(num) ? "#fff" : "#166534",
+                                minHeight: "28px",
+                                padding: "0 10px",
+                                fontSize: "12px",
+                              }}
+                              onClick={() => setRepForm((prev) => ({ ...prev, scoreDelta: String(num) }))}
+                            >
+                              +{num}
+                            </button>
+                          ))}
+                          {[-5, -10, -20].map((num) => (
+                            <button
+                              key={num}
+                              type="button"
+                              className="button button-small"
+                              style={{
+                                backgroundColor: repForm.scoreDelta === String(num) ? "#dc2626" : "#fef2f2",
+                                borderColor: "#fecaca",
+                                color: repForm.scoreDelta === String(num) ? "#fff" : "#991b1b",
+                                minHeight: "28px",
+                                padding: "0 10px",
+                                fontSize: "12px",
+                              }}
+                              onClick={() => setRepForm((prev) => ({ ...prev, scoreDelta: String(num) }))}
+                            >
+                              {num}
+                            </button>
+                          ))}
+                        </div>
                         <input
                           className="field"
                           type="number"
@@ -1334,41 +1633,60 @@ export function AdminUsersScreen() {
                           max="50"
                           step="1"
                           required
+                          placeholder="Hoặc nhập số điểm (-50 đến +50)..."
                           value={repForm.scoreDelta}
                           onChange={(e) =>
                             setRepForm((prev) => ({ ...prev, scoreDelta: e.target.value }))
                           }
                         />
+                      </div>
+
+                      {/* Lý do điều chỉnh */}
+                      <label className="field-wrap">
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px" }}>
+                          <span style={{ fontSize: "12px", fontWeight: 600 }}>
+                            Lý do điều chỉnh <span style={{ color: "var(--red)" }}>*</span>
+                          </span>
+                          <small style={{ color: repForm.reason.trim().length < 10 ? "var(--red)" : "var(--muted)", fontSize: "11px" }}>
+                            {repForm.reason.length}/500 ký tự (tối thiểu 10)
+                          </small>
+                        </div>
+                        <textarea
+                          className="textarea-field"
+                          required
+                          minLength={10}
+                          maxLength={500}
+                          rows={3}
+                          placeholder="Nhập lý do chi tiết tối thiểu 10 ký tự (ví dụ: Khách hàng xử lý khiếu nại tích cực, vi phạm thời gian phản hồi...)"
+                          value={repForm.reason}
+                          onChange={(e) =>
+                            setRepForm((prev) => ({ ...prev, reason: e.target.value }))
+                          }
+                        />
                       </label>
-                    </div>
-                    <label className="field-wrap">
-                      Lý do điều chỉnh (10 – 500 ký tự) <span style={{ color: "var(--red)" }}>*</span>
-                      <textarea
-                        className="textarea-field"
-                        required
-                        minLength={10}
-                        maxLength={500}
-                        placeholder="Nhập lý do chi tiết tối thiểu 10 ký tự..."
-                        value={repForm.reason}
-                        onChange={(e) =>
-                          setRepForm((prev) => ({ ...prev, reason: e.target.value }))
-                        }
-                      />
-                    </label>
-                    <div className="action-row">
-                      <button type="submit" className="button button-primary" disabled={busy}>
-                        {busy ? "Đang cập nhật…" : "Xác nhận chỉnh điểm"}
-                      </button>
-                      <button
-                        type="button"
-                        className="button button-secondary"
-                        disabled={busy}
-                        onClick={() => setAction(null)}
-                      >
-                        Hủy
-                      </button>
-                    </div>
-                  </form>
+
+                      {/* Nút hành động */}
+                      <div className="action-row">
+                        <button
+                          type="submit"
+                          className="button button-primary"
+                          disabled={busy || !delta || repForm.reason.trim().length < 10}
+                        >
+                          {busy ? "Đang cập nhật…" : "Xác nhận chỉnh điểm"}
+                        </button>
+                        <button
+                          type="button"
+                          className="button button-secondary"
+                          disabled={busy}
+                          onClick={() => resetActionState()}
+                        >
+                          Hủy
+                        </button>
+                      </div>
+                    </form>
+                  );
+                })()}
+                  </div>
                 )}
 
                 <div
@@ -1566,6 +1884,8 @@ export function AdminUsersScreen() {
             </form>
           </section>
         </div>
+      )}
+        </>
       )}
     </>
   );

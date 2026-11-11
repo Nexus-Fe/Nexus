@@ -119,6 +119,16 @@ export function AdminCategoriesScreen() {
         overline="Quản lý sản phẩm"
         title="Danh mục sản phẩm"
         description="Quản lý cấu trúc cây danh mục và trạng thái hiển thị của các ngành hàng toàn sàn."
+        action={
+          <button
+            type="button"
+            className="button button-secondary button-small"
+            disabled={categories.loading}
+            onClick={categories.reload}
+          >
+            {categories.loading ? "Đang làm mới…" : "Làm mới dữ liệu"}
+          </button>
+        }
       />
       {categories.error && (
         <p className="notice" role="alert">
