@@ -2,15 +2,17 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ROUTES } from "@/constants/routes";
 import { Icon } from "@/components/ui/Icon";
 import { ButtonLink, Card, NoData, PageHeading, SectionHeading } from "@/components/ui/Primitives";
 import { BackendImage } from "@/components/ui/BackendImage";
+import { SwipeCarousel } from "@/components/ui/SwipeCarousel";
 import { api, unwrap, type ApiResponse } from "@/lib/api/client";
 import { useApiResource } from "@/lib/api/use-api-resource";
 import { formatMoney, resolveImageUrl } from "@/lib/presentation";
 import { AuctionTile, auctionService } from "@/features/auction";
+import { CatalogPromoBanner } from "./CatalogPromoBanner";
 
 type Product = { id: string; productId?: string; name: string; description?: string; price: number; minPrice?: number | null; maxPrice?: number | null; primaryImageUrl?: string | null; imageUrl?: string; brand?: string; status?: string; categoryId?: string; categoryName?: string; variantCount?: number; variants?: Array<{ id: string; skuId?: string; name?: string; sku?: string; price?: number | null; status?: string; stock?: number }> };
 type Category = { id: string; categoryId?: string; name: string; parentId?: string | null; children?: Category[] | null };
@@ -54,13 +56,21 @@ function categoryGroups(categories: Category[]) {
   return roots.map((parent) => ({ parent, children: descendants(parent.id) }));
 }
 
-function catalogHref(keyword: string, categoryId: string, page: number, pageSize: number): string {
+type CatalogFilterValues = { keyword: string; categoryId: string; sortBy: string; minPrice: string; maxPrice: string; brand: string; minRating: string };
+const emptyCatalogFilters: CatalogFilterValues = { keyword: "", categoryId: "", sortBy: "", minPrice: "", maxPrice: "", brand: "", minRating: "" };
+
+function catalogHref(filters: CatalogFilterValues, page: number, pageSize: number, basePath: string = ROUTES.catalog.index): string {
   const params = new URLSearchParams();
-  if (keyword) params.set("keyword", keyword);
-  if (categoryId) params.set("categoryId", categoryId);
+  if (filters.keyword) params.set("keyword", filters.keyword);
+  if (filters.categoryId) params.set("categoryId", filters.categoryId);
+  if (filters.sortBy) params.set("sortBy", filters.sortBy);
+  if (filters.minPrice) params.set("minPrice", filters.minPrice);
+  if (filters.maxPrice) params.set("maxPrice", filters.maxPrice);
+  if (filters.brand) params.set("brand", filters.brand);
+  if (filters.minRating) params.set("minRating", filters.minRating);
   if (page > 1) params.set("page", String(page));
   if (pageSize !== 10) params.set("pageSize", String(pageSize));
-  return `${ROUTES.catalog.index}${params.size ? `?${params}` : ""}`;
+  return `${basePath}${params.size ? `?${params}` : ""}`;
 }
 
 function pageChoices(current: number, total: number): Array<number | "…"> {
@@ -76,9 +86,36 @@ function ProductCard({ product }: { product: Product }) {
   const hasPriceRange = typeof product.maxPrice === "number" && product.maxPrice > product.price;
   return <article className="product-card"><Link href={ROUTES.catalog.product(product.id)} className="product-media"><BackendImage src={resolveImageUrl(product.imageUrl ?? null)} alt={product.name} compact /></Link><div className="product-body"><p className="product-category">{product.brand ?? product.categoryName ?? ""}</p><h3><Link href={ROUTES.catalog.product(product.id)}>{product.name}</Link></h3><p className="product-seller">{product.status ?? ""}</p><div className="product-bottom"><div className="product-card-price"><span>{hasPriceRange ? "Giá từ" : "Giá bán"}</span><strong>{formatMoney(product.price)}</strong></div><Link aria-label={`Xem ${product.name}`} href={ROUTES.catalog.product(product.id)} className="round-link"><Icon name="arrow" size={18} /></Link></div></div></article>;
 }
-function useProducts(search = "", categoryId = "", page = 1, pageSize = 10) {
-  const path = search || categoryId ? "/api/v1/products/search" : "/api/v1/products";
-  const key = `${path}?${new URLSearchParams({ page: String(page), pageSize: String(pageSize), saleType: "REGULAR", status: "ACTIVE", ...(search ? { keyword: search } : {}), ...(categoryId ? { categoryId } : {}) })}`;
+
+function HomeProductBanner({ products }: { products: Product[] }) {
+  const [slides, setSlides] = useState<Product[]>([]);
+  useEffect(() => {
+    let current = true;
+    const candidates = products.filter((product) => product.id && product.imageUrl).slice(0, 20);
+    Promise.all(candidates.map((product) => new Promise<Product | null>((resolve) => {
+      const url = resolveImageUrl(product.imageUrl ?? null);
+      if (!url) { resolve(null); return; }
+      const image = new Image();
+      image.onload = () => resolve(image.naturalWidth > 0 ? product : null);
+      image.onerror = () => resolve(null);
+      image.src = url;
+    }))).then((verified) => { if (current) setSlides(verified.filter((product): product is Product => product !== null).slice(0, 5)); });
+    return () => { current = false; };
+  }, [products]);
+  if (!slides.length) return null;
+  return <section className="home-product-banner" aria-label="Sản phẩm nổi bật">
+    <SwipeCarousel slides={slides} className="hero-banner" trackClassName="hero-banner-track" ariaLabel="Vuốt ngang để xem sản phẩm nổi bật" renderSlide={(product, index, isClone) =>
+      <Link key={`${product.id}-${index}`} className="hero-banner-link" href={ROUTES.catalog.product(product.id)} aria-label={`Xem sản phẩm ${product.name}`} aria-hidden={isClone || undefined} tabIndex={isClone ? -1 : undefined} draggable={false}>
+        <div className="hero-banner-image"><div className="hero-banner-backdrop" aria-hidden="true"><BackendImage src={resolveImageUrl(product.imageUrl ?? null)} alt="" compact /></div><BackendImage src={resolveImageUrl(product.imageUrl ?? null)} alt={product.name} compact /></div>
+      </Link>
+    } />
+  </section>;
+}
+
+function useProducts(filters: CatalogFilterValues = emptyCatalogFilters, page = 1, pageSize = 10, sellerId = "") {
+  const path = filters.keyword || filters.categoryId || filters.sortBy || filters.minPrice || filters.maxPrice || filters.brand || filters.minRating || sellerId
+    ? "/api/v1/products/search" : "/api/v1/products";
+  const key = `${path}?${new URLSearchParams({ page: String(page), pageSize: String(pageSize), saleType: "REGULAR", status: "ACTIVE", ...(filters.keyword ? { keyword: filters.keyword } : {}), ...(filters.categoryId ? { categoryId: filters.categoryId } : {}), ...(filters.sortBy ? { sortBy: filters.sortBy } : {}), ...(filters.minPrice ? { minPrice: filters.minPrice } : {}), ...(filters.maxPrice ? { maxPrice: filters.maxPrice } : {}), ...(filters.brand ? { brand: filters.brand } : {}), ...(filters.minRating ? { minRating: filters.minRating } : {}), ...(sellerId ? { sellerId } : {}) })}`;
   return useApiResource(key, async (signal) => {
     const result = unwrap(await api.get<ApiResponse<ProductPage> | ProductPage>(key, { signal }));
     return {
@@ -108,6 +145,8 @@ export function HomeScreen() {
       <div className="hero-visual" aria-hidden="true"><span className="hero-orbit hero-orbit-one"/><span className="hero-orbit hero-orbit-two"/><span className="hero-icon"><Icon name="gavel" size={58} /></span></div>
     </div>
 
+    <HomeProductBanner products={products.data?.items ?? []} />
+
     <section id="home-auctions" className="home-section" aria-label="Phiên đấu giá">
       <SectionHeading id="home-auctions-title" title="Phiên đấu giá trực tuyến" hint="Theo dõi các phiên đang diễn ra và sắp mở." />
       <div className="auction-list-grid">
@@ -128,43 +167,62 @@ export function HomeScreen() {
   </>;
 }
 
-function CatalogFilters({ initialSearch, initialCategoryId, pageSize, categories, categoriesError }: {
-  initialSearch: string;
-  initialCategoryId: string;
+function CatalogFilters({ initialFilters, pageSize, categories, categoriesError, basePath }: {
+  initialFilters: CatalogFilterValues;
   pageSize: number;
   categories: Category[];
   categoriesError: Error | null;
+  basePath: string;
 }) {
   const router = useRouter();
-  const [search, setSearch] = useState(initialSearch);
-  const [categoryId, setCategoryId] = useState(initialCategoryId);
+  const [search, setSearch] = useState(initialFilters.keyword);
+  const [categoryId, setCategoryId] = useState(initialFilters.categoryId);
+  const [sortBy, setSortBy] = useState(initialFilters.sortBy);
+  const [minPrice, setMinPrice] = useState(initialFilters.minPrice);
+  const [maxPrice, setMaxPrice] = useState(initialFilters.maxPrice);
+  const [brand, setBrand] = useState(initialFilters.brand);
+  const [minRating, setMinRating] = useState(initialFilters.minRating);
+  const [filterError, setFilterError] = useState("");
 
   const applyFilters = () => {
-    router.push(catalogHref(search.trim(), categoryId, 1, pageSize), { scroll: false });
+    if ((minPrice && !Number.isSafeInteger(Number(minPrice))) || (maxPrice && !Number.isSafeInteger(Number(maxPrice))) ||
+      (minPrice && Number(minPrice) < 0) || (maxPrice && Number(maxPrice) < 0) ||
+      (minPrice && maxPrice && Number(minPrice) > Number(maxPrice))) {
+      setFilterError("Khoảng giá phải là số nguyên không âm và giá thấp nhất không vượt giá cao nhất.");
+      return;
+    }
+    setFilterError("");
+    router.push(catalogHref({ keyword: search.trim(), categoryId, sortBy, minPrice, maxPrice, brand: brand.trim(), minRating }, 1, pageSize, basePath), { scroll: false });
   };
 
   const clearFilters = () => {
-    setSearch("");
-    setCategoryId("");
-    router.push(catalogHref("", "", 1, pageSize), { scroll: false });
+    setSearch(""); setCategoryId(""); setSortBy(""); setMinPrice(""); setMaxPrice(""); setBrand(""); setMinRating(""); setFilterError("");
+    router.push(catalogHref(emptyCatalogFilters, 1, pageSize, basePath), { scroll: false });
   };
 
-  return <Card className="card-pad catalog-filters"><h2 style={{fontSize:16}}>Bộ lọc tìm kiếm</h2><form onSubmit={(e) => { e.preventDefault(); applyFilters(); }}><div className="field-wrap"><label htmlFor="catalog-search">Tìm sản phẩm</label><input id="catalog-search" value={search} onChange={(e) => setSearch(e.target.value)} type="search" className="field" placeholder="Tên hoặc từ khóa" maxLength={100} /></div><div className="field-wrap" style={{marginTop:18}}><label htmlFor="catalog-category">Danh mục sản phẩm</label><select id="catalog-category" className="select-field" value={categoryId} onChange={(e) => setCategoryId(e.target.value)}><option value="">Tất cả danh mục</option>{categoryGroups(categories).map(({ parent, children }) => children.length ? <optgroup key={parent.id} label={parent.name}>{children.map((child) => <option key={child.id} value={child.id}>{child.name}</option>)}</optgroup> : <option key={parent.id} value={parent.id}>{parent.name}</option>)}</select>{categoriesError && <small role="alert">{problem(categoriesError)}</small>}</div><div className="action-row"><button className="button button-primary" type="submit">Tìm kiếm</button><button className="button button-secondary" type="button" onClick={clearFilters}>Xóa lọc</button></div></form></Card>;
+  return <Card className="card-pad catalog-filters"><h2 style={{fontSize:16}}>Bộ lọc tìm kiếm</h2><form onSubmit={(e) => { e.preventDefault(); applyFilters(); }}><div className="field-wrap"><label htmlFor="catalog-search">Tìm sản phẩm</label><input id="catalog-search" value={search} onChange={(e) => setSearch(e.target.value)} type="search" className="field" placeholder="Tên hoặc từ khóa" maxLength={100} /></div><div className="field-wrap" style={{marginTop:18}}><label htmlFor="catalog-category">Danh mục sản phẩm</label><select id="catalog-category" className="select-field" value={categoryId} onChange={(e) => setCategoryId(e.target.value)}><option value="">Tất cả danh mục</option>{categoryGroups(categories).map(({ parent, children }) => children.length ? <optgroup key={parent.id} label={parent.name}>{children.map((child) => <option key={child.id} value={child.id}>{child.name}</option>)}</optgroup> : <option key={parent.id} value={parent.id}>{parent.name}</option>)}</select>{categoriesError && <small role="alert">{problem(categoriesError)}</small>}</div><div className="field-wrap" style={{marginTop:18}}><label htmlFor="catalog-sort">Sắp xếp giá</label><select id="catalog-sort" className="select-field" value={sortBy} onChange={(e) => setSortBy(e.target.value)}><option value="">Mặc định</option><option value="price_asc">Giá thấp đến cao</option><option value="price_desc">Giá cao đến thấp</option></select></div><div className="catalog-price-fields"><label className="field-wrap" htmlFor="catalog-min-price">Giá từ<input id="catalog-min-price" className="field" type="number" min="0" step="1" inputMode="numeric" value={minPrice} onChange={(e) => setMinPrice(e.target.value)} placeholder="₫" /></label><label className="field-wrap" htmlFor="catalog-max-price">Giá đến<input id="catalog-max-price" className="field" type="number" min="0" step="1" inputMode="numeric" value={maxPrice} onChange={(e) => setMaxPrice(e.target.value)} placeholder="₫" /></label></div><div className="field-wrap" style={{marginTop:18}}><label htmlFor="catalog-brand">Thương hiệu</label><input id="catalog-brand" className="field" value={brand} onChange={(e) => setBrand(e.target.value)} maxLength={80} placeholder="Tên thương hiệu" /></div><div className="field-wrap" style={{marginTop:18, marginBottom:18}}><label htmlFor="catalog-rating">Đánh giá tối thiểu</label><select id="catalog-rating" className="select-field" value={minRating} onChange={(e) => setMinRating(e.target.value)}><option value="">Tất cả đánh giá</option><option value="3">Từ 3 sao</option><option value="4">Từ 4 sao</option><option value="5">5 sao</option></select></div>{filterError && <p className="notice" role="alert">{filterError}</p>}<div className="action-row"><button className="button button-primary" type="submit">Tìm kiếm</button><button className="button button-secondary" type="button" onClick={clearFilters}>Xóa lọc</button></div></form></Card>;
 }
 
-export function CatalogScreen() {
+export function CatalogScreen({ sellerId = "", title = "Danh sách sản phẩm", description = "Khám phá các sản phẩm đang được bán trên sàn." }: { sellerId?: string; title?: string; description?: string } = {}) {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const query = searchParams.get("keyword") ?? "";
-  const categoryId = searchParams.get("categoryId") ?? "";
+  const filters: CatalogFilterValues = {
+    keyword: searchParams.get("keyword") ?? "",
+    categoryId: searchParams.get("categoryId") ?? "",
+    sortBy: ["price_asc", "price_desc"].includes(searchParams.get("sortBy") ?? "") ? searchParams.get("sortBy")! : "",
+    minPrice: searchParams.get("minPrice") ?? "",
+    maxPrice: searchParams.get("maxPrice") ?? "",
+    brand: searchParams.get("brand") ?? "",
+    minRating: searchParams.get("minRating") ?? "",
+  };
   const requestedPage = Number(searchParams.get("page"));
   const page = Number.isSafeInteger(requestedPage) && requestedPage > 0 ? requestedPage : 1;
   const requestedPageSize = Number(searchParams.get("pageSize"));
   const pageSize = pageSizes.find((size) => size === requestedPageSize) ?? 10;
   const categories = useApiResource("/api/v1/categories", loadCategories);
-  const products = useProducts(query, categoryId, page, pageSize);
+  const products = useProducts(filters, page, pageSize, sellerId);
   const categoryRows = categories.data ?? []; const productRows = products.data?.items ?? [];
-  const selectedCategory = categoryRows.find((item) => item.id === categoryId);
+  const selectedCategory = categoryRows.find((item) => item.id === filters.categoryId);
   const parentName = categoryRows.find((item) => item.id === selectedCategory?.parentId)?.name;
   const categoryName = selectedCategory ? [parentName, selectedCategory.name].filter(Boolean).join(" / ") : "";
   const pagination = products.data?.pagination;
@@ -172,17 +230,19 @@ export function CatalogScreen() {
   const pageIndex = pagination?.pageIndex ?? page;
   const firstItem = productRows.length ? (pageIndex - 1) * pageSize + 1 : 0;
   const lastItem = productRows.length ? firstItem + productRows.length - 1 : 0;
-  const goToPage = (target: number) => router.push(`${catalogHref(query, categoryId, target, pageSize)}#catalog-results`);
+  const basePath = sellerId ? ROUTES.catalog.shop(sellerId) : ROUTES.catalog.index;
+  const goToPage = (target: number) => router.push(`${catalogHref(filters, target, pageSize, basePath)}#catalog-results`);
+  const heading = <PageHeading title={title} description={description} />;
 
   return <>
-    <PageHeading title="Danh sách sản phẩm" description="Khám phá các sản phẩm đang được bán trên sàn." />
+    {sellerId ? heading : <div className="catalog-intro">{heading}<CatalogPromoBanner /></div>}
     <div className="split catalog-layout">
-      <CatalogFilters key={JSON.stringify([query, categoryId])} initialSearch={query} initialCategoryId={categoryId} pageSize={pageSize} categories={categoryRows} categoriesError={categories.error} />
+      <CatalogFilters key={JSON.stringify(filters)} initialFilters={filters} pageSize={pageSize} categories={categoryRows} categoriesError={categories.error} basePath={basePath} />
       <div id="catalog-results" className="catalog-results">
         <div className="section-heading catalog-results-heading">
           <div><h2>Sản phẩm đang bán</h2><p aria-live="polite">{products.loading ? "Đang tải…" : `Hiển thị ${firstItem}–${lastItem} / ${pagination?.totalCount ?? 0} sản phẩm${categoryName ? ` · ${categoryName}` : ""}`}</p></div>
           <label className="catalog-page-size" htmlFor="catalog-page-size">Sản phẩm / trang
-            <select id="catalog-page-size" className="select-field" value={pageSize} onChange={(event) => router.push(catalogHref(query, categoryId, 1, Number(event.target.value)), { scroll: false })}>
+            <select id="catalog-page-size" className="select-field" value={pageSize} onChange={(event) => router.push(catalogHref(filters, 1, Number(event.target.value), basePath), { scroll: false })}>
               {pageSizes.map((size) => <option key={size} value={size}>{size}</option>)}
             </select>
           </label>

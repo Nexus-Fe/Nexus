@@ -1,7 +1,7 @@
 export type IconName =
   | "home" | "grid" | "gavel" | "bag" | "orders" | "wallet"
   | "warehouse" | "users" | "flag" | "shield" | "search"
-  | "arrow" | "chevron" | "chevronDown" | "user" | "check" | "clock" | "truck" | "plus";
+  | "arrow" | "chevron" | "chevronDown" | "user" | "check" | "clock" | "truck" | "plus" | "bell";
 
 const paths: Record<IconName, React.ReactNode> = {
   home: <><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1Z"/><path d="M9 21v-7h6v7"/></>,
@@ -23,6 +23,7 @@ const paths: Record<IconName, React.ReactNode> = {
   clock: <><circle cx="12" cy="12" r="9"/><path d="M12 7v5l4 2"/></>,
   truck: <><path d="M3 6h11v11H3zM14 9h4l3 4v4h-7"/><circle cx="7" cy="18" r="2"/><circle cx="18" cy="18" r="2"/></>,
   plus: <path d="M12 5v14M5 12h14"/>,
+  bell: <><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9Z"/><path d="M10 21h4"/></>,
 };
 
 export function Icon({ name, size = 18 }: { name: IconName; size?: number }) {

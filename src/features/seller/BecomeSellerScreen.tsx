@@ -674,7 +674,7 @@ export function BecomeSellerScreen() {
                 style={{ marginBottom: 16, borderColor: "#f1c8c6", background: "#fff1f0", color: "#9f2f2c" }}
               >
                 <strong>Lý do từ chối từ Staff:</strong>{" "}
-                {rejectionReason || "Thông tin hồ sơ hoặc chứng từ định danh chưa hợp lệ. Vui lòng kiểm tra và gửi lại."}
+                {rejectionReason || "Hệ thống chưa cung cấp lý do từ chối. Vui lòng liên hệ hỗ trợ để được giải thích."}
               </div>
               <div className="info-row">
                 <span>Mã hồ sơ</span>

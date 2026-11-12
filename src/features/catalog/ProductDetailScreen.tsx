@@ -378,10 +378,12 @@ export function ProductDetailScreen() {
                 {typeof sellerResource.data.ratingAvg === "number" && sellerResource.data.ratingAvg > 0 && <span>★ {sellerResource.data.ratingAvg.toFixed(1)}/5</span>}
                 {typeof sellerResource.data.totalProducts === "number" && sellerResource.data.totalProducts > 0 && <span>{sellerResource.data.totalProducts} sản phẩm</span>}
               </div>
+              <Link className="button button-secondary button-small product-detail-shop-link" href={ROUTES.catalog.shop(product.sellerId)}>Xem gian hàng và sản phẩm khác</Link>
             </div>
           </> : <div>
             <p>{sellerResource.loading ? "Đang tải thông tin gian hàng…" : "Chưa tải được thông tin gian hàng."}</p>
             {sellerResource.error && <button type="button" className="button button-secondary button-small" onClick={sellerResource.reload}>Thử lại</button>}
+            <Link className="button button-secondary button-small product-detail-shop-link" href={ROUTES.catalog.shop(product.sellerId)}>Xem gian hàng</Link>
           </div>}
         </Card>
       </section>}

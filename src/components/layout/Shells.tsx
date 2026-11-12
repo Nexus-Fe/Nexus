@@ -9,6 +9,7 @@ import { ROUTES } from "@/constants/routes";
 import { Icon } from "@/components/ui/Icon";
 import { useSession } from "@/components/auth/SessionProvider";
 import { authService } from "@/features/auth";
+import { NotificationBell } from "@/features/notification";
 import { NexusBrandHeader } from "@/components/ui/NexusLogo";
 import { NavLinks } from "./NavLinks";
 import { Breadcrumbs } from "./Breadcrumbs";
@@ -401,6 +402,7 @@ export function BuyerShell({ children }: { children: ReactNode }) {
               <Icon name="bag" size={19} />
               <span>Giỏ hàng</span>
             </Link>
+            <NotificationBell href={ROUTES.buyer.notifications} />
             <AccountNavigation />
           </div>
         </div>
@@ -443,6 +445,7 @@ export function PortalShell({
   const displayRole = roleInfo?.label ?? role;
   const portalHomeHref = getRoleHomeRoute(user, role);
   const portalHomeLabel = getRoleHomeLabel(user, role);
+  const isSellerPortal = role === "Người bán";
 
   return (
     <div className="portal-shell">
@@ -461,6 +464,7 @@ export function PortalShell({
         <Suspense fallback={null}>
           <NavLinks items={items} />
         </Suspense>
+        {isSellerPortal && <NotificationBell href={ROUTES.seller.notifications} portal />}
         <PortalAccountMenu role={role} />
       </aside>
       <div className="portal-column">
@@ -474,6 +478,7 @@ export function PortalShell({
             <Suspense fallback={null}>
               <NavLinks items={items} />
             </Suspense>
+            {isSellerPortal && <NotificationBell href={ROUTES.seller.notifications} portal />}
             <PortalAccountMenu role={role} />
           </div>
         </details>

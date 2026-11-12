@@ -695,7 +695,7 @@ export function OrderDetailScreen() {
     setConfirmError("");
     try {
       await api.post(`/api/v1/sub-orders/${encodeURIComponent(subOrderId)}/confirm-receipt`, {});
-      setConfirmMessage("Xác nhận nhận hàng thành công! Toàn bộ tiền của đơn hàng đã được cộng trực tiếp vào ví của người bán.");
+      setConfirmMessage("Đã xác nhận nhận hàng. Hệ thống đang cập nhật trạng thái giải ngân cho người bán.");
       order.reload();
     } catch (reason) {
       setConfirmError((reason as Error).message || "Không thể xác nhận đã nhận hàng.");
@@ -755,30 +755,32 @@ export function OrderDetailScreen() {
     <div className="order-detail-layout">
       {subOrders.map((sub) => {
         const sellerAccepted = isSellerConfirmedOrDelivering(sub.status);
-        const canConfirmReceipt = ["SHIPPED", "DELIVERED"].includes(sub.status.replace(/[^a-z]/gi, "").toUpperCase());
+        const canConfirmReceipt = ["SHIPPING", "SHIPPED", "DELIVERED"].includes(sub.status.replace(/[^a-z]/gi, "").toUpperCase());
         const completed = isSubOrderCompleted(sub.status);
         const rejected = isSellerRejected(sub.status);
         const cancelled = isOrderCancelled(sub.status);
+        const showReceiptAction = !completed && !rejected && !cancelled;
         return (
           <Card className="card-pad" key={sub.subOrderId}>
-            {sellerAccepted && (
+            {showReceiptAction && (
               <div className="order-status-banner" role="status">
                 <div>
-                  <strong>Thông báo: Người bán đã xác nhận đơn hàng {sub.subOrderNo}</strong>
+                  <strong>{sellerAccepted ? `Người bán đang xử lý đơn hàng ${sub.subOrderNo}` : `Đơn hàng ${sub.subOrderNo} đang chờ xử lý`}</strong>
                   <p>
-                    Người bán ({sub.shopName}) đã xác nhận đơn. Khi đơn chuyển sang đang giao hoặc đã giao và bạn thực sự nhận được hàng, hãy bấm <strong>&ldquo;Đã nhận được hàng&rdquo;</strong>.
+                    {canConfirmReceipt
+                      ? "Chỉ xác nhận khi bạn đã thực sự nhận được hàng."
+                      : "Bạn có thể xác nhận sau khi đơn chuyển sang đang giao hoặc đã giao và bạn thực sự nhận được hàng."}
                   </p>
                 </div>
-                {canConfirmReceipt && (
-                  <button
-                    type="button"
-                    className="button button-primary"
-                    disabled={confirmingSubOrderId === sub.subOrderId}
-                    onClick={() => void confirmDelivery(sub.subOrderId)}
-                  >
-                    {confirmingSubOrderId === sub.subOrderId ? "Đang xác nhận…" : "Đã nhận được hàng"}
-                  </button>
-                )}
+                <button
+                  type="button"
+                  className="button button-primary"
+                  disabled={!canConfirmReceipt || confirmingSubOrderId === sub.subOrderId}
+                  title={!canConfirmReceipt ? "Chờ đơn chuyển sang đang giao hoặc đã giao" : undefined}
+                  onClick={() => void confirmDelivery(sub.subOrderId)}
+                >
+                  {confirmingSubOrderId === sub.subOrderId ? "Đang xác nhận…" : "Đã nhận được hàng"}
+                </button>
               </div>
             )}
             {rejected && (

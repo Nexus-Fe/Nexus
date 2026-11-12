@@ -5,13 +5,13 @@ import { usePathname } from "next/navigation";
 import { ROUTES } from "@/constants/routes";
 
 const labels: Record<string, string> = {
-  "/catalog": "Sản phẩm", "/auctions": "Đấu giá trực tiếp",
+  "/catalog": "Sản phẩm", "/shops": "Gian hàng", "/auctions": "Đấu giá trực tiếp",
   "/buyer/cart": "Giỏ hàng", "/buyer/checkout": "Thông tin giao hàng",
-  "/buyer/orders": "Đơn mua", "/buyer/auctions": "Đấu giá của tôi", "/buyer/wallet": "Ví của tôi",
+  "/buyer/orders": "Đơn mua", "/buyer/notifications": "Thông báo", "/buyer/auctions": "Đấu giá của tôi", "/buyer/wallet": "Ví của tôi",
   "/buyer/wallet/top-up": "Nạp tiền", "/buyer/reports": "Báo cáo", "/buyer/become-seller": "Đăng ký bán hàng",
   "/buyer/payment": "Thanh toán", "/buyer/payment/result": "Kết quả thanh toán",
   "/seller": "Kênh người bán", "/seller/products": "Quản lý sản phẩm", "/seller/products/new": "Tạo sản phẩm",
-  "/seller/shop": "Hồ sơ gian hàng", "/seller/inventory": "Quản lý kho", "/seller/orders": "Đơn bán",
+  "/seller/shop": "Hồ sơ gian hàng", "/seller/notifications": "Thông báo", "/seller/inventory": "Quản lý kho", "/seller/orders": "Đơn bán",
   "/seller/shipments": "Vận chuyển", "/seller/auctions": "Phiên đấu giá", "/seller/auctions/new": "Tạo phiên đấu giá",
   "/seller/wallet": "Doanh thu & ví", "/seller/withdrawals": "Yêu cầu rút tiền",
   "/staff": "Vận hành sàn", "/staff/auctions": "Giám sát đấu giá", "/staff/sellers": "Duyệt người bán",

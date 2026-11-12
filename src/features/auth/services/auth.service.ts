@@ -38,7 +38,6 @@ export const authService = {
     }
     const accessToken = login.accessToken;
     const refreshToken = login.refreshToken;
-    console.log("Token:", accessToken);
     saveSessionTokens(accessToken, refreshToken);
     try {
       const profile = login.user ?? await this.getCurrentUser();

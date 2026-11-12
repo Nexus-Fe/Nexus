@@ -4,6 +4,7 @@ export const ROUTES = {
   catalog: {
     index: "/catalog",
     product: (id: string) => "/catalog/" + encodeURIComponent(id),
+    shop: (id: string) => "/shops/" + encodeURIComponent(id),
   },
   auction: {
     index: "/auctions",
@@ -19,6 +20,7 @@ export const ROUTES = {
     orders: "/buyer/orders",
     order: (id: string) => "/buyer/orders/" + encodeURIComponent(id),
     orderReview: (id: string) => "/buyer/orders/" + encodeURIComponent(id) + "/review",
+    notifications: "/buyer/notifications",
     wallet: "/buyer/wallet",
     topUp: "/buyer/wallet/top-up",
     reports: "/buyer/reports",
@@ -32,6 +34,7 @@ export const ROUTES = {
     product: (id: string) => "/seller/products/" + encodeURIComponent(id),
     editProduct: (id: string) => "/seller/products/" + encodeURIComponent(id) + "/edit",
     shop: "/seller/shop",
+    notifications: "/seller/notifications",
     newProduct: "/seller/products/new",
     inventory: "/seller/inventory",
     orders: "/seller/orders",

@@ -1,2 +1,4 @@
 export { notificationService } from "./services/notification.service";
-export type { NotificationItem } from "./types";
+export { NotificationBell } from "./NotificationBell";
+export { NotificationsScreen } from "./NotificationsScreen";
+export type { NotificationItem, NotificationPage } from "./types";
