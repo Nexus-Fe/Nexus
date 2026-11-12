@@ -254,7 +254,12 @@ export function AdminConfigsScreen() {
               </thead>
               <tbody>
                 {filteredItems.map((item) => (
-                  <tr key={item.key}>
+                  <tr
+                    key={item.key}
+                    className="clickable-row"
+                    onClick={() => openEditModal(item)}
+                    title="Nhấn để chỉnh sửa cấu hình"
+                  >
                     <td>
                       <code>{item.key}</code>
                     </td>
@@ -278,7 +283,10 @@ export function AdminConfigsScreen() {
                       <button
                         type="button"
                         className="button button-secondary button-small"
-                        onClick={() => openEditModal(item)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openEditModal(item);
+                        }}
                       >
                         Chỉnh sửa
                       </button>

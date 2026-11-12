@@ -2,7 +2,7 @@
 /* Admin workflow responses are ungenerated Gateway JSON contracts. */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
 import { ROUTES } from "@/constants/routes";
 import { Badge, Card, NoData, PageHeading, SectionHeading } from "@/components/ui/Primitives";
@@ -31,6 +31,7 @@ function statusTone(status?: string | null): "sky" | "green" | "amber" | "slate"
 }
 
 export function StaffSellersScreen() {
+  const router = useRouter();
   const [status, setStatus] = useState("PENDING");
   const queryStatus = status ? `&status=${encodeURIComponent(status)}` : "";
   const resource = useApiResource(
@@ -94,7 +95,12 @@ export function StaffSellersScreen() {
                     otpVerified: Boolean(x.otpVerified),
                   });
                   return (
-                    <tr key={regId}>
+                    <tr
+                      key={regId}
+                      className="clickable-row"
+                      onClick={() => router.push(ROUTES.staff.seller(regId))}
+                      title="Nhấn để xem chi tiết & duyệt hồ sơ"
+                    >
                       <td>{regId}</td>
                       <td>
                         <strong>{x.shopName ?? x.businessName ?? "—"}</strong>
@@ -112,6 +118,7 @@ export function StaffSellersScreen() {
                         <Link
                           className="button button-secondary button-small"
                           href={ROUTES.staff.seller(regId)}
+                          onClick={(e) => e.stopPropagation()}
                         >
                           Chi tiết & Duyệt
                         </Link>

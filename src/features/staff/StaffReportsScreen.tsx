@@ -291,11 +291,10 @@ export function StaffReportsScreen() {
               <thead>
                 <tr>
                   <th style={{ width: "18%", padding: "12px 10px" }}>Mã báo cáo</th>
-                  <th style={{ width: "22%", padding: "12px 10px" }}>Loại vi phạm</th>
-                  <th style={{ width: "15%", padding: "12px 10px" }}>Đối tượng</th>
-                  <th style={{ width: "15%", padding: "12px 10px" }}>Trạng thái</th>
-                  <th style={{ width: "18%", padding: "12px 10px" }}>Thời gian gửi</th>
-                  <th style={{ width: "100px", padding: "12px 10px", textAlign: "right" }}>Thao tác</th>
+                  <th style={{ width: "28%", padding: "12px 10px" }}>Loại vi phạm</th>
+                  <th style={{ width: "16%", padding: "12px 10px" }}>Đối tượng</th>
+                  <th style={{ width: "18%", padding: "12px 10px" }}>Trạng thái</th>
+                  <th style={{ width: "20%", padding: "12px 10px" }}>Thời gian gửi</th>
                 </tr>
               </thead>
               <tbody>
@@ -305,7 +304,12 @@ export function StaffReportsScreen() {
                   const time = validDate ? d.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }) : "—";
                   const date = validDate ? d.toLocaleDateString("vi-VN") : "—";
                   return (
-                    <tr key={item.reportId}>
+                    <tr
+                      key={item.reportId}
+                      className="clickable-row"
+                      onClick={() => openDetail(item)}
+                      title="Nhấn để xem chi tiết & xử lý báo cáo"
+                    >
                       <td style={{ padding: "12px 10px", wordBreak: "break-word", overflowWrap: "anywhere" }}>
                         <code>{item.reportId.slice(0, 8)}…</code>
                       </td>
@@ -327,15 +331,6 @@ export function StaffReportsScreen() {
                           <strong style={{ fontSize: "13px", fontWeight: 600 }}>{time}</strong>
                           <span style={{ fontSize: "12px", color: "var(--muted)" }}>{date}</span>
                         </div>
-                      </td>
-                      <td style={{ padding: "12px 10px", textAlign: "right" }}>
-                        <button
-                          type="button"
-                          className="button button-secondary button-small"
-                          onClick={() => openDetail(item)}
-                        >
-                          Xem & Xử lý
-                        </button>
                       </td>
                     </tr>
                   );
@@ -363,6 +358,12 @@ export function StaffReportsScreen() {
           role="dialog"
           aria-modal="true"
           aria-labelledby="report-modal-title"
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !busy) closeDetail();
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Escape" && !busy) closeDetail();
+          }}
         >
           <section className="admin-modal" style={{ maxWidth: "700px" }}>
             <div className="admin-modal-heading">

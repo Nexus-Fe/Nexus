@@ -217,17 +217,21 @@ export function StaffProductModerationScreen() {
               <thead>
                 <tr>
                   <th style={{ width: 64, padding: "12px 8px" }}>Ảnh</th>
-                  <th style={{ width: "32%", padding: "12px 10px" }}>Tên sản phẩm</th>
-                  <th style={{ width: "16%", padding: "12px 10px" }}>Danh mục</th>
-                  <th style={{ width: "12%", padding: "12px 10px" }}>Hình thức bán</th>
+                  <th style={{ width: "36%", padding: "12px 10px" }}>Tên sản phẩm</th>
+                  <th style={{ width: "18%", padding: "12px 10px" }}>Danh mục</th>
+                  <th style={{ width: "14%", padding: "12px 10px" }}>Hình thức bán</th>
                   <th style={{ width: "16%", padding: "12px 10px" }}>Khoảng giá</th>
-                  <th style={{ width: "14%", padding: "12px 10px" }}>Trạng thái</th>
-                  <th style={{ width: "90px", padding: "12px 10px", textAlign: "right" }}>Thao tác</th>
+                  <th style={{ width: "16%", padding: "12px 10px" }}>Trạng thái</th>
                 </tr>
               </thead>
               <tbody>
                 {products.map((p) => (
-                  <tr key={p.productId}>
+                  <tr
+                    key={p.productId}
+                    className="clickable-row"
+                    onClick={() => openModerate(p)}
+                    title="Nhấn để xem chi tiết & kiểm duyệt sản phẩm"
+                  >
                     <td style={{ padding: "12px 8px" }}>
                       {p.primaryImageUrl ? (
                         <Image
@@ -280,15 +284,6 @@ export function StaffProductModerationScreen() {
                         <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2, wordBreak: "break-word" }}>{p.statusReason}</div>
                       )}
                     </td>
-                    <td style={{ padding: "12px 10px", textAlign: "right" }}>
-                      <button
-                        type="button"
-                        className="button button-secondary button-small"
-                        onClick={() => openModerate(p)}
-                      >
-                        Kiểm duyệt
-                      </button>
-                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -325,6 +320,12 @@ export function StaffProductModerationScreen() {
           role="dialog"
           aria-modal="true"
           aria-labelledby="product-modal-title"
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !busy) setSelectedProduct(null);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Escape" && !busy) setSelectedProduct(null);
+          }}
         >
           <section className="admin-modal" style={{ maxWidth: "600px" }}>
             <div className="admin-modal-heading">
