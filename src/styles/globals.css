@@ -331,6 +331,11 @@ h1,h2,h3 { letter-spacing: -.025em; }
 .table-sticky-header thead th { position: sticky; top: 0; z-index: 2; background: #f8fafc; }
 .data-table th,.data-table td { padding: 15px 18px; border-bottom: 1px solid var(--line); }
 .data-table td { font-size: 13px; }
+.data-table tbody tr.clickable-row,
+.clickable-row { cursor: pointer; transition: background-color 0.15s ease; }
+.data-table tbody tr.clickable-row:hover,
+.clickable-row:hover { background-color: var(--surface-hover, #f1f5f9) !important; }
+.clickable-row:focus-visible { outline: 2px solid var(--primary, #0284c7); outline-offset: -2px; }
 .table-empty td { padding: 0; }
 .toolbar { display: flex; align-items: flex-end; gap: 9px; padding: 16px 20px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
 .toolbar .button { height: 42px; min-height: 42px; }

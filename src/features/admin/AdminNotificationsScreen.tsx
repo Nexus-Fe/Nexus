@@ -258,18 +258,22 @@ export function AdminNotificationsScreen() {
               <table className="data-table" style={{ width: "100%", tableLayout: "fixed" }}>
                 <thead>
                   <tr>
-                    <th style={{ width: "12%" }}>Mã thông báo</th>
+                    <th style={{ width: "14%" }}>Mã thông báo</th>
                     <th style={{ width: "14%" }}>Người nhận</th>
                     <th style={{ width: "14%" }}>Phân loại</th>
-                    <th style={{ width: "30%" }}>Tiêu đề & Nội dung</th>
+                    <th style={{ width: "34%" }}>Tiêu đề & Nội dung</th>
                     <th style={{ width: "12%" }}>Trạng thái</th>
                     <th style={{ width: "12%" }}>Thời gian gửi</th>
-                    <th style={{ width: "6%", textAlign: "right" }}>Thao tác</th>
                   </tr>
                 </thead>
                 <tbody>
                   {notifItems.map((item) => (
-                    <tr key={item.id}>
+                    <tr
+                      key={item.id}
+                      className="clickable-row"
+                      onClick={() => setSelectedNotif(item)}
+                      title="Nhấn để xem chi tiết thông báo"
+                    >
                       <td>
                         <code>{item.id.slice(0, 8)}…</code>
                       </td>
@@ -281,7 +285,7 @@ export function AdminNotificationsScreen() {
                       </td>
                       <td>
                         <strong>{item.title || "—"}</strong>
-                        <p style={{ margin: "2px 0 0", fontSize: "13px", color: "var(--muted)", maxWidth: 320, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        <p style={{ margin: "2px 0 0", fontSize: "13px", color: "var(--muted)", maxWidth: 360, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                           {item.body || "—"}
                         </p>
                       </td>
@@ -295,15 +299,6 @@ export function AdminNotificationsScreen() {
                           dateStyle: "short",
                           timeStyle: "short",
                         })}
-                      </td>
-                      <td>
-                        <button
-                          type="button"
-                          className="button button-secondary button-small"
-                          onClick={() => setSelectedNotif(item)}
-                        >
-                          Xem chi tiết
-                        </button>
                       </td>
                     </tr>
                   ))}
@@ -377,17 +372,21 @@ export function AdminNotificationsScreen() {
               <table className="data-table" style={{ width: "100%", tableLayout: "fixed" }}>
                 <thead>
                   <tr>
-                    <th style={{ width: "16%" }}>Dịch vụ nguồn</th>
-                    <th style={{ width: "24%" }}>Loại sự kiện</th>
-                    <th style={{ width: "20%" }}>Tác nhân thực hiện</th>
+                    <th style={{ width: "18%" }}>Dịch vụ nguồn</th>
+                    <th style={{ width: "26%" }}>Loại sự kiện</th>
+                    <th style={{ width: "22%" }}>Tác nhân thực hiện</th>
                     <th style={{ width: "18%" }}>Mã tham chiếu Trace</th>
-                    <th style={{ width: "14%" }}>Thời điểm phát sinh</th>
-                    <th style={{ width: "8%", textAlign: "right" }}>Thao tác</th>
+                    <th style={{ width: "16%" }}>Thời điểm phát sinh</th>
                   </tr>
                 </thead>
                 <tbody>
                   {eventItems.map((evt) => (
-                    <tr key={evt.id}>
+                    <tr
+                      key={evt.id}
+                      className="clickable-row"
+                      onClick={() => setSelectedEventId(evt.id)}
+                      title="Nhấn để xem payload & metadata sự kiện"
+                    >
                       <td>
                         <strong>{evt.sourceService}</strong>
                       </td>
@@ -417,15 +416,6 @@ export function AdminNotificationsScreen() {
                           timeStyle: "short",
                         })}
                       </td>
-                      <td>
-                        <button
-                          type="button"
-                          className="button button-secondary button-small"
-                          onClick={() => setSelectedEventId(evt.id)}
-                        >
-                          Payload & Metadata
-                        </button>
-                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -452,6 +442,12 @@ export function AdminNotificationsScreen() {
           role="dialog"
           aria-modal="true"
           aria-labelledby="notif-detail-title"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setSelectedNotif(null);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Escape") setSelectedNotif(null);
+          }}
         >
           <section className="admin-modal" style={{ maxWidth: "600px" }}>
             <div className="admin-modal-heading">
@@ -529,6 +525,12 @@ export function AdminNotificationsScreen() {
           role="dialog"
           aria-modal="true"
           aria-labelledby="event-detail-title"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setSelectedEventId(null);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Escape") setSelectedEventId(null);
+          }}
         >
           <section className="admin-modal" style={{ maxWidth: "700px" }}>
             <div className="admin-modal-heading">

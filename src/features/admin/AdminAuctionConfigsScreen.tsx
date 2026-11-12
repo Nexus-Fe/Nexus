@@ -177,14 +177,19 @@ export function AdminAuctionConfigsScreen() {
                   <th>Phiên bản</th>
                   <th>Trạng thái</th>
                   <th>Cập nhật gần nhất</th>
-                  <th>Thao tác</th>
+                  <th style={{ width: "160px", textAlign: "right" }}>Thao tác</th>
                 </tr>
               </thead>
               <tbody>
                 {items.map((cfg) => {
                   const val = cfg.value || {};
                   return (
-                    <tr key={cfg.configId}>
+                    <tr
+                      key={cfg.configId}
+                      className="clickable-row"
+                      onClick={() => openEdit(cfg)}
+                      title="Nhấn để xem & chỉnh sửa cấu hình đấu giá"
+                    >
                       <td>
                         <code>{cfg.configKey}</code>
                         {cfg.description && (
@@ -213,19 +218,34 @@ export function AdminAuctionConfigsScreen() {
                           timeStyle: "short",
                         })}
                       </td>
-                      <td>
-                        <div style={{ display: "flex", gap: "6px" }}>
+                      <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
+                        <div
+                          style={{
+                            display: "inline-flex",
+                            gap: "6px",
+                            justifyContent: "flex-end",
+                            alignItems: "center",
+                            flexWrap: "nowrap",
+                          }}
+                          onClick={(e) => e.stopPropagation()}
+                        >
                           <button
                             type="button"
                             className="button button-primary button-small"
-                            onClick={() => openEdit(cfg)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openEdit(cfg);
+                            }}
                           >
                             Chỉnh sửa
                           </button>
                           <button
                             type="button"
                             className="button button-secondary button-small"
-                            onClick={() => openHistory(cfg.configKey)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openHistory(cfg.configKey);
+                            }}
                           >
                             Lịch sử
                           </button>

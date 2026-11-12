@@ -130,13 +130,13 @@ export function AdminCouponsScreen() {
             <table className="data-table" style={{ width: "100%", tableLayout: "fixed" }}>
               <thead>
                 <tr>
-                  <th style={{ width: "18%" }}>Mã giảm giá</th>
-                  <th style={{ width: "18%" }}>Loại ưu đãi</th>
-                  <th style={{ width: "15%" }}>Đơn tối thiểu</th>
-                  <th style={{ width: "15%" }}>Giới hạn lượt</th>
-                  <th style={{ width: "16%" }}>Hạn sử dụng</th>
+                  <th style={{ width: "16%" }}>Mã giảm giá</th>
+                  <th style={{ width: "16%" }}>Loại ưu đãi</th>
+                  <th style={{ width: "14%" }}>Đơn tối thiểu</th>
+                  <th style={{ width: "13%" }}>Giới hạn lượt</th>
+                  <th style={{ width: "15%" }}>Hạn sử dụng</th>
                   <th style={{ width: "10%" }}>Trạng thái</th>
-                  <th style={{ width: "8%", textAlign: "right" }}>Thao tác</th>
+                  <th style={{ width: "16%", minWidth: "160px", textAlign: "right" }}>Thao tác</th>
                 </tr>
               </thead>
               <tbody>
@@ -163,19 +163,34 @@ export function AdminCouponsScreen() {
                         {item.isActive ? "Sẵn sàng (Draft)" : "Tạm tắt"}
                       </Badge>
                     </td>
-                    <td>
-                      <div className="action-row">
+                    <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
+                      <div
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          justifyContent: "flex-end",
+                          gap: "8px",
+                          flexWrap: "nowrap",
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                      >
                         <button
                           type="button"
                           className="button button-secondary button-small"
-                          onClick={() => toggleDraftStatus(item.id)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleDraftStatus(item.id);
+                          }}
                         >
                           {item.isActive ? "Tạm tắt" : "Bật lại"}
                         </button>
                         <button
                           type="button"
                           className="button button-secondary button-small"
-                          onClick={() => removeDraft(item.id)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            removeDraft(item.id);
+                          }}
                         >
                           Xóa nháp
                         </button>

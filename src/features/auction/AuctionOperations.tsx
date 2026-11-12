@@ -120,7 +120,12 @@ export function OperationsListScreen({ role }: { role: Role }) {
                 {resource.data.items.map((auction: AuctionSummary) => {
                   const end = formatTimeAndDate(auction.scheduledEndAt);
                   return (
-                    <tr key={auction.auctionId}>
+                    <tr
+                      key={auction.auctionId}
+                      className="clickable-row"
+                      onClick={() => router.push(detailHref(role, auction.auctionId))}
+                      title="Nhấn để mở chi tiết phiên đấu giá"
+                    >
                       <td style={{ wordBreak: "break-word", whiteSpace: "normal", lineHeight: 1.45 }}>
                         <strong style={{ display: "block", color: "var(--text)" }}>
                           {auction.productName ?? "Sản phẩm chưa có tên"}
@@ -142,7 +147,12 @@ export function OperationsListScreen({ role }: { role: Role }) {
                         </div>
                       </td>
                       <td style={{ textAlign: "right" }}>
-                        <ButtonLink href={detailHref(role, auction.auctionId)} small variant="secondary">
+                        <ButtonLink
+                          href={detailHref(role, auction.auctionId)}
+                          small
+                          variant="secondary"
+                          onClick={(e) => e.stopPropagation()}
+                        >
                           Mở phiên
                         </ButtonLink>
                       </td>

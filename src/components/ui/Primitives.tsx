@@ -1,8 +1,31 @@
 import Link from "next/link";
 import type { CSSProperties, ReactNode } from "react";
 
-export function ButtonLink({ href, children, variant = "primary", small = false }: { href: string; children: ReactNode; variant?: "primary" | "secondary" | "light"; small?: boolean }) {
-  return <Link className={"button button-" + variant + (small ? " button-small" : "")} href={href}>{children}</Link>;
+export function ButtonLink({
+  href,
+  children,
+  variant = "primary",
+  small = false,
+  onClick,
+  style,
+}: {
+  href: string;
+  children: ReactNode;
+  variant?: "primary" | "secondary" | "light";
+  small?: boolean;
+  onClick?: (event: React.MouseEvent<HTMLAnchorElement>) => void;
+  style?: CSSProperties;
+}) {
+  return (
+    <Link
+      className={"button button-" + variant + (small ? " button-small" : "")}
+      href={href}
+      onClick={onClick}
+      style={style}
+    >
+      {children}
+    </Link>
+  );
 }
 
 export function DisabledAction({ children, small = false }: { children: ReactNode; small?: boolean }) {

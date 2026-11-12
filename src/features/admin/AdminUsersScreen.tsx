@@ -550,20 +550,20 @@ export function AdminUsersScreen() {
             <table className="data-table" style={{ width: "100%", tableLayout: "fixed" }}>
               <thead>
                 <tr>
-                  <th style={{ width: "24%" }}>Người dùng</th>
-                  <th style={{ width: "26%" }}>Email</th>
-                  <th style={{ width: "18%" }}>Vai trò chính</th>
-                  <th style={{ width: "12%" }}>Uy tín</th>
-                  <th style={{ width: "12%" }}>Trạng thái</th>
-                  <th style={{ width: "8%", textAlign: "right" }}>Thao tác</th>
+                  <th style={{ width: "28%" }}>Người dùng</th>
+                  <th style={{ width: "28%" }}>Email</th>
+                  <th style={{ width: "16%" }}>Vai trò chính</th>
+                  <th style={{ width: "14%" }}>Uy tín</th>
+                  <th style={{ width: "14%" }}>Trạng thái</th>
                 </tr>
               </thead>
               <tbody>
                 {records.map((user) => (
                   <tr
                     key={userId(user)}
-                    className="clickable-user-row"
+                    className="clickable-row"
                     onClick={() => select(userId(user))}
+                    title="Nhấn để xem chi tiết & quản trị tài khoản"
                   >
                     <td>
                       <button
@@ -613,18 +613,6 @@ export function AdminUsersScreen() {
                       <Badge tone={userStatusTone(user.status)}>
                         {userStatusLabel(user.status)}
                       </Badge>
-                    </td>
-                    <td>
-                      <button
-                        type="button"
-                        className="button button-secondary button-small"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          select(userId(user));
-                        }}
-                      >
-                        Chi tiết
-                      </button>
                     </td>
                   </tr>
                 ))}

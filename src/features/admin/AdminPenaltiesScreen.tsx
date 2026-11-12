@@ -232,32 +232,39 @@ export function AdminPenaltiesScreen() {
             <table className="data-table" style={{ width: "100%", tableLayout: "fixed", minWidth: 0 }}>
               <thead>
                 <tr>
-                  <th style={{ width: "19%", padding: "10px 8px", whiteSpace: "normal" }}>Người vi phạm</th>
+                  <th style={{ width: "21%", padding: "10px 8px", whiteSpace: "normal" }}>Người vi phạm</th>
                   <th style={{ width: "8%", padding: "10px 8px", whiteSpace: "normal" }}>Vai trò</th>
                   <th style={{ width: "15%", padding: "10px 8px", whiteSpace: "normal" }}>Hình thức xử phạt</th>
-                  <th style={{ width: "12%", padding: "10px 8px", whiteSpace: "normal" }}>Loại vi phạm</th>
-                  <th style={{ width: "15%", padding: "10px 8px", whiteSpace: "normal" }}>Lý do</th>
-                  <th style={{ width: "9%", padding: "10px 8px", whiteSpace: "normal" }}>Trạng thái</th>
+                  <th style={{ width: "14%", padding: "10px 8px", whiteSpace: "normal" }}>Loại vi phạm</th>
+                  <th style={{ width: "16%", padding: "10px 8px", whiteSpace: "normal" }}>Lý do</th>
+                  <th style={{ width: "10%", padding: "10px 8px", whiteSpace: "normal" }}>Trạng thái</th>
                   <th style={{ width: "8%", padding: "10px 8px", whiteSpace: "normal" }}>Thời hạn</th>
-                  <th style={{ width: "7%", padding: "10px 8px", whiteSpace: "normal" }}>Ngày ban hành</th>
-                  <th style={{ width: "7%", padding: "10px 8px", textAlign: "right", whiteSpace: "normal" }}>Thao tác</th>
+                  <th style={{ width: "8%", padding: "10px 8px", whiteSpace: "normal" }}>Ngày ban hành</th>
                 </tr>
               </thead>
               <tbody>
                 {records.map((item) => (
-                  <tr key={item.id}>
+                  <tr
+                    key={item.id}
+                    className="clickable-row"
+                    onClick={() => openDetail(item.id)}
+                    title="Nhấn để xem chi tiết quyết định xử phạt"
+                  >
                     <td style={{ padding: "10px 8px", wordBreak: "break-word", overflowWrap: "anywhere" }}>
                       <button
                         type="button"
                         className="user-cell-btn"
-                        onClick={() => openDetail(item.id)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openDetail(item.id);
+                        }}
                         title="Bấm để xem chi tiết án phạt"
                         style={{ textAlign: "left", wordBreak: "break-word", overflowWrap: "anywhere" }}
                       >
                         <strong>{item.userEmail || item.userId}</strong>
                       </button>
                       {item.userId && (
-                        <div style={{ marginTop: "4px" }}>
+                        <div style={{ marginTop: "4px" }} onClick={(e) => e.stopPropagation()}>
                           <CopyableId id={item.userId} />
                         </div>
                       )}
@@ -293,15 +300,6 @@ export function AdminPenaltiesScreen() {
                     </td>
                     <td style={{ padding: "10px 8px", fontSize: "12px", color: "var(--muted)", whiteSpace: "nowrap" }}>
                       {new Date(item.issuedAt).toLocaleDateString("vi-VN")}
-                    </td>
-                    <td style={{ padding: "10px 8px", textAlign: "right" }}>
-                      <button
-                        type="button"
-                        className="button button-secondary button-small"
-                        onClick={() => openDetail(item.id)}
-                      >
-                        Chi tiết
-                      </button>
                     </td>
                   </tr>
                 ))}
