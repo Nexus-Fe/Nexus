@@ -44,6 +44,7 @@ export const ROUTES = {
     shipments: "/seller/shipments",
     shipment: (id: string) => "/seller/shipments/" + encodeURIComponent(id),
     auctions: "/seller/auctions",
+    auctionOrders: "/seller/auction-orders",
     newAuction: "/seller/auctions/new",
   },
   staff: {
@@ -62,6 +63,7 @@ export const ROUTES = {
     auctions: "/admin/auctions",
     auction: (id: string) => "/admin/auctions/" + encodeURIComponent(id),
     auctionConfigs: "/admin/auction-configs",
+    auctionSettlements: "/admin/auction-settlements",
     users: "/admin/users",
     roles: "/admin/users?tab=roles",
     penalties: "/admin/penalties",

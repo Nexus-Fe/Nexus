@@ -28,6 +28,7 @@ export function AdminAuctionConfigsScreen() {
   const [form, setForm] = useState({
     antiSnipingExtensionMinutes: "5",
     maxExtensionCount: "3",
+    defaultBidStepPercent: "10",
   });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<{ message: string; traceId?: string } | null>(null);
@@ -35,48 +36,14 @@ export function AdminAuctionConfigsScreen() {
 
   const configsResource = useApiResource(
     `admin-auction-configs:${page}`,
-    async (signal) => {
-      try {
-        return await adminAuctionConfigsService.list(page, 20, signal);
-      } catch {
-        // Fallback default structure if auction service table is empty
-        return {
-          items: [
-            {
-              configId: "default-policy",
-              configKey: "DEFAULT_AUCTION_POLICY",
-              value: {
-                antiSnipingExtensionMinutes: 5,
-                maxExtensionCount: 3,
-              },
-              description: "Quy tắc chống tỉa giá (anti-sniping) mặc định hệ thống",
-              version: 1,
-              isActive: true,
-              updatedAt: new Date().toISOString(),
-            },
-          ] as AuctionConfigDto[],
-          pagination: {
-            pageIndex: 1,
-            pageSize: 20,
-            totalCount: 1,
-            totalPages: 1,
-            hasPreviousPage: false,
-            hasNextPage: false,
-          },
-        };
-      }
-    },
+    (signal) => adminAuctionConfigsService.list(page, 20, signal),
   );
 
   const historyResource = useApiResource(
     `admin-auction-config-history:${selectedConfigKey}:${historyPage}`,
     async (signal) => {
       if (!historyModalOpen) return null;
-      try {
-        return await adminAuctionConfigsService.history(selectedConfigKey, historyPage, 10, signal);
-      } catch {
-        return null;
-      }
+      return adminAuctionConfigsService.history(selectedConfigKey, historyPage, 10, signal);
     },
   );
 
@@ -85,6 +52,7 @@ export function AdminAuctionConfigsScreen() {
     setForm({
       antiSnipingExtensionMinutes: String(val.antiSnipingExtensionMinutes ?? 5),
       maxExtensionCount: String(val.maxExtensionCount ?? 3),
+      defaultBidStepPercent: String(val.defaultBidStepPercent ?? 10),
     });
     setSelectedConfigKey(config.configKey);
     setEditModalOpen(true);
@@ -106,6 +74,7 @@ export function AdminAuctionConfigsScreen() {
 
     const minutes = Number(form.antiSnipingExtensionMinutes);
     const count = Number(form.maxExtensionCount);
+    const bidStepPercent = Number(form.defaultBidStepPercent);
 
     if (Number.isNaN(minutes) || minutes < 1 || minutes > 60) {
       setError({ message: "Thời gian gia hạn chống tỉa giá phải từ 1 đến 60 phút." });
@@ -117,11 +86,17 @@ export function AdminAuctionConfigsScreen() {
       setBusy(false);
       return;
     }
+    if (!Number.isFinite(bidStepPercent) || bidStepPercent <= 0 || bidStepPercent > 100 || Math.round(bidStepPercent * 100) !== bidStepPercent * 100) {
+      setError({ message: "Bước giá mặc định phải lớn hơn 0%, tối đa 100% và có nhiều nhất 2 chữ số thập phân." });
+      setBusy(false);
+      return;
+    }
 
     try {
       await adminAuctionConfigsService.update({
         antiSnipingExtensionMinutes: minutes,
         maxExtensionCount: count,
+        defaultBidStepPercent: bidStepPercent,
       });
       setSaved("Đã phát hành phiên bản cấu hình quy tắc đấu giá mới thành công!");
       configsResource.reload();
@@ -162,10 +137,13 @@ export function AdminAuctionConfigsScreen() {
           {saved}
         </p>
       )}
+      {configsResource.error && <div className="notice" role="alert">Không tải được cấu hình đấu giá: {configsResource.error.message} <button type="button" className="button button-secondary button-small" onClick={configsResource.reload}>Thử lại</button></div>}
 
       <Card>
         {configsResource.loading ? (
           <NoData title="Đang nạp cấu hình quy tắc đấu giá…" />
+        ) : configsResource.error ? (
+          <NoData title="Không tải được cấu hình đấu giá" />
         ) : items.length > 0 ? (
           <div className="table-scroll">
             <table className="data-table">
@@ -174,6 +152,7 @@ export function AdminAuctionConfigsScreen() {
                   <th>Khóa cấu hình (Key)</th>
                   <th>Gia hạn chống sniping</th>
                   <th>Số lần gia hạn tối đa</th>
+                  <th>Bước giá mặc định</th>
                   <th>Phiên bản</th>
                   <th>Trạng thái</th>
                   <th>Cập nhật gần nhất</th>
@@ -204,6 +183,7 @@ export function AdminAuctionConfigsScreen() {
                       <td>
                         <strong>{val.maxExtensionCount ?? "—"} lần</strong>
                       </td>
+                      <td><strong>{val.defaultBidStepPercent ?? "—"}%</strong></td>
                       <td>
                         <Badge tone="indigo">v{cfg.version}</Badge>
                       </td>
@@ -345,6 +325,11 @@ export function AdminAuctionConfigsScreen() {
                   Giới hạn số lần gia hạn tối đa để tránh phiên đấu giá kéo dài vô hạn.
                 </small>
               </label>
+              <label className="field-wrap">
+                Bước giá mặc định (%)
+                <input type="number" className="field" required min={0.01} max={100} step={0.01} value={form.defaultBidStepPercent} onChange={(event) => setForm((previous) => ({ ...previous, defaultBidStepPercent: event.target.value }))} />
+                <small style={{ color: "var(--muted)" }}>Dùng khi phiên đấu giá không nhập bước giá riêng.</small>
+              </label>
 
               <div
                 style={{
@@ -405,8 +390,11 @@ export function AdminAuctionConfigsScreen() {
               </button>
             </div>
 
+            {historyResource.error && <p className="notice" role="alert">Không tải được lịch sử cấu hình: {historyResource.error.message}</p>}
             {historyResource.loading ? (
               <NoData title="Đang tải lịch sử phiên bản…" />
+            ) : historyResource.error ? (
+              <button type="button" className="button button-secondary" onClick={historyResource.reload}>Thử lại</button>
             ) : historyResource.data?.items?.length ? (
               <div className="table-scroll">
                 <table className="data-table">
@@ -431,6 +419,7 @@ export function AdminAuctionConfigsScreen() {
                           <td>
                             <div>Gia hạn: <strong>{val.antiSnipingExtensionMinutes ?? "—"}p</strong></div>
                             <div>Tối đa: <strong>{val.maxExtensionCount ?? "—"} lần</strong></div>
+                            <div>Bước giá: <strong>{val.defaultBidStepPercent ?? "—"}%</strong></div>
                           </td>
                           <td>
                             {item.changes && item.changes.length > 0 ? (

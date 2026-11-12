@@ -1,4 +1,4 @@
-import { api, type ApiResponse } from "@/lib/api/client";
+import { api, unwrap, type ApiResponse } from "@/lib/api/client";
 import type { ProductListQuery, ProductListResponse } from "../types";
 import type { ProductSpecification } from "../types/product-specification";
 
@@ -40,8 +40,6 @@ export const catalogService = {
     ),
   getProductById: (id: string) =>
     api.get<ApiResponse<CatalogProductDetail>>(`/api/v1/products/${encodeURIComponent(id)}`),
-  searchAuctionProducts: (keyword = "", signal?: AbortSignal) =>
-    api.get<ApiResponse<AuctionCatalogPage>>(`/api/v1/products/search?page=1&pageSize=100&saleType=Auction&keyword=${encodeURIComponent(keyword)}`, { signal }),
-  getAuctionProduct: (id: string, signal?: AbortSignal) =>
-    api.get<ApiResponse<CatalogProductDetail>>(`/api/v1/products/${encodeURIComponent(id)}`, { signal }),
+  searchAuctionProducts: async (keyword = "", signal?: AbortSignal): Promise<ApiResponse<AuctionCatalogPage>> => ({ success: true, statusCode: 200, data: unwrap(await api.get<ApiResponse<AuctionCatalogPage> | AuctionCatalogPage>(`/api/v1/products/search?page=1&pageSize=100&saleType=Auction&keyword=${encodeURIComponent(keyword)}`, { signal })) }),
+  getAuctionProduct: async (id: string, signal?: AbortSignal): Promise<ApiResponse<CatalogProductDetail>> => ({ success: true, statusCode: 200, data: unwrap(await api.get<ApiResponse<CatalogProductDetail> | CatalogProductDetail>(`/api/v1/products/${encodeURIComponent(id)}`, { signal })) }),
 };

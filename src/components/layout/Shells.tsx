@@ -221,6 +221,10 @@ function AccountNavigation() {
                 <Icon name="wallet" size={16} />
                 <span>Ví của tôi</span>
               </Link>
+              <Link href={ROUTES.buyer.reports}>
+                <Icon name="flag" size={16} />
+                <span>Báo cáo</span>
+              </Link>
               <Link href={ROUTES.auth.profile}>
                 <Icon name="user" size={16} />
                 <span>Hồ sơ cá nhân</span>

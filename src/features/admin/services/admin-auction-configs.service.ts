@@ -6,6 +6,7 @@ export type AuctionConfigDto = {
   value: {
     antiSnipingExtensionMinutes?: number;
     maxExtensionCount?: number;
+    defaultBidStepPercent?: number;
     [key: string]: unknown;
   };
   description?: string | null;
@@ -28,6 +29,7 @@ export type AuctionConfigHistoryItemDto = {
   value: {
     antiSnipingExtensionMinutes?: number;
     maxExtensionCount?: number;
+    defaultBidStepPercent?: number;
     [key: string]: unknown;
   };
   changes: AuctionConfigChangeDto[];
@@ -50,6 +52,7 @@ export type PagedData<T> = {
 export type UpdateAuctionConfigRequest = {
   antiSnipingExtensionMinutes?: number | null;
   maxExtensionCount?: number | null;
+  defaultBidStepPercent?: number | null;
 };
 
 const basePath = "/api/v1/admin/auction-configs";
