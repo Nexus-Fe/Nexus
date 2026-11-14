@@ -9,10 +9,11 @@ import { formatMoney } from "@/lib/presentation";
 import { catalogService } from "@/features/catalog";
 import { useSession } from "@/components/auth/SessionProvider";
 import { sellerService } from "@/features/seller";
+import { AuctionOrderSellerActions } from "./AuctionOrderSellerActions";
+import { AuctionBidLeaderboard } from "./AuctionBidLeaderboard";
 import { auctionService } from "./services/auction.service";
 import { dateText, message, PaginationBar, StatusFilter, statusLabel, normalizeAuctionStatus, auctionStatusTone } from "./AuctionPages";
 import { isAuctionId } from "./validation";
-import { AuctionComingSoon } from "./AuctionComingSoon";
 import type { AuctionStatus, AuctionSummary } from "./types";
 
 type Role = "seller" | "staff" | "admin";
@@ -38,18 +39,7 @@ export function OperationsListScreen({ role }: { role: Role }) {
   const [lookup, setLookup] = useState("");
   const [lookupError, setLookupError] = useState("");
   const [status, setStatus] = useState<AuctionStatus | "ALL">("ALL"); const [page, setPage] = useState(1);
-  const resource = useApiResource(`${role}-auctions:${page}:${status}`, (signal) => auctionService.list(page, 20, status, signal).then((response) => response.data));
-
-  if (resource.error) {
-    return (
-      <AuctionComingSoon
-        title={`${role === "seller" ? "Quản lý phiên đấu giá" : role === "staff" ? "Giám sát đấu giá" : "Quản lý đấu giá"} (Sắp ra mắt)`}
-        description="Dịch vụ Đấu giá (AuctionService) đang trong giai đoạn hoàn thiện hạ tầng. Tính năng sẽ tự động kích hoạt khi dịch vụ sẵn sàng."
-        backHref={role === "admin" ? ROUTES.admin.overview : role === "staff" ? ROUTES.staff.sellers : ROUTES.seller.products}
-        backLabel={role === "admin" ? "Về trang tổng quan" : role === "staff" ? "Duyệt hồ sơ Seller" : "Quản lý sản phẩm"}
-      />
-    );
-  }
+  const resource = useApiResource(`${role}-auctions:${page}:${status}`, (signal) => (role === "seller" ? auctionService.sellerList(page, status, signal) : auctionService.list(page, 20, status, signal)).then((response) => response.data));
 
   return (
     <div className="auction-surface">
@@ -103,29 +93,19 @@ export function OperationsListScreen({ role }: { role: Role }) {
       {resource.loading ? (
         <NoData title="Đang tải phiên đấu giá…" />
       ) : resource.data?.items.length ? (
-        <Card>
+        <Card className="auction-table-card">
           <div className="table-scroll">
-            <table className="data-table" style={{ width: "100%", tableLayout: "fixed" }}>
+            <table className="data-table auction-operations-table">
               <thead>
                 <tr>
-                  <th style={{ width: "35%", minWidth: "220px" }}>SẢN PHẨM</th>
-                  <th style={{ width: "15%", minWidth: "120px" }}>TRẠNG THÁI</th>
-                  <th style={{ width: "15%", minWidth: "120px" }}>GIÁ HIỆN TẠI</th>
-                  <th style={{ width: "10%", minWidth: "80px", textAlign: "center" }}>LƯỢT BID</th>
-                  <th style={{ width: "13%", minWidth: "110px" }}>KẾT THÚC</th>
-                  <th style={{ width: "12%", minWidth: "90px", textAlign: "right" }}>CHI TIẾT</th>
+                  <th>Sản phẩm</th><th>Trạng thái</th><th>Giá hiện tại</th><th>Lượt đặt giá</th><th>Kết thúc</th><th>Thao tác</th>
                 </tr>
               </thead>
               <tbody>
                 {resource.data.items.map((auction: AuctionSummary) => {
                   const end = formatTimeAndDate(auction.scheduledEndAt);
                   return (
-                    <tr
-                      key={auction.auctionId}
-                      className="clickable-row"
-                      onClick={() => router.push(detailHref(role, auction.auctionId))}
-                      title="Nhấn để mở chi tiết phiên đấu giá"
-                    >
+                    <tr key={auction.auctionId}>
                       <td style={{ wordBreak: "break-word", whiteSpace: "normal", lineHeight: 1.45 }}>
                         <strong style={{ display: "block", color: "var(--text)" }}>
                           {auction.productName ?? "Sản phẩm chưa có tên"}
@@ -151,7 +131,6 @@ export function OperationsListScreen({ role }: { role: Role }) {
                           href={detailHref(role, auction.auctionId)}
                           small
                           variant="secondary"
-                          onClick={(e) => e.stopPropagation()}
                         >
                           Mở phiên
                         </ButtonLink>
@@ -182,27 +161,18 @@ type StatusHistoryEntry = {
 export function OperationsDetailScreen({ role }: { role: Role }) {
   const id = String(useParams<{ id: string }>().id ?? "");
   const detail = useApiResource(isAuctionId(id) ? `ops-auction:${id}` : null, (signal) => auctionService.detail(id, signal).then((response) => response.data.data));
-  const history = useApiResource<{ items: StatusHistoryEntry[] }>(isAuctionId(id) && role !== "seller" ? `auction-history:${id}` : null, async (signal) => {
-    try {
-      const res = await auctionService.history(id, 1, signal);
-      const d = ("data" in res ? res.data : res) as unknown as { items?: StatusHistoryEntry[]; data?: { items?: StatusHistoryEntry[] } };
-      const items = Array.isArray(d) ? d : (d?.items ?? d?.data?.items ?? []);
-      return { items };
-    } catch {
-      return { items: [] };
-    }
-  });
-  const saga = useApiResource<{ sagaType: string; currentState: string; updatedAt: string } | null>(null, async () => null);
+  const history = useApiResource<{ items: StatusHistoryEntry[] }>(isAuctionId(id) && role !== "seller" ? `auction-history:${id}` : null, (signal) => auctionService.history(id, 1, signal).then((response) => ({ items: response.data.items })));
+  const saga = useApiResource(role === "admin" && isAuctionId(id) ? `auction-saga:${id}` : null, (signal) => auctionService.saga(id, signal).then((response) => response.data));
   const [reason, setReason] = useState("");
   const [error, setError] = useState("");
   const [saved, setSaved] = useState("");
   const [busy, setBusy] = useState(false);
   const [confirmCancel, setConfirmCancel] = useState(false);
   const auction = detail.data;
-  const isPrivileged = role === "admin" || role === "staff";
+  const isPrivileged = role === "admin";
 
   async function cancel() {
-    if (!reason.trim()) {
+    if (isPrivileged && !reason.trim()) {
       setError("Vui lòng nhập lý do can thiệp hủy phiên.");
       return;
     }
@@ -210,8 +180,9 @@ export function OperationsDetailScreen({ role }: { role: Role }) {
     setError("");
     setSaved("");
     try {
-      await auctionService.forceCancel(id, reason.trim());
-      setSaved("Đã cưỡng chế hủy phiên thành công.");
+      if (role === "seller") await auctionService.cancel(id, reason.trim() || undefined);
+      else await auctionService.forceCancel(id, reason.trim());
+      setSaved(isPrivileged ? "Đã cưỡng chế hủy phiên." : "Đã hủy phiên.");
       setConfirmCancel(false);
       detail.reload();
       history.reload();
@@ -237,7 +208,7 @@ export function OperationsDetailScreen({ role }: { role: Role }) {
       {detail.loading ? (
         <NoData title="Đang tải phiên…" />
       ) : auction ? (
-        <div style={{ display: "grid", gridTemplateColumns: "1.6fr 1fr", gap: "20px", alignItems: "start", marginTop: "16px" }}>
+        <div className="auction-operations-detail">
           {/* CỘT TRÁI: CHỈ SỐ CHÍNH & LỊCH SỬ ĐẶT GIÁ */}
           <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
             {/* Dải chỉ số phiên */}
@@ -270,6 +241,7 @@ export function OperationsDetailScreen({ role }: { role: Role }) {
               </div>
             </Card>
 
+            <AuctionBidLeaderboard auctionId={id} />
             {/* Lịch sử đặt giá */}
             <SellerBidHistory id={id} />
 
@@ -330,7 +302,7 @@ export function OperationsDetailScreen({ role }: { role: Role }) {
                 </div>
                 <div style={{ display: "flex", justifyContent: "space-between" }}>
                   <span style={{ color: "var(--muted)" }}>Uy tín tối thiểu:</span>
-                  <strong>{auction.minReputationToBid} điểm</strong>
+                  <strong>{auction.minReputationToBid == null ? "Theo quy tắc hệ thống" : `${auction.minReputationToBid} điểm`}</strong>
                 </div>
                 <div style={{ display: "flex", justifyContent: "space-between" }}>
                   <span style={{ color: "var(--muted)" }}>Chống sniping:</span>
@@ -342,12 +314,14 @@ export function OperationsDetailScreen({ role }: { role: Role }) {
                     <strong>{auction.leadingBidderDisplayName}</strong>
                   </div>
                 )}
-                {role !== "seller" && saga.data && (
+                {role === "admin" && saga.data && (
                   <div style={{ display: "flex", justifyContent: "space-between", borderTop: "1px dashed var(--border)", paddingTop: "8px" }}>
                     <span style={{ color: "var(--muted)" }}>Tiến trình đơn:</span>
                     <strong>{saga.data.currentState}</strong>
                   </div>
                 )}
+                {role === "admin" && saga.data?.stateData?.waitingFor && <div className="auction-saga-wait"><span>Đang chờ</span><strong>{saga.data.stateData.waitingFor}</strong>{saga.data.stateData.deadlineAt && <small>Hạn: {dateText(saga.data.stateData.deadlineAt)}{saga.data.stateData.isOverdue ? " · Đã quá hạn" : ""}</small>}</div>}
+                {role === "admin" && saga.data?.stateData?.steps?.length ? <ol className="auction-saga-steps">{saga.data.stateData.steps.map((step, index) => <li key={`${step.name}-${index}`}><strong>{step.name}</strong><span>{step.state}</span>{step.at && <small>{dateText(step.at)}</small>}</li>)}</ol> : null}
               </div>
 
               {role === "seller" && (
@@ -365,7 +339,7 @@ export function OperationsDetailScreen({ role }: { role: Role }) {
             </Card>
 
             {/* Khung can thiệp / Cưỡng chế hủy phiên */}
-            {(isPrivileged || role === "seller") && (
+            {(isPrivileged || role === "seller" && ["DRAFT", "SCHEDULED"].includes(normalizeAuctionStatus(auction.status))) && (
               <Card
                 className="card-pad"
                 style={{
@@ -379,12 +353,12 @@ export function OperationsDetailScreen({ role }: { role: Role }) {
                 </h2>
                 <p style={{ fontSize: "12px", color: "var(--muted)", margin: "0 0 12px 0", lineHeight: 1.4 }}>
                   {role === "seller"
-                    ? "Phiên đã có lượt đặt giá chỉ Admin/Staff được hủy."
+                    ? "Bạn có thể hủy phiên của mình trước giờ bắt đầu."
                     : "Can thiệp khẩn cấp khi phát hiện gian lận giá hoặc sai sót kỹ thuật. Bắt buộc nhập lý do."}
                 </p>
 
                 <label className="field-wrap" style={{ marginBottom: "12px" }}>
-                  <span style={{ fontSize: "12px", fontWeight: 600 }}>Lý do can thiệp *</span>
+                  <span style={{ fontSize: "12px", fontWeight: 600 }}>{isPrivileged ? "Lý do can thiệp *" : "Lý do hủy (không bắt buộc)"}</span>
                   <input
                     className="field"
                     value={reason}
@@ -397,9 +371,9 @@ export function OperationsDetailScreen({ role }: { role: Role }) {
                   />
                 </label>
 
-                {isPrivileged && confirmCancel && (
+                {confirmCancel && (
                   <p role="alert" className="notice" style={{ fontSize: "12px", marginBottom: "10px" }}>
-                    Xác nhận hủy phiên này? Thao tác sẽ được ghi vào nhật ký kiểm toán và không thể hoàn tác.
+                    Xác nhận hủy phiên này? Thao tác sẽ được ghi vào lịch sử và không thể hoàn tác.
                   </p>
                 )}
 
@@ -411,10 +385,10 @@ export function OperationsDetailScreen({ role }: { role: Role }) {
                       busy ||
                       normalizeAuctionStatus(auction.status) === "CANCELLED" ||
                       ["ENDED", "SETTLED", "FAILED"].includes(normalizeAuctionStatus(auction.status)) ||
-                      !reason.trim()
+                      (isPrivileged && !reason.trim())
                     }
                     onClick={() => {
-                      if (isPrivileged && !confirmCancel) {
+                      if (!confirmCancel) {
                         setConfirmCancel(true);
                         return;
                       }
@@ -428,9 +402,9 @@ export function OperationsDetailScreen({ role }: { role: Role }) {
                       ? confirmCancel
                         ? "Xác nhận hủy ngay"
                         : "Cưỡng chế hủy phiên"
-                      : "Hủy phiên"}
+                      : confirmCancel ? "Xác nhận hủy phiên" : "Hủy phiên"}
                   </button>
-                  {isPrivileged && confirmCancel && (
+                  {confirmCancel && (
                     <button
                       className="button button-secondary"
                       type="button"
@@ -452,13 +426,14 @@ export function OperationsDetailScreen({ role }: { role: Role }) {
   );
 }
 
-export function SellerAuctionResultScreen() { const id = String(useParams<{ id: string }>().id ?? ""); const resource = useApiResource(isAuctionId(id) ? `seller-result:${id}` : null, (signal) => auctionService.result(id, signal).then((response) => response.data)); const result = resource.data; return <div className="auction-surface"><PageHeading title="Kết quả phiên đấu giá" description={`Phiên ${id}`} />{resource.error && <p role="alert" className="notice">{message(resource.error)}</p>}{resource.loading ? <NoData title="Đang tải kết quả…" /> : result ? <Card className="card-pad"><Badge tone={auctionStatusTone(result.status)}>{statusLabel(result.status)}</Badge><h2>{result.hasWinner ? "Đã xác định người thắng" : "Chưa có người thắng"}</h2><div className="info-row"><span>Người thắng</span><strong>{result.winnerDisplayName ?? "—"}</strong></div><div className="info-row"><span>Giá cuối</span><strong>{formatMoney(result.finalPriceAmount)}</strong></div><div className="info-row"><span>Đơn hàng</span><strong>{result.orderId ?? "Chưa có"}</strong></div><div className="info-row"><span>Hạn thanh toán</span><strong>{dateText(result.paymentDeadlineAt)}</strong></div><ButtonLink href={ROUTES.seller.auction(id)} variant="secondary">Về chi tiết phiên</ButtonLink></Card> : <NoData title="Chưa có kết quả" />}</div>; }
+export function SellerAuctionResultScreen() { const id = String(useParams<{ id: string }>().id ?? ""); const resource = useApiResource(isAuctionId(id) ? `seller-result:${id}` : null, (signal) => auctionService.result(id, signal).then((response) => response.data)); const result = resource.data; return <div className="auction-surface"><PageHeading title="Kết quả phiên đấu giá" description={`Phiên ${id}`} />{resource.error && <p role="alert" className="notice">{message(resource.error)}</p>}{resource.loading ? <NoData title="Đang tải kết quả…" /> : result ? <><Card className="card-pad"><Badge tone={auctionStatusTone(result.status)}>{statusLabel(result.status)}</Badge><h2>{result.hasWinner ? "Đã xác định người thắng" : "Chưa có người thắng"}</h2><div className="info-row"><span>Người thắng</span><strong>{result.winnerDisplayName ?? result.winnerId ?? "—"}</strong></div><div className="info-row"><span>Giá cuối</span><strong>{formatMoney(result.finalPriceAmount)}</strong></div><div className="info-row"><span>Đơn hàng</span><strong>{result.orderId ?? "Chưa có"}</strong></div><div className="info-row"><span>Hạn thanh toán</span><strong>{dateText(result.paymentDeadlineAt)}</strong></div><ButtonLink href={ROUTES.seller.auction(id)} variant="secondary">Về chi tiết phiên</ButtonLink></Card>{result.orderId && <Card className="card-pad"><AuctionOrderSellerActions orderId={result.orderId} /></Card>}</> : <NoData title="Chưa có kết quả" />}</div>; }
 
 function SellerBidHistory({ id }: { id: string }) {
   const [page, setPage] = useState(1);
   const bids = useApiResource(`seller-bids:${id}:${page}`, (signal) => auctionService.bids(id, page, signal).then((response) => response.data));
   return <Card className="card-pad">
-    <h2>Lịch sử đặt giá</h2>
+    <h2>Lịch sử từng lượt đặt giá</h2>
+    <p className="auction-history-note">Một người có thể có nhiều lượt trong lịch sử; bảng xếp hạng phía trên chỉ giữ một vị trí cho mỗi người.</p>
     {bids.error && <p role="alert" className="notice">{message(bids.error)}</p>}
     {bids.loading ? <NoData title="Đang tải lịch sử đặt giá…" /> : bids.data?.items.length ? <div className="table-scroll"><table className="data-table"><thead><tr><th>#</th><th>Người đặt</th><th>Giá đặt</th><th>Trạng thái</th><th>Thời điểm</th></tr></thead><tbody>{bids.data.items.map((bid) => <tr key={bid.bidId}><td>{bid.sequenceNo}</td><td><strong>{bid.bidderDisplayName}</strong></td><td>{formatMoney(bid.amount)}</td><td><Badge tone={bid.isInvalidated ? "red" : bid.isWinning ? "green" : "slate"}>{bid.isInvalidated ? "Không hợp lệ" : bid.isWinning ? "Dẫn đầu" : bid.isOutbid ? "Đã bị vượt" : "Hợp lệ"}</Badge></td><td>{dateText(bid.placedAt)}</td></tr>)}</tbody></table></div> : <NoData title="Chưa có lượt đặt giá" />}
     <PaginationBar pagination={bids.data?.pagination} page={page} setPage={setPage} />
@@ -544,7 +519,7 @@ export function SellerAuctionEditorScreen({ edit = false, recreate = false }: { 
   const selectedProduct = useApiResource(!edit && !recreate && fields.productId ? `auction-product:${fields.productId}` : null, (signal) => catalogService.getAuctionProduct(fields.productId, signal).then((response) => response.data));
   const productIsOwned = Boolean(selectedProduct.data && user && [user.id, sellerProfile.data?.shopId].includes(selectedProduct.data.sellerId) && selectedProduct.data.saleType.toUpperCase() === "AUCTION" && selectedProduct.data.status.toUpperCase() === "ACTIVE");
   const set = (key: keyof typeof form, value: string) => setForm((previous) => ({ ...(initial && !previous.productId ? initial : previous), [key]: value }));
-  async function submit(event: FormEvent) { event.preventDefault(); if (!edit && !recreate && user?.reputationScore !== undefined && user.reputationScore < 50) { setError("Điểm uy tín Seller phải đạt tối thiểu 50."); return; } if (!edit && !recreate && (!productIsOwned || !selectedProduct.data?.variants.some((variant) => variant.variantId === fields.skuId && variant.status.toUpperCase() === "ACTIVE"))) { setError("Sản phẩm/SKU phải thuộc gian hàng của bạn và đang hoạt động."); return; } const start = new Date(fields.scheduledStartAt); const end = new Date(fields.scheduledEndAt); if (!Number.isFinite(start.getTime()) || !Number.isFinite(end.getTime()) || start <= new Date() || end <= start || end.getTime() - start.getTime() < 3600000 || start.getTime() - Date.now() > 30 * 86400000) { setError("Lịch phiên phải bắt đầu trong 30 ngày tới và kéo dài ít nhất 1 giờ."); return; } if (Number(fields.startPriceAmount) < 0 || Number(fields.bidStepAmount) <= 0) { setError("Giá khởi điểm và bước giá không hợp lệ."); return; } setBusy(true); setError(""); try { const body = { startPriceAmount: Number(fields.startPriceAmount), bidStepAmount: Number(fields.bidStepAmount), scheduledStartAt: start.toISOString(), scheduledEndAt: end.toISOString() }; if (edit) { await auctionService.update(id, body); router.push(ROUTES.seller.auction(id)); } else if (recreate) { const response = await auctionService.recreate(id, body); router.push(ROUTES.seller.auction(response.data.auctionId)); } else { const response = await auctionService.create({ productId: fields.productId, skuId: fields.skuId, ...body }); router.push(ROUTES.seller.auction(response.data.auctionId)); } } catch (cause) { setError(message(cause as Error)); } finally { setBusy(false); } }
+  async function submit(event: FormEvent) { event.preventDefault(); if (!edit && !recreate && user?.reputationScore !== undefined && user.reputationScore < 50) { setError("Điểm uy tín Seller phải đạt tối thiểu 50."); return; } if (!edit && !recreate && (!productIsOwned || !selectedProduct.data?.variants.some((variant) => variant.variantId === fields.skuId && variant.status.toUpperCase() === "ACTIVE"))) { setError("Sản phẩm/SKU phải thuộc gian hàng của bạn và đang hoạt động."); return; } const start = new Date(fields.scheduledStartAt); const end = new Date(fields.scheduledEndAt); if (!Number.isFinite(start.getTime()) || !Number.isFinite(end.getTime()) || start <= new Date() || end <= start || end.getTime() - start.getTime() < 3600000 || start.getTime() - Date.now() > 30 * 86400000) { setError("Lịch phiên phải bắt đầu trong 30 ngày tới và kéo dài ít nhất 1 giờ."); return; } if (Number(fields.startPriceAmount) < 0 || Number(fields.bidStepAmount) <= 0) { setError("Giá khởi điểm và bước giá không hợp lệ."); return; } setBusy(true); setError(""); try { const body = { startPriceAmount: Number(fields.startPriceAmount), bidStepAmount: Number(fields.bidStepAmount), scheduledStartAt: start.toISOString(), scheduledEndAt: end.toISOString() }; if (edit) { await auctionService.update(id, body); router.push(ROUTES.seller.auction(id)); } else if (recreate) { const response = await auctionService.recreate(id, body); router.push(ROUTES.seller.auction(response.data.auctionId)); } else { const response = await auctionService.create({ skuId: fields.skuId, ...body }); router.push(ROUTES.seller.auction(response.data.auctionId)); } } catch (cause) { setError(message(cause as Error)); } finally { setBusy(false); } }
   if (edit && detail.data && normalizeAuctionStatus(detail.data.status) !== "SCHEDULED") return <NoData title="Chỉ phiên chưa bắt đầu mới được sửa" />;
   if (recreate && detail.data && normalizeAuctionStatus(detail.data.status) !== "FAILED") return <NoData title="Chỉ phiên không thành công mới được tạo lại" />;
   return <div className="auction-surface"><PageHeading title={edit ? "Sửa phiên đấu giá" : recreate ? "Tạo lại phiên đấu giá" : "Tạo phiên đấu giá"} description={`Điểm uy tín Seller tối thiểu: 50${user?.reputationScore !== undefined ? ` · Điểm hiện tại: ${user.reputationScore}` : ""}.`} />{detail.error && <p className="notice" role="alert">{message(detail.error)}</p>}{products.error && <p className="notice" role="alert">{message(products.error)}</p>}{sellerProfile.error && <p className="notice" role="alert">Không tải được hồ sơ gian hàng: {message(sellerProfile.error)}</p>}{selectedProduct.error && <p className="notice" role="alert">{message(selectedProduct.error)}</p>}{selectedProduct.data && !productIsOwned && !sellerProfile.loading && <p className="notice" role="alert">Sản phẩm không thuộc gian hàng của bạn hoặc chưa hoạt động.</p>}{error && <p className="notice" role="alert">{error}</p>}{(edit || recreate) && detail.loading ? <NoData title="Đang tải phiên…" /> : <form onSubmit={(event) => void submit(event)}><Card className="card-pad"><div className="form-grid">{!edit && !recreate && <><div className="auction-product-search"><label className="field-wrap">Tìm sản phẩm đấu giá<input className="field" value={productSearch} onChange={(event) => setProductSearch(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); setProductKeyword(productSearch.trim()); setForm((previous) => ({ ...previous, productId: "", skuId: "" })); } }} /></label><button type="button" className="button button-secondary" onClick={() => { setProductKeyword(productSearch.trim()); setForm((previous) => ({ ...previous, productId: "", skuId: "" })); }}>Tìm</button></div><label className="field-wrap">Sản phẩm<select className="select-field" required value={fields.productId} onChange={(event) => { setForm((previous) => ({ ...previous, productId: event.target.value, skuId: "" })); }}><option value="">Chọn sản phẩm</option>{products.data?.map((product) => <option value={product.productId} key={product.productId}>{product.name}</option>)}</select></label><label className="field-wrap">SKU<select className="select-field" required value={fields.skuId} onChange={(event) => set("skuId", event.target.value)}><option value="">Chọn SKU</option>{selectedProduct.data?.variants?.filter((variant) => variant.status.toUpperCase() === "ACTIVE").map((variant) => <option key={variant.variantId} value={variant.variantId}>{variant.name || variant.skuCode}</option>)}</select></label></>}<label className="field-wrap">Giá khởi điểm<input className="field" type="number" min="0" required value={fields.startPriceAmount} onChange={(event) => set("startPriceAmount", event.target.value)} /></label><label className="field-wrap">Bước giá<input className="field" type="number" min="1" required value={fields.bidStepAmount} onChange={(event) => set("bidStepAmount", event.target.value)} /></label><label className="field-wrap">Bắt đầu<input className="field" type="datetime-local" required value={fields.scheduledStartAt} onChange={(event) => set("scheduledStartAt", event.target.value)} /></label><label className="field-wrap">Kết thúc<input className="field" type="datetime-local" required value={fields.scheduledEndAt} onChange={(event) => set("scheduledEndAt", event.target.value)} /></label></div><div className="action-row"><button className="button button-primary" disabled={busy || (!edit && !recreate && (!products.data?.length || !productIsOwned || !fields.skuId || (user?.reputationScore !== undefined && user.reputationScore < 50)))}>{edit ? "Lưu thay đổi" : recreate ? "Tạo lại phiên" : "Tạo phiên"}</button><ButtonLink href={ROUTES.seller.auctions} variant="secondary">Hủy</ButtonLink></div></Card></form>}</div>;
